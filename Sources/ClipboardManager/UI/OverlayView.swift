@@ -14,7 +14,7 @@ struct OverlayView: View {
 
     private let cardSpacing: CGFloat = 10
     private let bottomInset: CGFloat = 40
-    private let animationDuration = 0.25
+    private let animationDuration = 0.20
 
     var body: some View {
         ZStack {

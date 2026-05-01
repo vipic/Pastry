@@ -26,7 +26,6 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let content: String         // 文本内容 / 图片缓存路径 / 文件URL拼接
     let contentType: ClipType
     let appName: String?        // 来源应用名
-    var isFavorite: Bool
     var displayCount: Int       // 被粘贴回的次数
 
     init(
@@ -35,7 +34,6 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         content: String,
         contentType: ClipType,
         appName: String? = nil,
-        isFavorite: Bool = false,
         displayCount: Int = 0
     ) {
         self.id = id
@@ -43,7 +41,6 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.content = content
         self.contentType = contentType
         self.appName = appName
-        self.isFavorite = isFavorite
         self.displayCount = displayCount
     }
 

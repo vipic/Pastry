@@ -33,7 +33,6 @@ final class StoreManager: ObservableObject {
         case text     = "文本"
         case image    = "图片"
         case file     = "文件"
-        case favorite = "收藏"
 
         var clipTypes: [ClipType]? {
             switch self {
@@ -41,7 +40,6 @@ final class StoreManager: ObservableObject {
             case .text:     return [.text, .rtf, .html]
             case .image:    return [.image]
             case .file:     return [.fileURL]
-            case .favorite: return nil  // 特殊处理
             }
         }
     }
@@ -122,18 +120,6 @@ final class StoreManager: ObservableObject {
         cmdUp.post(tap: .cgSessionEventTap)
     }
 
-    @discardableResult
-    func toggleFavorite(_ item: ClipboardItem) -> Bool {
-        let succeeded = DatabaseManager.shared.toggleFavorite(id: item.id.uuidString)
-
-        // 本地更新保持 UI 响应
-        if succeeded, let idx = items.firstIndex(where: { $0.id == item.id }) {
-            items[idx].isFavorite.toggle()
-        }
-
-        return succeeded
-    }
-
     func deleteItem(_ item: ClipboardItem) {
         DatabaseManager.shared.delete(id: item.id.uuidString)
         items.removeAll { $0.id == item.id }
@@ -194,8 +180,6 @@ final class StoreManager: ObservableObject {
             switch selectedFilter {
             case .all:
                 filteredItems = items
-            case .favorite:
-                filteredItems = items.filter { $0.isFavorite }
             case .text:
                 filteredItems = items.filter { $0.contentType == .text || $0.contentType == .rtf || $0.contentType == .html }
             case .image:
@@ -209,8 +193,6 @@ final class StoreManager: ObservableObject {
             switch selectedFilter {
             case .all:
                 filteredItems = dbResults
-            case .favorite:
-                filteredItems = dbResults.filter { $0.isFavorite }
             case .text:
                 filteredItems = dbResults.filter { $0.contentType == .text || $0.contentType == .rtf || $0.contentType == .html }
             case .image:

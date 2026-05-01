@@ -253,9 +253,6 @@ struct ClipboardCardView: View {
                 Text(app).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
             }
             Spacer()
-            if item.isFavorite {
-                Image(systemName: "star.fill").font(.system(size: 8)).foregroundColor(.yellow)
-            }
         }
     }
 
@@ -371,21 +368,3 @@ private final class _InterceptorView: NSView {
     }
 }
 
-// MARK: - 顶部圆角形状
-struct TopRoundedRect: Shape {
-    let radius: CGFloat
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let r = min(radius, rect.width / 2, rect.height)
-        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
-        path.addArc(center: CGPoint(x: rect.minX + r, y: rect.minY + r), radius: r,
-                     startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
-        path.addArc(center: CGPoint(x: rect.maxX - r, y: rect.minY + r), radius: r,
-                     startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.closeSubpath()
-        return path
-    }
-}

@@ -130,7 +130,7 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 3, (item.content as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 4, (item.contentType.rawValue as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 5, (item.appName as NSString?)?.utf8String ?? nil, -1, nil)
-        sqlite3_bind_int(stmt, 6, item.isFavorite ? 1 : 0)
+        sqlite3_bind_int(stmt, 6, 0)  // is_favorite 已废弃
         sqlite3_bind_int(stmt, 7, Int32(item.displayCount))
 
         let rc = sqlite3_step(stmt)
@@ -358,7 +358,7 @@ final class DatabaseManager {
                 guard let ptr = sqlite3_column_text(stmt, 4) else { return nil }
                 return String(cString: ptr)
             }()
-            let isFav = sqlite3_column_int(stmt, 5) != 0
+            _ = sqlite3_column_int(stmt, 5)  // is_favorite 已废弃
             let dispCount = Int(sqlite3_column_int(stmt, 6))
 
             let item = ClipboardItem(
@@ -367,7 +367,6 @@ final class DatabaseManager {
                 content: content,
                 contentType: ClipType(rawValue: typeStr) ?? .text,
                 appName: appName,
-                isFavorite: isFav,
                 displayCount: dispCount
             )
             items.append(item)

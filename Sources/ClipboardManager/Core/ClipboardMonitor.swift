@@ -31,7 +31,7 @@ final class ClipboardMonitor: ObservableObject {
     var isSuspended: Bool { suspendCount > 0 }
 
     // MARK: - App 激活历史（解决截图来源误报 Finder 问题）
-    /// 最近 2 秒内的前台 App 历史 —— 即使轮询瞬间前台是 Finder，
+    /// 最近 5 秒内的前台 App 历史 —— 即使轮询瞬间前台是 Finder，
     /// 也能从历史中捞回真正复制时所在的 App
     private let appHistoryWindow: TimeInterval = 5.0   // 5s 窗口，覆盖截图软件异步写入
     private var recentApps: [(name: String, time: Date)] = []
