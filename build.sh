@@ -20,14 +20,16 @@ if pgrep -f "$APP_NAME.app" > /dev/null 2>&1; then
     sleep 0.5
 fi
 
-echo "📦 Packaging .app to $APP_DIR..."
-rm -rf "$APP_DIR"
-mkdir -p "$MACOS_DIR" "$CONTENTS/Resources"
+# Create bundle structure once (preserves inode → TCC permissions stay)
+if [ ! -d "$MACOS_DIR" ]; then
+    echo "📦 Creating .app bundle at $APP_DIR..."
+    mkdir -p "$MACOS_DIR" "$CONTENTS/Resources"
+fi
 
-# Copy binary
+# Replace binary in-place (never rm -rf the bundle!)
 cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/"
 
-# Info.plist
+# Info.plist (overwrite in-place)
 cat > "$CONTENTS/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -58,4 +60,3 @@ open "$APP_DIR"
 
 echo ""
 echo "✅ Done — app restarted."
-echo "   → Grant Accessibility permission if prompted"
