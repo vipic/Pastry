@@ -159,12 +159,10 @@ final class OverlayPanelManager {
         removeKeyboardMonitor()
 
         keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return nil }
+            guard self != nil else { return nil }
             if event.keyCode == 53 {
-                self.removeKeyboardMonitor()
-                self.panel?.orderOut(nil)
-                self.panel = nil
-                self.previousFrontApp = nil
+                // 发通知让 OverlayView 触发退场动画
+                NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
                 return nil
             }
             return event

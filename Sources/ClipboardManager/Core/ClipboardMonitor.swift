@@ -33,9 +33,12 @@ final class ClipboardMonitor: ObservableObject {
     // MARK: - App 激活历史（解决截图来源误报 Finder 问题）
     /// 最近 2 秒内的前台 App 历史 —— 即使轮询瞬间前台是 Finder，
     /// 也能从历史中捞回真正复制时所在的 App
-    private let appHistoryWindow: TimeInterval = 2.0
+    private let appHistoryWindow: TimeInterval = 5.0   // 5s 窗口，覆盖截图软件异步写入
     private var recentApps: [(name: String, time: Date)] = []
     private var appObserver: NSObjectProtocol?
+
+    /// 上一轮轮询时的前台 App —— 避免截图软件（不触发 didActivate）丢失来源
+    private var previousFrontApp: String?
 
     func suspend() {
         suspendCount += 1
@@ -108,12 +111,20 @@ final class ClipboardMonitor: ObservableObject {
         let pb = NSPasteboard.general
         let currentChange = pb.changeCount
 
-        guard currentChange != lastChangeCount else { return }
+        // 每次轮询都缓存当前前台 App（无论是否检测到变化），
+        // 这样 CleanShot X 等不触发 didActivate 的截图工具也能被捕获
+        let currentFront = NSWorkspace.shared.frontmostApplication?.localizedName
+
+        guard currentChange != lastChangeCount else {
+            // 无变化时只更新缓存，不做其他事
+            previousFrontApp = currentFront
+            return
+        }
         lastChangeCount = currentChange
 
-        // 🔒 从激活历史取最近的非 Finder App（2s 窗口），
-        //    兜底用当前 frontmostApplication
-        let capturedApp = bestGuessAppName()
+        // 🔒 三层兜底：激活历史 → 上一轮前台 → 当前前台
+        let capturedApp = bestGuessAppName(currentFront: currentFront)
+        previousFrontApp = currentFront
 
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.1) {
             [weak self] in
@@ -121,23 +132,56 @@ final class ClipboardMonitor: ObservableObject {
         }
     }
 
-    /// 选择最可能的复制来源 App
-    private func bestGuessAppName() -> String? {
+    /// 三层兜底选择复制来源 App：
+    ///   1. 激活历史中最近的非 Finder / 非系统 App
+    ///   2. 上一轮轮询时的前台 App（捕获 CleanShot X 等不激活自身的工具）
+    ///   2.5 当前是 Finder 且有图片数据时，扫描运行中的截图工具
+    ///   3. 当前前台 App
+    private func bestGuessAppName(currentFront: String?) -> String? {
         let now = Date()
-        // 清理过期条目
         recentApps = recentApps.filter { now.timeIntervalSince($0.time) < appHistoryWindow }
 
-        // 反向遍历，取最近一个非 Finder / 非登录窗口 / 非系统 App
+        // Tier 1: 激活历史中的非系统 App
         for entry in recentApps.reversed() {
             let name = entry.name
-            if name == "Finder" || name == "loginwindow" || name.hasPrefix("com.apple") {
-                continue
-            }
+            if name == "Finder" || name == "loginwindow" { continue }
             return name
         }
 
-        // 都过滤掉了，退回 frontmostApplication
-        return NSWorkspace.shared.frontmostApplication?.localizedName
+        // Tier 2: 上一轮的前台 App（非 Finder）
+        if let prev = previousFrontApp, prev != "Finder", prev != "loginwindow" {
+            return prev
+        }
+
+        // Tier 2.5: 前三层都是 Finder + 剪贴板有图片 → 扫描截图工具
+        if currentFront == "Finder" || currentFront == "loginwindow" {
+            if let imageApp = detectRunningImageTool() {
+                return imageApp
+            }
+        }
+
+        // Tier 3: 当前前台
+        return currentFront
+    }
+
+    /// 扫描正在运行的 App，寻找截图/图片编辑工具
+    private func detectRunningImageTool() -> String? {
+        let screenshotKeywords = [
+            "CleanShot", "Snagit", "Monosnap", "Skitch",
+            "Screenshot", "Capture", "Snip", "shot"
+        ]
+        let runningApps = NSWorkspace.shared.runningApplications
+        for app in runningApps {
+            guard let name = app.localizedName,
+                  app.activationPolicy == .regular  // 排除后台进程
+            else { continue }
+            for keyword in screenshotKeywords {
+                if name.range(of: keyword, options: .caseInsensitive) != nil {
+                    return name
+                }
+            }
+        }
+        return nil
     }
 
     // MARK: - 处理剪贴板变化
@@ -149,8 +193,8 @@ final class ClipboardMonitor: ObservableObject {
 
         guard let types = pb.types, !types.isEmpty else { return }
 
-        if let item = readFileURLs(from: pb, appName: capturedApp)
-            ?? readImage(from: pb, appName: capturedApp)
+        if let item = readImage(from: pb, appName: capturedApp)
+            ?? readFileURLs(from: pb, appName: capturedApp)
             ?? readHTML(from: pb, appName: capturedApp)
             ?? readRTF(from: pb, appName: capturedApp)
             ?? readText(from: pb, appName: capturedApp) {

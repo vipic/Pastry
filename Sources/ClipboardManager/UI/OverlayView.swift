@@ -1,39 +1,65 @@
 import SwiftUI
 
+// MARK: - 通知
+extension Notification.Name {
+    static let overlayRequestDismiss = Notification.Name("overlayRequestDismiss")
+}
+
 // MARK: - 覆盖层主视图
 struct OverlayView: View {
 
     @EnvironmentObject private var store: StoreManager
 
+    @State private var cardVisible: Bool? = nil
+
     private let cardSpacing: CGFloat = 10
-    private let bottomInset: CGFloat = 64
+    private let bottomInset: CGFloat = 40
+    private let animationDuration = 0.25
 
     var body: some View {
         ZStack {
-            // 半透明黑色蒙层
-            Color.black.opacity(0.35)
+            // 完全透明 —— 点击即关闭
+            Color.clear
                 .ignoresSafeArea()
-                .allowsHitTesting(false)
+                .contentShape(Rectangle())
+                .onTapGesture { dismiss() }
 
-            // 可交互内容区
+            // 卡片容器 —— 从底部滑入/滑出
             VStack(spacing: 0) {
-                // 顶部空白 — 点击关闭
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        OverlayPanelManager.shared.hide()
-                    }
+                Spacer()
 
-                // 浅色圆角容器包裹卡片列表
                 cardContainer
                     .padding(.horizontal, 28)
                     .padding(.bottom, bottomInset)
+                    .offset(y: (cardVisible == true) ? 0 : 200)
+                    .opacity((cardVisible == true) ? 1 : 0)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
+                cardVisible = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
+            dismiss()
+        }
+    }
+
+    // MARK: - 退场
+
+    private func dismiss() {
+        guard cardVisible == true else { return }
+        withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
+            cardVisible = false
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration) {
+            OverlayPanelManager.shared.hide()
+        }
     }
 
     // MARK: - 卡片容器（浅色圆角背景）
+
     @ViewBuilder
     private var cardContainer: some View {
         let displayItems = store.items

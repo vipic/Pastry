@@ -55,6 +55,13 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
+# 🔑 对整个 .app bundle 重新 ad-hoc 签名，用自定义 designated requirement
+#    锚定在 bundle identifier 上（而非每次编译都会变的 CDHash），
+#    这样 TCC 辅助功能授权在多次构建后依然有效。
+codesign -s - --force --deep \
+    -r='designated => identifier "com.nekutai.clipboardmanager"' \
+    "$APP_DIR" 2>/dev/null || true
+
 echo "🚀 Launching $APP_NAME..."
 open "$APP_DIR"
 

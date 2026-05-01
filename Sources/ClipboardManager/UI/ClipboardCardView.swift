@@ -92,6 +92,7 @@ struct ClipboardCardView: View {
         }
         .frame(width: Self.cardSize, height: Self.cardSize)
         .background(Color(nsColor: NSColor.windowBackgroundColor))
+        .compositingGroup()  // 拍平所有子图层，消除圆角裁边白线
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         .overlay(
@@ -143,21 +144,25 @@ struct ClipboardCardView: View {
         }
         .frame(height: Self.headerHeight)
         .background(themeColor)
-        .clipShape(TopRoundedRect(radius: 10))
     }
 
     @ViewBuilder
     private var appIconView: some View {
-        if let icon = appIcon {
-            Image(nsImage: icon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 3))
-        } else {
-            Image(systemName: item.contentType.iconName)
-                .font(.caption2)
-                .foregroundColor(.white.opacity(0.7))
+        Group {
+            if let icon = appIcon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                    .transition(.opacity)
+            } else {
+                Image(systemName: item.contentType.iconName)
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.7))
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: appIcon != nil)
     }
 
     // MARK: - 内容区
@@ -296,9 +301,15 @@ struct ClipboardCardView: View {
 
     private func loadAppInfo() {
         let provider = AppIconProvider.shared
-        DispatchQueue.main.async {
-            self.appIcon = provider.icon(for: self.item.appName)
-            self.themeColor = Color(nsColor: provider.themeColor(for: self.item.appName))
+        let name = item.appName
+        // 主题色同步查字典 O(1)
+        self.themeColor = Color(nsColor: provider.themeColor(for: name))
+        // 图标异步加载，占位 SF Symbol 不会闪白
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = provider.icon(for: name)
+            DispatchQueue.main.async {
+                self.appIcon = icon
+            }
         }
     }
 }
