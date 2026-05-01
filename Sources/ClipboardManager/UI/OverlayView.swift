@@ -2,9 +2,11 @@ import SwiftUI
 
 // MARK: - 通知
 extension Notification.Name {
-    static let overlayRequestDismiss = Notification.Name("overlayRequestDismiss")
-    static let overlayRequestShow   = Notification.Name("overlayRequestShow")
-    static let overlayDidHide       = Notification.Name("overlayDidHide")
+    static let overlayRequestDismiss  = Notification.Name("overlayRequestDismiss")
+    static let overlayDidHide        = Notification.Name("overlayDidHide")
+    static let overlaySelectAll      = Notification.Name("overlaySelectAll")
+    static let overlayDeleteSelected = Notification.Name("overlayDeleteSelected")
+    static let overlayAlertActive    = Notification.Name("overlayAlertActive")
 }
 
 // MARK: - 覆盖层主视图
@@ -13,6 +15,8 @@ struct OverlayView: View {
     @EnvironmentObject private var store: StoreManager
 
     @State private var cardVisible: Bool? = nil
+    @State private var selectedIds: Set<UUID> = []
+    @State private var showDeleteConfirm = false
 
     private let cardSpacing: CGFloat = 10
     private let bottomInset: CGFloat = 40
@@ -36,7 +40,7 @@ struct OverlayView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onReceive(NotificationCenter.default.publisher(for: .overlayRequestShow)) { _ in
+        .onAppear {
             withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
                 cardVisible = true
             }
@@ -44,8 +48,24 @@ struct OverlayView: View {
         .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
             dismiss()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayDidHide)) { _ in
-            cardVisible = nil
+        .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
+            let ids = Set(store.items.map { $0.id })
+            withAnimation(.easeInOut(duration: 0.1)) { selectedIds = ids }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
+            guard !selectedIds.isEmpty else { return }
+            showDeleteConfirm = true
+        }
+        .alert("确认删除", isPresented: $showDeleteConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("删除", role: .destructive) { deleteSelected() }
+        } message: {
+            Text("确定要删除 \(selectedIds.count) 条选中的记录吗？此操作不可撤销。")
+        }
+        .onChange(of: showDeleteConfirm) { active in
+            NotificationCenter.default.post(name: .overlayAlertActive,
+                                            object: nil,
+                                            userInfo: ["active": active])
         }
     }
 
@@ -61,27 +81,48 @@ struct OverlayView: View {
         }
     }
 
+    // MARK: - 批量删除
+
+    private func deleteSelected() {
+        ClipboardMonitor.shared.suspend()
+        for id in selectedIds {
+            if let item = store.items.first(where: { $0.id == id }) {
+                store.deleteItem(item)
+            }
+        }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.declareTypes([.string], owner: nil)
+        pb.setString("", forType: .string)
+        ClipboardMonitor.shared.syncChangeCount()
+        ClipboardMonitor.shared.resume()
+        selectedIds = []
+    }
+
     // MARK: - 卡片容器（浅色圆角背景）
 
     @ViewBuilder
     private var cardContainer: some View {
         let displayItems = store.items
 
-        if displayItems.isEmpty {
-            emptyHint
-        } else {
-            cardList(displayItems)
-                .padding(.vertical, 14)
-                .padding(.horizontal, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.white.opacity(0.12))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(0.10), lineWidth: 0.5)
-                )
+        Group {
+            if displayItems.isEmpty {
+                emptyHint
+            } else {
+                cardList(displayItems)
+            }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.18))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        )
     }
 
     // MARK: - 卡片列表
@@ -97,9 +138,13 @@ struct OverlayView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: cardSpacing) {
                     ForEach(items) { item in
-                        ClipboardCardView(item: item) { tapped in
-                            OverlayPanelManager.shared.hideAndPaste(tapped)
-                        }
+                        ClipboardCardView(
+                            item: item,
+                            isSelected: selectedIds.contains(item.id),
+                            onTap: { tapped in
+                                OverlayPanelManager.shared.hideAndPaste(tapped)
+                            }
+                        )
                         .id(item.id)
                     }
                 }
@@ -110,9 +155,13 @@ struct OverlayView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: cardSpacing) {
                     ForEach(items) { item in
-                        ClipboardCardView(item: item) { tapped in
-                            OverlayPanelManager.shared.hideAndPaste(tapped)
-                        }
+                        ClipboardCardView(
+                            item: item,
+                            isSelected: selectedIds.contains(item.id),
+                            onTap: { tapped in
+                                OverlayPanelManager.shared.hideAndPaste(tapped)
+                            }
+                        )
                         .frame(maxWidth: 400)
                         .id(item.id)
                     }
@@ -135,6 +184,6 @@ struct OverlayView: View {
                 .font(.body)
                 .foregroundColor(.white.opacity(0.5))
         }
-        .padding(.bottom, 140)
+        .frame(maxWidth: .infinity, minHeight: 200)
     }
 }

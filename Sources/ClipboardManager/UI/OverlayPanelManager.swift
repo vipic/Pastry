@@ -17,49 +17,34 @@ final class OverlayPanelManager {
     private var panel: ClipboardOverlayPanel?
     private var keyboardMonitor: Any?
     private var previousFrontApp: NSRunningApplication?
-    private var isShowing = false
+    private var alertActive = false
 
-    private init() {}
+    private init() {
+        NotificationCenter.default.addObserver(
+            forName: .overlayAlertActive, object: nil, queue: .main
+        ) { [weak self] note in
+            self?.alertActive = (note.userInfo?["active"] as? Bool) ?? false
+        }
+    }
 
     // MARK: - 显示/隐藏
 
     @MainActor
     func show() {
-        guard !isShowing else { return }
-
-        isShowing = true
-        previousFrontApp = NSWorkspace.shared.frontmostApplication
-
-        if panel == nil {
-            setupPanel()
-        }
-
-        // 先让面板可见，等一帧让 SwiftUI 视图树激活后再触发动画
-        panel?.orderFrontRegardless()
-        panel?.makeKey()
-        installKeyboardMonitor()
-
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .overlayRequestShow, object: nil)
-        }
-
-        log.info("覆盖层已显示")
+        guard panel == nil else { return }
+        showPanel()
     }
 
     @MainActor
     func hide() {
-        guard isShowing else { return }
-        isShowing = false
-        removeKeyboardMonitor()
-        panel?.orderOut(nil)
-        previousFrontApp = nil
+        cleanup()
         NotificationCenter.default.post(name: .overlayDidHide, object: nil)
         log.info("覆盖层已关闭")
     }
 
     @MainActor
     func toggle() {
-        if isShowing {
+        if panel != nil {
             NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
         } else {
             show()
@@ -69,11 +54,11 @@ final class OverlayPanelManager {
     /// 隐藏 + 粘贴到之前的前台应用（点击卡片使用）
     @MainActor
     func hideAndPaste(_ item: ClipboardItem) {
-        guard isShowing else { return }
+        guard panel != nil else { return }
 
-        isShowing = false
         removeKeyboardMonitor()
         panel?.orderOut(nil)
+        panel = nil
 
         let targetApp = previousFrontApp
         previousFrontApp = nil
@@ -112,16 +97,18 @@ final class OverlayPanelManager {
         }
     }
 
-    var isVisible: Bool { isShowing }
+    var isVisible: Bool { panel != nil }
 
-    // MARK: - 面板（只创建一次）
+    // MARK: - 私有
 
     @MainActor
-    private func setupPanel() {
+    private func showPanel() {
         guard let screen = NSScreen.main else {
             log.error("无法获取主屏幕")
             return
         }
+
+        previousFrontApp = NSWorkspace.shared.frontmostApplication
 
         let screenFrame = screen.frame
 
@@ -151,8 +138,20 @@ final class OverlayPanelManager {
         hostingView.autoresizingMask = [.width, .height]
         newPanel.contentView = hostingView
 
+        newPanel.orderFrontRegardless()
+        newPanel.makeKey()
+
         self.panel = newPanel
-        log.info("覆盖层面板已创建（复用模式）")
+        installKeyboardMonitor()
+
+        log.info("覆盖层已显示")
+    }
+
+    private func cleanup() {
+        removeKeyboardMonitor()
+        panel?.orderOut(nil)
+        panel = nil
+        previousFrontApp = nil
     }
 
     // MARK: - 键盘事件拦截
@@ -161,9 +160,21 @@ final class OverlayPanelManager {
         removeKeyboardMonitor()
 
         keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard self != nil else { return nil }
+            guard let self else { return nil }
+            // Esc：弹窗激活时放行，否则关闭面板
             if event.keyCode == 53 {
+                if self.alertActive { return event }
                 NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
+                return nil
+            }
+            // ⌘A 全选
+            if event.keyCode == 0, event.modifierFlags.contains(.command) {
+                NotificationCenter.default.post(name: .overlaySelectAll, object: nil)
+                return nil
+            }
+            // Delete / Forward Delete 删除选中
+            if event.keyCode == 51 || event.keyCode == 117 {
+                NotificationCenter.default.post(name: .overlayDeleteSelected, object: nil)
                 return nil
             }
             return event

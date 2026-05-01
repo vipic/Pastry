@@ -60,6 +60,7 @@ final class LinkPreviewLoader {
 struct ClipboardCardView: View {
 
     let item: ClipboardItem
+    let isSelected: Bool
     let onTap: (ClipboardItem) -> Void
 
     @State private var appIcon: NSImage?
@@ -103,7 +104,12 @@ struct ClipboardCardView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(isContextHighlighted ? Color.blue : Color.clear, lineWidth: 2.5)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2.5)
+        )
         .animation(.easeInOut(duration: 0.12), value: isContextHighlighted)
+        .animation(.easeInOut(duration: 0.12), value: isSelected)
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .onTapGesture {
             didPaste = true

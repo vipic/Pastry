@@ -52,6 +52,12 @@ final class ClipboardMonitor: ObservableObject {
         }
     }
 
+    /// 清空剪贴板后同步计数器，避免监听器误检
+    func syncChangeCount() {
+        lastChangeCount = NSPasteboard.general.changeCount
+        lastDedupKey = currentDedupKey
+    }
+
     private init() {}
 
     // MARK: - 生命周期

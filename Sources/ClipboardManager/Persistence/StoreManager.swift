@@ -127,15 +127,29 @@ final class StoreManager: ObservableObject {
     }
 
     func clearHistory() {
+        ClipboardMonitor.shared.suspend()
         DatabaseManager.shared.clearNonFavorites()
         loadRecent()
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.declareTypes([.string], owner: nil)
+        pb.setString("", forType: .string)
+        ClipboardMonitor.shared.syncChangeCount()
+        ClipboardMonitor.shared.resume()
     }
 
     func clearAll() {
+        ClipboardMonitor.shared.suspend()
         DatabaseManager.shared.clearAll()
         items.removeAll()
         filteredItems.removeAll()
         refreshStats()
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.declareTypes([.string], owner: nil)
+        pb.setString("", forType: .string)
+        ClipboardMonitor.shared.syncChangeCount()
+        ClipboardMonitor.shared.resume()
     }
 
     func refresh() {
