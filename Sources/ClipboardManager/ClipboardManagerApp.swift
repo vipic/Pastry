@@ -2,106 +2,26 @@ import SwiftUI
 import OSLog
 import ServiceManagement
 
-// MARK: - 应用入口
-@main
-struct ClipboardManagerApp: App {
+// MARK: - 应用委托
+final class AppDelegate: NSObject, NSApplicationDelegate {
 
-    @StateObject private var store = StoreManager.shared
+    private var settingsWindow: NSWindow?
 
-    @AppStorage(UserDefaultsKeys.launchAtLogin)
-    private var launchAtLogin = false
-
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "app")
-
-    /// 设置窗口引用，避免重复创建
-    @State private var settingsWindow: NSWindow?
-
-    init() {
-        // 同步 UserDefaults 中的设置与实际的登录项状态
-        let isRegistered = SMAppService.mainApp.status == .enabled
-        if launchAtLogin != isRegistered {
-            launchAtLogin = isRegistered
-        }
-
-        // 🚀 立即启动剪贴板监听 + 注册全局快捷键 (⌘⇧V)
-        store.start()
-        GlobalHotkeyManager.shared.register()
-        log.info("ClipboardManager 初始化，开机启动: \(isRegistered)")
-    }
-
-    var body: some Scene {
-        // MARK: 菜单栏 (传统菜单风格)
-        MenuBarExtra {
-            menuItems
-        } label: {
-            Image(systemName: "clipboard")
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NotificationCenter.default.addObserver(
+            forName: .openSettingsWindow, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.openSettingsWindow()
         }
     }
 
-    // MARK: - 菜单项
-
-    private var menuItems: some View {
-        Group {
-            // 打开剪贴板覆盖层
-            Button {
-                OverlayPanelManager.shared.toggle()
-            } label: {
-                Label("打开剪贴板", systemImage: "rectangle.on.rectangle")
-            }
-
-            Divider()
-
-            // 快速统计
-            Text("共 \(store.stats.totalItems) 项 · 今日 \(store.stats.todayItems) 项")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            if store.stats.storageSizeKB > 0 {
-                Text("占用 \(store.stats.storageSizeKB) KB")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Divider()
-
-            Button {
-                store.clearHistory()
-            } label: {
-                Label("清空历史", systemImage: "trash")
-            }
-            .disabled(store.stats.totalItems == 0)
-
-            Divider()
-
-            // 设置 - 打开独立设置窗口
-            Button {
-                openSettingsWindow()
-            } label: {
-                Label("设置…", systemImage: "gearshape")
-            }
-
-            Divider()
-
-            Button {
-                OverlayPanelManager.shared.hide()
-                GlobalHotkeyManager.shared.unregister()
-                NSApp.terminate(nil)
-            } label: {
-                Label("退出", systemImage: "power")
-            }
-        }
-    }
-
-    // MARK: - 设置窗口
-
-    private func openSettingsWindow() {
+    func openSettingsWindow() {
         if let existing = settingsWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
-        // 设置窗口需要激活 App 才能显示在最前
         let savedPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.regular)
 
@@ -118,7 +38,6 @@ struct ClipboardManagerApp: App {
         window.makeKeyAndOrderFront(nil)
         let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy)
         window.delegate = delegate
-        // delegate 通过 selfRetain 保持自身存活（window.delegate 是 weak）
         delegate.selfRetain()
 
         NSApp.activate(ignoringOtherApps: true)
@@ -135,14 +54,47 @@ private class SettingsWindowDelegate: NSObject, NSWindowDelegate {
         self.savedPolicy = savedPolicy
     }
 
-    /// 用强引用保持自身存活（window.delegate 是 weak 属性）
     func selfRetain() {
         selfReference = self
     }
 
     func windowWillClose(_ notification: Notification) {
         NSApp.setActivationPolicy(savedPolicy)
-        selfReference = nil  // 窗口关闭后释放自身
+        selfReference = nil
+    }
+}
+
+// MARK: - 应用入口
+@main
+struct ClipboardManagerApp: App {
+
+    @NSApplicationDelegateAdaptor(AppDelegate.self)
+    private var appDelegate
+
+    @StateObject private var store = StoreManager.shared
+
+    @AppStorage(UserDefaultsKeys.launchAtLogin)
+    private var launchAtLogin = false
+
+    private let log = Logger(subsystem: "com.clipboardmanager", category: "app")
+
+    init() {
+        let isRegistered = SMAppService.mainApp.status == .enabled
+        if launchAtLogin != isRegistered {
+            launchAtLogin = isRegistered
+        }
+
+        store.start()
+        GlobalHotkeyManager.shared.register()
+        MenuBarManager.shared.setup()
+
+        log.info("Pastry 初始化，开机启动: \(isRegistered)")
+    }
+
+    var body: some Scene {
+        Settings {
+            EmptyView()
+        }
     }
 }
 
