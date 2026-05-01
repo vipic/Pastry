@@ -88,12 +88,11 @@ final class ClipboardMonitor: ObservableObject {
             }
         }
 
-        timer = Timer.scheduledTimer(
-            withTimeInterval: pollInterval,
-            repeats: true
-        ) { [weak self] _ in
+        let t = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
         }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
 
         log.info("剪贴板监听已启动 (interval: \(self.pollInterval)s)")
     }
