@@ -2,23 +2,21 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="ClipboardManager"
+APP_NAME="Pastry"
 BUILD_DIR="$PROJECT_DIR/.build/release"
 APP_DIR="$HOME/Applications/$APP_NAME.app"
 CONTENTS="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS/MacOS"
-BUNDLE_ID="com.nekutai.clipboardmanager"
+BUNDLE_ID="com.nekutai.pastry"
 
 echo "🔨 Building $APP_NAME (release)..."
 cd "$PROJECT_DIR"
 swift build -c release
 
-# Quit running instance
-if pgrep -f "$APP_NAME.app" > /dev/null 2>&1; then
-    echo "🛑 Quitting running $APP_NAME..."
-    osascript -e "tell application id \"$BUNDLE_ID\" to quit" 2>/dev/null || true
-    sleep 0.5
-fi
+# Quit running instance (try both old and new bundle IDs)
+pkill -f "Pastry" 2>/dev/null || true
+pkill -f "ClipboardManager" 2>/dev/null || true
+sleep 0.5
 
 # Create bundle structure once (preserves inode → TCC permissions stay)
 if [ ! -d "$MACOS_DIR" ]; then
@@ -27,10 +25,13 @@ if [ ! -d "$MACOS_DIR" ]; then
 fi
 
 # Replace binary in-place (never rm -rf the bundle!)
-cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/"
+cp "$BUILD_DIR/ClipboardManager" "$MACOS_DIR/$APP_NAME"
 
 # Copy sound resource
 cp "$PROJECT_DIR/Copy.aiff" "$CONTENTS/Resources/Copy.aiff"
+
+# Copy app icon
+cp "$PROJECT_DIR/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 
 # Info.plist (overwrite in-place)
 cat > "$CONTENTS/Info.plist" << 'PLIST'
@@ -38,12 +39,14 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleExecutable</key>
-    <string>ClipboardManager</string>
+    <string>Pastry</string>
     <key>CFBundleIdentifier</key>
-    <string>com.nekutai.clipboardmanager</string>
+    <string>com.nekutai.pastry</string>
     <key>CFBundleName</key>
-    <string>ClipboardManager</string>
+    <string>Pastry</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleShortVersionString</key>
@@ -58,11 +61,9 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
-# 🔑 对整个 .app bundle 重新 ad-hoc 签名，用自定义 designated requirement
-#    锚定在 bundle identifier 上（而非每次编译都会变的 CDHash），
-#    这样 TCC 辅助功能授权在多次构建后依然有效。
+# 🔑 对整个 .app bundle 重新 ad-hoc 签名
 codesign -s - --force --deep \
-    -r='designated => identifier "com.nekutai.clipboardmanager"' \
+    -r='designated => identifier "com.nekutai.pastry"' \
     "$APP_DIR" 2>/dev/null || true
 
 echo "🚀 Launching $APP_NAME..."

@@ -196,9 +196,16 @@ struct SettingsSceneView: View {
         .formStyle(.grouped)
         .frame(width: 380, height: 360)
         .onAppear {
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
-            accessibilityTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+            refreshAccessibilityStatus()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshAccessibilityStatus()
+        }
+    }
+
+    private func refreshAccessibilityStatus() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
+        accessibilityTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
 
     // MARK: - 辅助功能权限状态
