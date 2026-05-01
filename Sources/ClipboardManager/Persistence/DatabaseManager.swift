@@ -1,0 +1,413 @@
+import Foundation
+import SQLite3
+import OSLog
+
+// MARK: - SQLite 数据库管理
+// 使用原生 sqlite3 API，零外部依赖
+final class DatabaseManager {
+
+    static let shared = DatabaseManager()
+    private let log = Logger(subsystem: "com.clipboardmanager", category: "database")
+
+    private var db: OpaquePointer?
+    private let dbPath: String
+
+    // 缓存最近 N 条的去重 key，避免频繁写入
+    private var recentKeys = Set<String>()
+    private let maxRecentKeys = 100
+
+    private init() {
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first!
+        let dir = appSupport.appendingPathComponent("ClipboardManager")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        dbPath = dir.appendingPathComponent("clips.db").path
+        openDatabase()
+        createTables()
+        runMigrations()
+    }
+
+    deinit {
+        if let db = db {
+            sqlite3_close(db)
+        }
+    }
+
+    // MARK: - 数据库操作
+
+    private func openDatabase() {
+        if sqlite3_open(dbPath, &db) != SQLITE_OK {
+            log.error("无法打开数据库: \(self.dbPath)")
+            db = nil
+        } else {
+            // 开启 WAL 模式，提升并发性能
+            execute("PRAGMA journal_mode=WAL")
+            execute("PRAGMA synchronous=NORMAL")
+            execute("PRAGMA cache_size=-8000")  // 8MB 缓存
+            log.info("数据库已打开: \(self.dbPath)")
+        }
+    }
+
+    private func createTables() {
+        let clipsSQL = """
+        CREATE TABLE IF NOT EXISTS clips (
+            id TEXT PRIMARY KEY,
+            timestamp REAL NOT NULL,
+            content TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            app_name TEXT,
+            is_favorite INTEGER DEFAULT 0,
+            display_count INTEGER DEFAULT 0
+        );
+        """
+
+        let idxSQL = """
+        CREATE INDEX IF NOT EXISTS idx_clips_timestamp ON clips(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_clips_favorite ON clips(is_favorite) WHERE is_favorite = 1;
+        CREATE INDEX IF NOT EXISTS idx_clips_type ON clips(content_type);
+        """
+
+        let ftsSQL = """
+        CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
+            content,
+            content='clips',
+            content_rowid='rowid',
+            tokenize='porter unicode61'
+        );
+        """
+
+        // 自动清理触发器：每天清理7天前的历史
+        let cleanupTrigger = """
+        CREATE TRIGGER IF NOT EXISTS trg_cleanup_old
+        AFTER INSERT ON clips
+        BEGIN
+            DELETE FROM clips WHERE timestamp < strftime('%s', 'now', '-7 days') * 1.0
+                AND (SELECT COUNT(*) FROM clips) > 500;
+        END;
+        """
+
+        _ = execute(clipsSQL)
+        _ = execute(idxSQL)
+        _ = execute(ftsSQL)
+        _ = execute(cleanupTrigger)
+
+        log.info("数据库表初始化完成")
+    }
+
+    private func runMigrations() {
+        // 版本迁移预留
+        let version = userVersion
+        if version < 1 {
+            // 未来迁移：e.g., 添加新字段
+            userVersion = 1
+        }
+    }
+
+    // MARK: - CRUD
+
+    /// 插入新项（去重）
+    @discardableResult
+    func insert(_ item: ClipboardItem) -> Bool {
+        let key = item.dedupKey
+        guard !recentKeys.contains(key) else { return false }
+
+        let sql = """
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, is_favorite, display_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            log.error("INSERT prepare 失败: \(self.lastError)")
+            return false
+        }
+
+        sqlite3_bind_text(stmt, 1, (item.id.uuidString as NSString).utf8String, -1, nil)
+        sqlite3_bind_double(stmt, 2, item.timestamp.timeIntervalSince1970)
+        sqlite3_bind_text(stmt, 3, (item.content as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 4, (item.contentType.rawValue as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 5, (item.appName as NSString?)?.utf8String ?? nil, -1, nil)
+        sqlite3_bind_int(stmt, 6, item.isFavorite ? 1 : 0)
+        sqlite3_bind_int(stmt, 7, Int32(item.displayCount))
+
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+
+        guard rc == SQLITE_DONE else { return false }
+
+        // 同步到 FTS 索引
+        syncFTS(item)
+
+        // 更新去重缓存
+        recentKeys.insert(key)
+        if recentKeys.count > maxRecentKeys {
+            recentKeys.remove(recentKeys.first!)
+        }
+
+        return true
+    }
+
+    /// 搜索（优先 FTS，fallback LIKE）
+    func search(query: String, limit: Int = 100) -> [ClipboardItem] {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return recent(limit: limit)
+        }
+
+        // FTS5 搜索（带前缀通配）
+        let ftsSQL = """
+        SELECT c.id, c.timestamp, c.content, c.content_type, c.app_name,
+               c.is_favorite, c.display_count
+        FROM clips c
+        JOIN clips_fts f ON c.rowid = f.rowid
+        WHERE clips_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?;
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, ftsSQL, -1, &stmt, nil) == SQLITE_OK else {
+            log.error("FTS search prepare 失败: \(self.lastError)")
+            return fallbackSearch(query: query, limit: limit)
+        }
+
+        // FTS 查询字符串：支持前缀匹配
+        let ftsQuery = query
+            .split(separator: " ")
+            .map { "\($0)*" }
+            .joined(separator: " AND ")
+
+        sqlite3_bind_text(stmt, 1, (ftsQuery as NSString).utf8String, -1, nil)
+        sqlite3_bind_int(stmt, 2, Int32(limit))
+
+        let results = readItems(from: stmt)
+        sqlite3_finalize(stmt)
+
+        if !results.isEmpty { return results }
+        return fallbackSearch(query: query, limit: limit)
+    }
+
+    /// LIKE 降级搜索
+    private func fallbackSearch(query: String, limit: Int) -> [ClipboardItem] {
+        let sql = """
+        SELECT id, timestamp, content, content_type, app_name, is_favorite, display_count
+        FROM clips
+        WHERE content LIKE ?
+        ORDER BY timestamp DESC
+        LIMIT ?;
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            return []
+        }
+
+        let pattern = "%\(query)%"
+        sqlite3_bind_text(stmt, 1, (pattern as NSString).utf8String, -1, nil)
+        sqlite3_bind_int(stmt, 2, Int32(limit))
+
+        let results = readItems(from: stmt)
+        sqlite3_finalize(stmt)
+        return results
+    }
+
+    /// 最近历史
+    func recent(limit: Int = 100) -> [ClipboardItem] {
+        let sql = """
+        SELECT id, timestamp, content, content_type, app_name, is_favorite, display_count
+        FROM clips
+        ORDER BY timestamp DESC
+        LIMIT ?;
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            return []
+        }
+
+        sqlite3_bind_int(stmt, 1, Int32(limit))
+
+        let results = readItems(from: stmt)
+        sqlite3_finalize(stmt)
+        return results
+    }
+
+    /// 收藏列表
+    func favorites(limit: Int = 200) -> [ClipboardItem] {
+        let sql = """
+        SELECT id, timestamp, content, content_type, app_name, is_favorite, display_count
+        FROM clips
+        WHERE is_favorite = 1
+        ORDER BY timestamp DESC
+        LIMIT ?;
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            return []
+        }
+
+        sqlite3_bind_int(stmt, 1, Int32(limit))
+
+        let results = readItems(from: stmt)
+        sqlite3_finalize(stmt)
+        return results
+    }
+
+    /// 切换收藏
+    func toggleFavorite(id: String) -> Bool {
+        let sql = "UPDATE clips SET is_favorite = ~is_favorite WHERE id = ?;"
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            return false
+        }
+
+        sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
+
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        return rc == SQLITE_DONE
+    }
+
+    /// 增加粘贴次数
+    func incrementDisplayCount(id: String) {
+        let sql = "UPDATE clips SET display_count = display_count + 1 WHERE id = ?;"
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+
+        sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
+        sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+    }
+
+    /// 将条目时间戳更新为现在（移动到列表最前）
+    func bumpTimestamp(id: String) {
+        let sql = "UPDATE clips SET timestamp = ? WHERE id = ?;"
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+
+        sqlite3_bind_double(stmt, 1, Date().timeIntervalSince1970)
+        sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
+        sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+    }
+
+    /// 删除单项
+    @discardableResult
+    func delete(id: String) -> Bool {
+        execute("DELETE FROM clips WHERE id = '\(id)';")
+    }
+
+    /// 清空所有（保留收藏）
+    func clearNonFavorites() {
+        execute("DELETE FROM clips WHERE is_favorite = 0;")
+    }
+
+    /// 清空全部
+    func clearAll() {
+        execute("DELETE FROM clips;")
+    }
+
+    // MARK: - 统计
+
+    func stats() -> ClipboardStats {
+        let total = scalarInt("SELECT COUNT(*) FROM clips;")
+        let today = scalarInt("SELECT COUNT(*) FROM clips WHERE timestamp > strftime('%s', 'now', 'start of day') * 1.0;")
+        let favs = scalarInt("SELECT COUNT(*) FROM clips WHERE is_favorite = 1;")
+        let sizeK = scalarInt("SELECT COALESCE(SUM(LENGTH(content)), 0) / 1024 FROM clips;")
+
+        return ClipboardStats(
+            totalItems: total,
+            todayItems: today,
+            favoriteCount: favs,
+            storageSizeKB: sizeK
+        )
+    }
+
+    // MARK: - 内部方法
+
+    private func syncFTS(_ item: ClipboardItem) {
+        let sql = """
+        INSERT INTO clips_fts (rowid, content)
+        VALUES ((SELECT rowid FROM clips WHERE id = ?), ?);
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+
+        sqlite3_bind_text(stmt, 1, (item.id.uuidString as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 2, (item.content as NSString).utf8String, -1, nil)
+        sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+    }
+
+    private func readItems(from stmt: OpaquePointer?) -> [ClipboardItem] {
+        var items: [ClipboardItem] = []
+
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let idStr = String(cString: sqlite3_column_text(stmt, 0))
+            let timestamp = sqlite3_column_double(stmt, 1)
+            let content = String(cString: sqlite3_column_text(stmt, 2))
+            let typeStr = String(cString: sqlite3_column_text(stmt, 3))
+            let appName: String? = {
+                guard let ptr = sqlite3_column_text(stmt, 4) else { return nil }
+                return String(cString: ptr)
+            }()
+            let isFav = sqlite3_column_int(stmt, 5) != 0
+            let dispCount = Int(sqlite3_column_int(stmt, 6))
+
+            let item = ClipboardItem(
+                id: UUID(uuidString: idStr) ?? UUID(),
+                timestamp: Date(timeIntervalSince1970: timestamp),
+                content: content,
+                contentType: ClipType(rawValue: typeStr) ?? .text,
+                appName: appName,
+                isFavorite: isFav,
+                displayCount: dispCount
+            )
+            items.append(item)
+        }
+
+        return items
+    }
+
+    @discardableResult
+    private func execute(_ sql: String) -> Bool {
+        var errMsg: UnsafeMutablePointer<CChar>?
+        let rc = sqlite3_exec(db, sql, nil, nil, &errMsg)
+        if rc != SQLITE_OK {
+            let err = errMsg.map { String(cString: $0) } ?? "unknown"
+            log.error("SQLite 错误: \(err)\nSQL: \(sql)")
+            sqlite3_free(errMsg)
+            return false
+        }
+        return true
+    }
+
+    private func scalarInt(_ sql: String) -> Int {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            return Int(sqlite3_column_int(stmt, 0))
+        }
+        return 0
+    }
+
+    private var lastError: String {
+        String(cString: sqlite3_errmsg(db))
+    }
+
+    private var userVersion: Int {
+        get { scalarInt("PRAGMA user_version;") }
+        set { execute("PRAGMA user_version = \(newValue);") }
+    }
+}

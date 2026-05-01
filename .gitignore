@@ -1,0 +1,21 @@
+# ── Swift / SPM ──
+.build/
+.swiftpm/
+Package.resolved
+
+# ── macOS ──
+.DS_Store
+**/.DS_Store
+
+# ── Build outputs ──
+*.app
+*.dSYM
+
+# ── Xcode (if generated) ──
+*.xcworkspace
+xcuserdata/
+DerivedData/
+
+# ── IDE ──
+.idea/
+.vscode/
