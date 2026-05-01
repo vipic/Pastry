@@ -134,8 +134,7 @@ final class ClipboardMonitor: ObservableObject {
 
     /// 三层兜底选择复制来源 App：
     ///   1. 激活历史中最近的非 Finder / 非系统 App
-    ///   2. 上一轮轮询时的前台 App（捕获 CleanShot X 等不激活自身的工具）
-    ///   2.5 当前是 Finder 且有图片数据时，扫描运行中的截图工具
+    ///   2. 上一轮轮询时的前台 App（捕获不激活自身的截图工具）
     ///   3. 当前前台 App
     private func bestGuessAppName(currentFront: String?) -> String? {
         let now = Date()
@@ -153,35 +152,8 @@ final class ClipboardMonitor: ObservableObject {
             return prev
         }
 
-        // Tier 2.5: 前三层都是 Finder + 剪贴板有图片 → 扫描截图工具
-        if currentFront == "Finder" || currentFront == "loginwindow" {
-            if let imageApp = detectRunningImageTool() {
-                return imageApp
-            }
-        }
-
         // Tier 3: 当前前台
         return currentFront
-    }
-
-    /// 扫描正在运行的 App，寻找截图/图片编辑工具
-    private func detectRunningImageTool() -> String? {
-        let screenshotKeywords = [
-            "CleanShot", "Snagit", "Monosnap", "Skitch",
-            "Screenshot", "Capture", "Snip", "shot"
-        ]
-        let runningApps = NSWorkspace.shared.runningApplications
-        for app in runningApps {
-            guard let name = app.localizedName,
-                  app.activationPolicy == .regular  // 排除后台进程
-            else { continue }
-            for keyword in screenshotKeywords {
-                if name.range(of: keyword, options: .caseInsensitive) != nil {
-                    return name
-                }
-            }
-        }
-        return nil
     }
 
     // MARK: - 处理剪贴板变化
