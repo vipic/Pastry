@@ -3,12 +3,20 @@ import Combine
 import Cocoa
 import CoreGraphics
 import OSLog
-import AudioToolbox
 
 // MARK: - 应用数据管理层
 // 连接 ClipboardMonitor → DatabaseManager → SwiftUI
 @MainActor
 final class StoreManager: ObservableObject {
+
+    /// 自定义复制提示音
+    private static let copySound: NSSound? = {
+        guard let path = Bundle.main.path(forResource: "Copy", ofType: "aiff") else {
+            Logger(subsystem: "com.clipboardmanager", category: "store").warning("找不到 Copy.aiff")
+            return nil
+        }
+        return NSSound(contentsOfFile: path, byReference: true)
+    }()
 
     static let shared = StoreManager()
     private let log = Logger(subsystem: "com.clipboardmanager", category: "store")
@@ -175,7 +183,7 @@ final class StoreManager: ObservableObject {
 
         // 🔔 播放复制提示音（如果用户开启了）
         if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
-            AudioServicesPlaySystemSound(1104)  // 系统键盘点击音
+            Self.copySound?.play()
         }
 
         refreshStats()

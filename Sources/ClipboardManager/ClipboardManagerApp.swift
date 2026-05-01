@@ -67,7 +67,7 @@ struct ClipboardManagerApp: App {
             Button {
                 store.clearHistory()
             } label: {
-                Label("清空非收藏历史", systemImage: "trash")
+                Label("清空历史", systemImage: "trash")
             }
             .disabled(store.stats.totalItems == 0)
 

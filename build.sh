@@ -29,6 +29,9 @@ fi
 # Replace binary in-place (never rm -rf the bundle!)
 cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/"
 
+# Copy sound resource
+cp "$PROJECT_DIR/Copy.aiff" "$CONTENTS/Resources/Copy.aiff"
+
 # Info.plist (overwrite in-place)
 cat > "$CONTENTS/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
