@@ -3,6 +3,8 @@ import SwiftUI
 // MARK: - 通知
 extension Notification.Name {
     static let overlayRequestDismiss = Notification.Name("overlayRequestDismiss")
+    static let overlayRequestShow   = Notification.Name("overlayRequestShow")
+    static let overlayDidHide       = Notification.Name("overlayDidHide")
 }
 
 // MARK: - 覆盖层主视图
@@ -18,13 +20,11 @@ struct OverlayView: View {
 
     var body: some View {
         ZStack {
-            // 完全透明 —— 点击即关闭
             Color.clear
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { dismiss() }
 
-            // 卡片容器 —— 从底部滑入/滑出
             VStack(spacing: 0) {
                 Spacer()
 
@@ -36,13 +36,16 @@ struct OverlayView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
+        .onReceive(NotificationCenter.default.publisher(for: .overlayRequestShow)) { _ in
             withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
                 cardVisible = true
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
             dismiss()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayDidHide)) { _ in
+            cardVisible = nil
         }
     }
 

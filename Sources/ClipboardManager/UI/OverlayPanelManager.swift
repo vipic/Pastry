@@ -17,6 +17,7 @@ final class OverlayPanelManager {
     private var panel: ClipboardOverlayPanel?
     private var keyboardMonitor: Any?
     private var previousFrontApp: NSRunningApplication?
+    private var isShowing = false
 
     private init() {}
 
@@ -24,20 +25,42 @@ final class OverlayPanelManager {
 
     @MainActor
     func show() {
-        guard panel == nil else { return }
-        showPanel()
+        guard !isShowing else { return }
+
+        isShowing = true
+        previousFrontApp = NSWorkspace.shared.frontmostApplication
+
+        if panel == nil {
+            setupPanel()
+        }
+
+        // 先让面板可见，等一帧让 SwiftUI 视图树激活后再触发动画
+        panel?.orderFrontRegardless()
+        panel?.makeKey()
+        installKeyboardMonitor()
+
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .overlayRequestShow, object: nil)
+        }
+
+        log.info("覆盖层已显示")
     }
 
     @MainActor
     func hide() {
-        cleanup()
+        guard isShowing else { return }
+        isShowing = false
+        removeKeyboardMonitor()
+        panel?.orderOut(nil)
+        previousFrontApp = nil
+        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
         log.info("覆盖层已关闭")
     }
 
     @MainActor
     func toggle() {
-        if panel != nil {
-            hide()
+        if isShowing {
+            NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
         } else {
             show()
         }
@@ -46,25 +69,24 @@ final class OverlayPanelManager {
     /// 隐藏 + 粘贴到之前的前台应用（点击卡片使用）
     @MainActor
     func hideAndPaste(_ item: ClipboardItem) {
-        guard panel != nil else { return }
+        guard isShowing else { return }
 
+        isShowing = false
         removeKeyboardMonitor()
         panel?.orderOut(nil)
-        panel = nil
 
         let targetApp = previousFrontApp
         previousFrontApp = nil
 
-        // 延迟后：暂停监听 → 激活目标应用 → 写入剪贴板 → 更新条目时间戳 → 恢复监听
+        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            // 暂停监听，避免写入剪贴板时产生重复条目
             ClipboardMonitor.shared.suspend()
 
             if let app = targetApp {
                 app.activate(options: .activateIgnoringOtherApps)
             }
 
-            // 写入剪贴板
             let pb = NSPasteboard.general
             pb.clearContents()
             switch item.contentType {
@@ -79,35 +101,27 @@ final class OverlayPanelManager {
                 }
             }
 
-            // 更新原条目的时间戳到最新（移动到列表最前），而非创建新条目
             DatabaseManager.shared.bumpTimestamp(id: item.id.uuidString)
             DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
-
-            // 恢复监听（自动跳过我们自己写入的变化）
             ClipboardMonitor.shared.resume()
-
-            // 刷新内存列表以反映最新的时间戳顺序
             StoreManager.shared.refresh()
 
-            // 等目标应用完全激活后再发 ⌘V
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                 Self.simulatePaste()
             }
         }
     }
 
-    var isVisible: Bool { panel != nil }
+    var isVisible: Bool { isShowing }
 
-    // MARK: - 私有
+    // MARK: - 面板（只创建一次）
 
     @MainActor
-    private func showPanel() {
+    private func setupPanel() {
         guard let screen = NSScreen.main else {
             log.error("无法获取主屏幕")
             return
         }
-
-        previousFrontApp = NSWorkspace.shared.frontmostApplication
 
         let screenFrame = screen.frame
 
@@ -137,20 +151,8 @@ final class OverlayPanelManager {
         hostingView.autoresizingMask = [.width, .height]
         newPanel.contentView = hostingView
 
-        newPanel.orderFrontRegardless()
-        newPanel.makeKey()
-
         self.panel = newPanel
-        installKeyboardMonitor()
-
-        log.info("覆盖层已显示")
-    }
-
-    private func cleanup() {
-        removeKeyboardMonitor()
-        panel?.orderOut(nil)
-        panel = nil
-        previousFrontApp = nil
+        log.info("覆盖层面板已创建（复用模式）")
     }
 
     // MARK: - 键盘事件拦截
@@ -161,7 +163,6 @@ final class OverlayPanelManager {
         keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard self != nil else { return nil }
             if event.keyCode == 53 {
-                // 发通知让 OverlayView 触发退场动画
                 NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
                 return nil
             }
@@ -191,7 +192,6 @@ final class OverlayPanelManager {
         cmdDown.flags = .maskCommand
         cmdUp.flags = .maskCommand
 
-        // cgSessionEventTap: 发到当前用户会话事件流，不需要辅助功能权限也能工作
         cmdDown.post(tap: .cgSessionEventTap)
         cmdUp.post(tap: .cgSessionEventTap)
     }
