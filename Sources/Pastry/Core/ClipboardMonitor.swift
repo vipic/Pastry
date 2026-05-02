@@ -30,14 +30,14 @@ final class ClipboardMonitor: ObservableObject {
     private var suspendCount = 0
     var isSuspended: Bool { suspendCount > 0 }
 
-    // MARK: - App 激活历史（解决截图来源误报 Finder 问题）
-    /// 最近 5 秒内的前台 App 历史 —— 即使轮询瞬间前台是 Finder，
-    /// 也能从历史中捞回真正复制时所在的 App
-    private let appHistoryWindow: TimeInterval = 5.0   // 5s 窗口，覆盖截图软件异步写入
+    // MARK: - 来源识别：用户主动切换 App = 上下文
+    /// 最近 10 秒内用户主动切换到的 App（didActivateApplicationNotification）。
+    /// 来源应该反映用户的工作上下文，而非剪贴板写入瞬间碰巧在前台的进程。
+    private let contextWindow: TimeInterval = 10.0
     private var recentApps: [(name: String, time: Date)] = []
     private var appObserver: NSObjectProtocol?
 
-    /// 上一轮轮询时的前台 App —— 避免截图软件（不触发 didActivate）丢失来源
+    /// 上一轮轮询时的前台 App — 捕获截图软件等不激活自身的工具
     private var previousFrontApp: String?
 
     func suspend() {
@@ -69,7 +69,7 @@ final class ClipboardMonitor: ObservableObject {
         lastChangeCount = NSPasteboard.general.changeCount
         lastDedupKey = currentDedupKey
 
-        // 追踪前台 App 切换
+        // 追踪用户主动切换 App 的行为（真正的上下文）
         appObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -82,9 +82,8 @@ final class ClipboardMonitor: ObservableObject {
             else { return }
             let now = Date()
             self.recentApps.append((name, now))
-            // 过期清理
             self.recentApps = self.recentApps.filter {
-                now.timeIntervalSince($0.time) < self.appHistoryWindow
+                now.timeIntervalSince($0.time) < self.contextWindow
             }
         }
 
@@ -116,18 +115,16 @@ final class ClipboardMonitor: ObservableObject {
         let pb = NSPasteboard.general
         let currentChange = pb.changeCount
 
-        // 每次轮询都缓存当前前台 App（无论是否检测到变化），
-        // 这样 CleanShot X 等不触发 didActivate 的截图工具也能被捕获
+        // 每轮记录当前前台 App，供截图软件等不激活自身的工具使用
         let currentFront = NSWorkspace.shared.frontmostApplication?.localizedName
 
         guard currentChange != lastChangeCount else {
-            // 无变化时只更新缓存，不做其他事
             previousFrontApp = currentFront
             return
         }
         lastChangeCount = currentChange
 
-        // 🔒 三层兜底：激活历史 → 上一轮前台 → 当前前台
+        // 来源 = 用户上下文（激活历史） > 上一轮前台 > 当前前台
         let capturedApp = bestGuessAppName(currentFront: currentFront)
         previousFrontApp = currentFront
 
@@ -137,22 +134,19 @@ final class ClipboardMonitor: ObservableObject {
         }
     }
 
-    /// 三层兜底选择复制来源 App：
-    ///   1. 激活历史中最近的非 Finder / 非系统 App
-    ///   2. 上一轮轮询时的前台 App（捕获不激活自身的截图工具）
-    ///   3. 当前前台 App
+    /// 来源优先级：用户切换到的 App（上下文）> 上轮前台 App > 当前前台 App
     private func bestGuessAppName(currentFront: String?) -> String? {
         let now = Date()
-        recentApps = recentApps.filter { now.timeIntervalSince($0.time) < appHistoryWindow }
+        recentApps = recentApps.filter { now.timeIntervalSince($0.time) < contextWindow }
 
-        // Tier 1: 激活历史中的非系统 App
+        // Tier 1: 用户主动切换到的最近 App（真正的上下文）
         for entry in recentApps.reversed() {
             let name = entry.name
             if name == "Finder" || name == "loginwindow" { continue }
             return name
         }
 
-        // Tier 2: 上一轮的前台 App（非 Finder）
+        // Tier 2: 上轮前台 App（捕获不激活自身的截图工具等）
         if let prev = previousFrontApp, prev != "Finder", prev != "loginwindow" {
             return prev
         }
