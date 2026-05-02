@@ -81,7 +81,7 @@ final class AppIconProvider {
         }
 
         // 3. 基于名称哈希生成稳定色
-        let hash = name.hashValue
+        let hash = name.hash
         let hue = abs(CGFloat(hash % 360)) / 360.0
         let color = NSColor(hue: hue, saturation: 0.6, brightness: 0.7, alpha: 1)
         colorCache[name] = color

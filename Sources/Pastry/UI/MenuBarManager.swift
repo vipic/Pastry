@@ -127,7 +127,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
 
     @MainActor
     @objc private func clearHistoryAction() {
-        StoreManager.shared.clearHistory()
+        StoreManager.shared.clearNonPinned()
     }
 
     @MainActor

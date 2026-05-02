@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 
 // MARK: - 设置视图
 
@@ -11,11 +12,11 @@ struct SettingsSceneView: View {
     private var soundEnabled = false
 
     @AppStorage(UserDefaultsKeys.maxHistory)
-    private var maxHistory = 500
+    private var maxHistory = Constants.defaultMaxHistory
     @AppStorage(UserDefaultsKeys.cleanupMaxDays)
-    private var cleanupMaxDays = 7
+    private var cleanupMaxDays = Constants.defaultMaxDays
     @AppStorage(UserDefaultsKeys.cleanupMaxItems)
-    private var cleanupMaxItems = 10000
+    private var cleanupMaxItems = Constants.defaultMaxItems
 
     // 快捷键
     @AppStorage(UserDefaultsKeys.hotkeyKeyCode)
@@ -56,7 +57,7 @@ struct SettingsSceneView: View {
             }
         }
         .toolbar(removing: .sidebarToggle)
-        .frame(width: 580, height: 420)
+        .frame(minWidth: 520, minHeight: 380)
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
@@ -91,7 +92,10 @@ struct SettingsSceneView: View {
                         Spacer()
                         if !accessibilityTrusted {
                             Button("去授权") {
-                                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+                                guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+                                    Logger(subsystem: "com.nekutai.pastry", category: "settings").error("无法构造系统偏好设置 URL")
+                                    return
+                                }
                                 NSWorkspace.shared.open(url)
                             }
                         }
