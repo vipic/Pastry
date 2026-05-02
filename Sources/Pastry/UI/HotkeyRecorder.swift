@@ -1,18 +1,18 @@
 import SwiftUI
 import AppKit
+import Carbon
 
 // MARK: - 快捷键录制控件
 
-/// macOS 原生风格的快捷键录制视图
-/// 点击进入录制状态，按下组合键记录，ESC 取消
+/// 三态自绘控件：未设置 / 已设置（带清除按钮）/ 录制中
+/// 点击文字区域进入录制，点击 ✕ 清除快捷键
 struct HotkeyRecorderView: NSViewRepresentable {
 
     @Binding var keyCode: Int
     @Binding var modifiers: Int
-    var isRecording: Bool
-    var onStartRecording: () -> Void
-    var onCommit: () -> Void
-    var onCancel: () -> Void
+    var onChange: () -> Void
+    var onStartRecording: () -> Void   // 进入录制时调用（暂停旧快捷键）
+    var onCancelRecording: () -> Void  // ESC 取消录制时调用（恢复旧快捷键）
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -25,26 +25,11 @@ struct HotkeyRecorderView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: HotkeyRecorderField, context: Context) {
-        nsView.displayString = shortcutDisplayString(keyCode: keyCode, modifiers: modifiers)
-        nsView.isRecording = isRecording
-        nsView.needsDisplay = true
-
-        if isRecording {
-            nsView.window?.makeFirstResponder(nsView)
-        }
+        nsView.configure(keyCode: keyCode, modifiers: modifiers)
     }
-
-    // MARK: - 显示字符串生成
-
-    static func displayString(keyCode: Int, modifiers: Int) -> String {
-        shortcutDisplayString(keyCode: keyCode, modifiers: modifiers)
-    }
-
-    // MARK: - Coordinator
 
     final class Coordinator: NSObject {
         let parent: HotkeyRecorderView
-
         init(parent: HotkeyRecorderView) {
             self.parent = parent
             super.init()
@@ -52,19 +37,23 @@ struct HotkeyRecorderView: NSViewRepresentable {
     }
 }
 
-// MARK: - AppKit 录制控件
+// MARK: - 录制状态
 
-final class HotkeyRecorderField: NSView {
+private enum RecorderState {
+    case unset
+    case set
+    case recording
+}
+
+// MARK: - AppKit 录制控件（NSControl 子类 — 原生支持鼠标事件和 firstResponder）
+
+final class HotkeyRecorderField: NSControl {
 
     weak var coordinator: HotkeyRecorderView.Coordinator?
 
-    var displayString = "" {
-        didSet { needsDisplay = true }
-    }
-
-    var isRecording = false {
-        didSet { needsDisplay = true }
-    }
+    private var state: RecorderState = .unset
+    private var displayKeyCode: Int = -1
+    private var displayModifiers: Int = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -75,59 +64,94 @@ final class HotkeyRecorderField: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func configure(keyCode: Int, modifiers: Int) {
+        if state != .recording {
+            displayKeyCode = keyCode
+            displayModifiers = modifiers
+            state = keyCode >= 0 ? .set : .unset
+            needsDisplay = true
+        }
+    }
+
     override var acceptsFirstResponder: Bool { true }
 
     override func becomeFirstResponder() -> Bool {
-        isRecording = true
+        state = .recording
         needsDisplay = true
         return true
     }
 
     override func resignFirstResponder() -> Bool {
-        isRecording = false
+        if state == .recording {
+            state = displayKeyCode >= 0 ? .set : .unset
+        }
         needsDisplay = true
         return true
     }
 
+    // MARK: - 鼠标
+
     override func mouseDown(with event: NSEvent) {
-        // 通知 SwiftUI 进入录制状态
-        coordinator?.parent.onStartRecording()
+        let point = convert(event.locationInWindow, from: nil)
+        let clearRect = NSRect(x: bounds.width - 30, y: 0, width: 30, height: bounds.height)
+
+        if state == .set && NSPointInRect(point, clearRect) {
+            clearShortcut()
+        } else {
+            coordinator?.parent.onStartRecording()
+            window?.makeFirstResponder(self)
+        }
     }
 
+    private func clearShortcut() {
+        coordinator?.parent.keyCode = -1
+        coordinator?.parent.modifiers = 0
+        coordinator?.parent.onChange()
+        state = .unset
+        displayKeyCode = -1
+        displayModifiers = 0
+        needsDisplay = true
+    }
+
+    // MARK: - 键盘
+
     override func keyDown(with event: NSEvent) {
-        guard isRecording else {
+        guard state == .recording else {
             super.keyDown(with: event)
             return
         }
 
         let code = Int(event.keyCode)
-        let mods = Int(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue)
 
-        // ESC — 取消
-        if code == 53 {
+        if code == 53 {  // ESC — 取消，恢复旧快捷键
+            coordinator?.parent.onCancelRecording()
             window?.makeFirstResponder(nil)
-            coordinator?.parent.onCancel()
             return
         }
 
-        // 必须有至少一个修饰键（cmd/opt/ctrl/shift）
-        let meaningfulMods = mods & 0xFFFF0000 >> 16
-        if meaningfulMods == 0 {
-            // 纯字母/数字不允许
+        // 必须有至少一个修饰键（NSEvent 格式检查）
+        let nseventMods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if !nseventMods.contains(.command) && !nseventMods.contains(.option)
+            && !nseventMods.contains(.control) && !nseventMods.contains(.shift) {
             NSSound.beep()
             return
         }
 
-        // 记录快捷键
+        // 转换为 Carbon 修饰键位（cmdKey=0x0100, shiftKey=0x0200, optionKey=0x0800, controlKey=0x1000）
+        let carbonMods = nseventModifiersToCarbon(nseventMods)
+
         coordinator?.parent.keyCode = code
-        coordinator?.parent.modifiers = mods
+        coordinator?.parent.modifiers = Int(carbonMods)
+        coordinator?.parent.onChange()
+
+        displayKeyCode = code
+        displayModifiers = Int(carbonMods)
+        state = .set
 
         window?.makeFirstResponder(nil)
-        coordinator?.parent.onCommit()
     }
 
     override func flagsChanged(with event: NSEvent) {
-        // 允许用户先按修饰键再按字母
         needsDisplay = true
     }
 
@@ -136,68 +160,108 @@ final class HotkeyRecorderField: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let bounds = self.bounds
 
-        // 背景
         let bgPath = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
 
-        if isRecording {
+        switch state {
+        case .recording:
             NSColor.controlAccentColor.withAlphaComponent(0.15).setFill()
-        } else {
+        default:
             NSColor.controlBackgroundColor.setFill()
         }
         bgPath.fill()
 
-        // 边框
-        if isRecording {
+        switch state {
+        case .recording:
             NSColor.controlAccentColor.setStroke()
             bgPath.lineWidth = 2
-        } else {
+        default:
             NSColor.separatorColor.setStroke()
             bgPath.lineWidth = 1
         }
         bgPath.stroke()
 
-        // 文字
-        let text = isRecording ? (displayString.isEmpty ? "按下快捷键…" : displayString) : displayString
+        switch state {
+        case .unset:
+            drawText("未设置", color: .disabledControlTextColor, centered: true)
+        case .set:
+            let text = shortcutDisplayString(keyCode: displayKeyCode, modifiers: displayModifiers)
+            drawText(text, color: .secondaryLabelColor, centered: true)
+            drawClearButton()
+        case .recording:
+            drawText("录制中…", color: .tertiaryLabelColor, centered: true)
+        }
+    }
+
+    private func drawText(_ text: String, color: NSColor, centered: Bool) {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
-            .foregroundColor: displayString.isEmpty
-                ? NSColor.tertiaryLabelColor
-                : NSColor.labelColor
+            .foregroundColor: color
         ]
         let size = text.size(withAttributes: attrs)
+        let textRect: NSRect
+        if centered {
+            textRect = NSRect(
+                x: bounds.midX - size.width / 2,
+                y: bounds.midY - size.height / 2,
+                width: size.width,
+                height: size.height
+            )
+        } else {
+            textRect = NSRect(
+                x: 8,
+                y: bounds.midY - size.height / 2,
+                width: min(size.width, bounds.width - 32),
+                height: size.height
+            )
+        }
+        text.draw(in: textRect, withAttributes: attrs)
+    }
+
+    private func drawClearButton() {
+        let clearRect = NSRect(x: bounds.width - 28, y: 0, width: 28, height: bounds.height)
+        let cross = "✕" as NSString
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        let size = cross.size(withAttributes: attrs)
         let point = NSPoint(
-            x: bounds.midX - size.width / 2,
-            y: bounds.midY - size.height / 2
+            x: clearRect.midX - size.width / 2,
+            y: clearRect.midY - size.height / 2
         )
-        text.draw(at: point, withAttributes: attrs)
+        cross.draw(at: point, withAttributes: attrs)
     }
 }
 
 // MARK: - 快捷键显示字符串
 
 func shortcutDisplayString(keyCode: Int, modifiers: Int) -> String {
-    // 提取设备无关的修饰键标志
-    let flags = NSEvent.ModifierFlags(rawValue: UInt(modifiers))
-        .intersection(.deviceIndependentFlagsMask)
-
+    let mods = UInt32(modifiers)
     var parts: [String] = []
-    if flags.contains(.control) { parts.append("⌃") }
-    if flags.contains(.option)   { parts.append("⌥") }
-    if flags.contains(.shift)    { parts.append("⇧") }
-    if flags.contains(.command)  { parts.append("⌘") }
+    if mods & UInt32(controlKey) != 0 { parts.append("⌃") }
+    if mods & UInt32(optionKey)  != 0 { parts.append("⌥") }
+    if mods & UInt32(shiftKey)   != 0 { parts.append("⇧") }
+    if mods & UInt32(cmdKey)     != 0 { parts.append("⌘") }
 
-    // 按键名映射
     if let char = keyCodeToDisplayName(Int32(keyCode)) {
         parts.append(char)
     }
 
-    return parts.joined()
+    return parts.joined(separator: " ")   // 单空格分隔
 }
 
-/// 将 Carbon keyCode 映射为显示字符
+/// NSEvent.ModifierFlags → Carbon 修饰键位
+private func nseventModifiersToCarbon(_ flags: NSEvent.ModifierFlags) -> UInt32 {
+    var carbon: UInt32 = 0
+    if flags.contains(.command) { carbon |= UInt32(cmdKey) }
+    if flags.contains(.shift)   { carbon |= UInt32(shiftKey) }
+    if flags.contains(.option)  { carbon |= UInt32(optionKey) }
+    if flags.contains(.control) { carbon |= UInt32(controlKey) }
+    return carbon
+}
+
 private func keyCodeToDisplayName(_ code: Int32) -> String? {
     switch code {
-    // 字母
     case 0:  return "A"; case 1:  return "S"; case 2:  return "D"; case 3:  return "F"
     case 4:  return "H"; case 5:  return "G"; case 6:  return "Z"; case 7:  return "X"
     case 8:  return "C"; case 9:  return "V"; case 11: return "B"; case 12: return "Q"
@@ -205,27 +269,19 @@ private func keyCodeToDisplayName(_ code: Int32) -> String? {
     case 17: return "T"; case 31: return "O"; case 32: return "U"; case 34: return "I"
     case 35: return "P"; case 37: return "L"; case 38: return "J"; case 40: return "K"
     case 45: return "N"; case 46: return "M"
-
-    // 数字
     case 18: return "1"; case 19: return "2"; case 20: return "3"; case 21: return "4"
     case 23: return "5"; case 22: return "6"; case 26: return "7"; case 28: return "8"
     case 25: return "9"; case 29: return "0"
-
-    // 符号
     case 27: return "−"; case 24: return "="
     case 33: return "["; case 30: return "]"
     case 42: return "\\"; case 41: return ";"
     case 39: return "'"; case 43: return ","
     case 47: return "."; case 44: return "/"
     case 50: return "`"
-
-    // 功能键
     case 122: return "F1";  case 120: return "F2";  case 99:  return "F3"
     case 118: return "F4";  case 96:  return "F5";  case 97:  return "F6"
     case 98:  return "F7";  case 100: return "F8";  case 101: return "F9"
     case 109: return "F10"; case 103: return "F11"; case 111: return "F12"
-
-    // 特殊键
     case 36:  return "↩";      case 48:  return "⇥"
     case 49:  return "␣";      case 51:  return "⌫"
     case 117: return "⌦";      case 53:  return "⎋"
@@ -233,7 +289,6 @@ private func keyCodeToDisplayName(_ code: Int32) -> String? {
     case 116: return "⇞";      case 121: return "⇟"
     case 123: return "←";      case 124: return "→"
     case 125: return "↓";      case 126: return "↑"
-
     default: return nil
     }
 }

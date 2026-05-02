@@ -27,7 +27,6 @@ struct SettingsSceneView: View {
     @State private var showingClearConfirm = false
     @State private var accessibilityTrusted = false
     @State private var selectedTab: SettingsTab? = .general
-    @State private var isRecordingHotkey = false
 
     enum SettingsTab: String, CaseIterable, Identifiable {
         case general  = "通用"
@@ -162,15 +161,22 @@ struct SettingsSceneView: View {
                         HotkeyRecorderView(
                             keyCode: $hotkeyKeyCode,
                             modifiers: $hotkeyModifiers,
-                            isRecording: isRecordingHotkey,
-                            onStartRecording: { isRecordingHotkey = true },
-                            onCommit: { isRecordingHotkey = false },
-                            onCancel: { isRecordingHotkey = false }
+                            onChange: {
+                                GlobalHotkeyManager.shared.reregister()
+                            },
+                            onStartRecording: {
+                                GlobalHotkeyManager.shared.unregister()
+                            },
+                            onCancelRecording: {
+                                GlobalHotkeyManager.shared.reregister()
+                            }
                         )
                         .frame(width: 160, height: 28)
                     }
 
-                    Text("按下此快捷键可随时唤起 Pastry 面板")
+                    Text(hotkeyKeyCode >= 0
+                         ? "按下此快捷键可随时唤起 Pastry 面板"
+                         : "点击方框录制新快捷键")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
