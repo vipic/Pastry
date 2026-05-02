@@ -25,47 +25,91 @@ final class StoreManager: ObservableObject {
 
     @Published private(set) var items: [ClipboardItem] = []
     @Published private(set) var filteredItems: [ClipboardItem] = []
-    @Published var searchQuery = "" {
-        didSet {
-            performSearch()
-        }
+
+    /// 当前 pin tab
+    @Published var pinTab: PinTab = .all {
+        didSet { performSearch() }
     }
-    @Published var selectedFilter: FilterMode = .all
+
+    /// 关键词搜索
+    @Published var searchQuery = "" {
+        didSet { performSearch() }
+    }
+
+    /// 类型筛选（nil = 全部）
+    @Published var typeFilter: ClipType? = nil {
+        didSet { performSearch() }
+    }
+
+    /// 来源 App 筛选（nil = 全部）
+    @Published var appFilter: String? = nil {
+        didSet { performSearch() }
+    }
+
+    /// 时间筛选
+    @Published var timeFilter: TimeFilter = .any {
+        didSet { performSearch() }
+    }
+
+    /// 从当前数据中提取的去重 App 名称列表（供筛选 popover 使用）
+    @Published private(set) var availableApps: [String] = []
+
     @Published private(set) var stats = ClipboardStats(totalItems: 0, todayItems: 0,
                                                          favoriteCount: 0, storageSizeKB: 0)
 
     // MARK: 枚举
 
-    enum FilterMode: String, CaseIterable {
-        case all      = "所有"
-        case text     = "文本"
-        case image    = "图片"
-        case file     = "文件"
+    enum PinTab: String, CaseIterable {
+        case all    = "全部"
+        case pinned = "已钉选"
+    }
 
-        var clipTypes: [ClipType]? {
+    enum TimeFilter: String, CaseIterable {
+        case any        = "任何时间"
+        case today      = "今天"
+        case yesterday  = "昨天"
+        case thisWeek   = "本周"
+        case lastWeek   = "上周"
+        case last30Days = "过去 30 天"
+
+        var startDate: Date? {
+            let cal = Calendar.current
+            let now = Date()
             switch self {
-            case .all:      return nil
-            case .text:     return [.text, .rtf, .html]
-            case .image:    return [.image]
-            case .file:     return [.fileURL]
+            case .any:        return nil
+            case .today:      return cal.startOfDay(for: now)
+            case .yesterday:  return cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: now))
+            case .thisWeek:   return cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))
+            case .lastWeek:   return cal.date(byAdding: .weekOfYear, value: -1, to: cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!)
+            case .last30Days: return cal.date(byAdding: .day, value: -30, to: now)
             }
         }
     }
+
+    // MARK: 分类词 → 扩展名映射
+
+    /// 搜索词中的分类词自动扩展为文件扩展名和类型匹配
+    private static let categoryMappings: [String: [String]] = [
+        "安装包": ["dmg", "pkg"],
+        "图片":   ["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp"],
+        "文档":   ["pdf", "doc", "docx", "pages", "xls", "xlsx", "numbers", "ppt", "pptx", "key"],
+        "视频":   ["mp4", "mov", "mkv", "avi", "m4v"],
+        "音频":   ["mp3", "wav", "aac", "m4a", "flac"],
+        "压缩包": ["zip", "rar", "7z", "tar", "gz", "bz2"],
+        "代码":   ["swift", "py", "js", "ts", "go", "rs", "java", "c", "cpp"],
+    ]
 
     // MARK: 订阅
 
     private var cancellables = Set<AnyCancellable>()
 
     private init() {
-        // 从数据库加载最近记录
         loadRecent()
 
-        // 监听新剪贴板项
         ClipboardMonitor.shared.onNewItem = { [weak self] item in
             self?.handleNewItem(item)
         }
 
-        // 统计定时刷新
         Timer.publish(every: 30, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -83,7 +127,6 @@ final class StoreManager: ObservableObject {
     }
 
     func pasteItem(_ item: ClipboardItem) {
-        // 1. 将内容写入系统剪贴板
         let pb = NSPasteboard.general
         pb.clearContents()
 
@@ -101,19 +144,15 @@ final class StoreManager: ObservableObject {
             }
         }
 
-        // 2. 更新计数
         DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
 
-        // 3. 模拟 ⌘V 粘贴到当前应用
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             Self.simulatePaste()
         }
     }
 
-    /// 模拟 ⌘V 快捷键
     private static func simulatePaste() {
         let vKey = CGKeyCode(9)
-
         let source = CGEventSource(stateID: .privateState)
 
         guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
@@ -124,28 +163,58 @@ final class StoreManager: ObservableObject {
         cmdDown.flags = .maskCommand
         cmdUp.flags = .maskCommand
 
-        cmdDown.post(tap: .cgSessionEventTap)
-        cmdUp.post(tap: .cgSessionEventTap)
+        let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+        cmdDown.postToPid(pid)
+        cmdUp.postToPid(pid)
+    }
+
+    /// 切换 pin 状态
+    func togglePin(_ item: ClipboardItem) {
+        guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
+        DatabaseManager.shared.togglePin(id: item.id.uuidString)
+        items[idx].isPinned.toggle()
+        performSearch()
     }
 
     func deleteItem(_ item: ClipboardItem) {
         DatabaseManager.shared.delete(id: item.id.uuidString)
         items.removeAll { $0.id == item.id }
         performSearch()
+        refreshAvailableApps()
     }
 
+    /// 批量删除选中项 — pinned 跳过，仅在所有 items 清空时清系统剪贴板
+    func deleteSelected(_ ids: Set<UUID>) {
+        ClipboardMonitor.shared.suspend()
+        for id in ids {
+            if let item = items.first(where: { $0.id == id }), !item.isPinned {
+                DatabaseManager.shared.delete(id: id.uuidString)
+                items.removeAll { $0.id == id }
+            }
+        }
+
+        if items.isEmpty {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.declareTypes([.string], owner: nil)
+            pb.setString("", forType: .string)
+            ClipboardMonitor.shared.syncChangeCount()
+        }
+
+        ClipboardMonitor.shared.resume()
+        performSearch()
+        refreshAvailableApps()
+    }
+
+    /// 清空除 pinned 外的所有记录
     func clearHistory() {
         ClipboardMonitor.shared.suspend()
-        DatabaseManager.shared.clearNonFavorites()
+        clearNonPinnedWithClipboard()
         loadRecent()
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.declareTypes([.string], owner: nil)
-        pb.setString("", forType: .string)
-        ClipboardMonitor.shared.syncChangeCount()
         ClipboardMonitor.shared.resume()
     }
 
+    /// 清空全部（含 pinned）
     func clearAll() {
         ClipboardMonitor.shared.suspend()
         DatabaseManager.shared.clearAll()
@@ -160,6 +229,20 @@ final class StoreManager: ObservableObject {
         ClipboardMonitor.shared.resume()
     }
 
+    /// 是否有活跃的筛选条件
+    var hasActiveFilters: Bool {
+        searchQuery.isEmpty && typeFilter == nil && appFilter == nil && timeFilter == .any && pinTab == .all
+    }
+
+    /// 清除所有筛选条件
+    func clearFilters() {
+        searchQuery = ""
+        typeFilter = nil
+        appFilter = nil
+        timeFilter = .any
+        pinTab = .all
+    }
+
     func refresh() {
         loadRecent()
         refreshStats()
@@ -172,57 +255,113 @@ final class StoreManager: ObservableObject {
 
         items.insert(item, at: 0)
 
-        // 保持上限 500 条在内存中
         if items.count > 500 {
             items = Array(items.prefix(500))
         }
 
-        if searchQuery.isEmpty && selectedFilter == .all {
+        let noActiveFilters = searchQuery.isEmpty
+            && typeFilter == nil
+            && appFilter == nil
+            && timeFilter == .any
+            && pinTab == .all
+
+        if noActiveFilters {
             filteredItems = items
+        } else {
+            performSearch()
         }
 
-        // 🔔 播放复制提示音（如果用户开启了）
         if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
             Self.copySound?.play()
         }
 
         refreshStats()
+        refreshAvailableApps()
     }
 
     private func loadRecent() {
         items = DatabaseManager.shared.recent(limit: 500)
         performSearch()
+        refreshAvailableApps()
+    }
+
+    /// 分类词映射：将搜索词中的中文分类词替换为文件扩展名 OR 子句
+    private static func expandQuery(_ raw: String) -> String {
+        let terms = raw.split(separator: " ").map(String.init)
+        var expanded: [String] = []
+
+        for term in terms {
+            var found = false
+            for (keyword, extensions) in categoryMappings {
+                if term.contains(keyword) {
+                    // 保留原词 + 扩展名 OR 子句
+                    expanded.append(term)
+                    expanded.append("(" + extensions.joined(separator: " OR ") + ")")
+                    found = true
+                    break
+                }
+            }
+            if !found {
+                expanded.append(term)
+            }
+        }
+
+        return expanded.joined(separator: " ")
     }
 
     private func performSearch() {
         let query = searchQuery.trimmingCharacters(in: .whitespaces)
 
-        if query.isEmpty {
-            // 按筛选模式
-            switch selectedFilter {
-            case .all:
-                filteredItems = items
-            case .text:
-                filteredItems = items.filter { $0.contentType == .text || $0.contentType == .rtf || $0.contentType == .html }
-            case .image:
-                filteredItems = items.filter { $0.contentType == .image }
-            case .file:
-                filteredItems = items.filter { $0.contentType == .fileURL }
-            }
-        } else {
-            // 搜索 + 筛选
-            let dbResults = DatabaseManager.shared.search(query: query, limit: 100)
-            switch selectedFilter {
-            case .all:
-                filteredItems = dbResults
-            case .text:
-                filteredItems = dbResults.filter { $0.contentType == .text || $0.contentType == .rtf || $0.contentType == .html }
-            case .image:
-                filteredItems = dbResults.filter { $0.contentType == .image }
-            case .file:
-                filteredItems = dbResults.filter { $0.contentType == .fileURL }
+        // 确定基础数据源
+        var base = items
+        if pinTab == .pinned {
+            base = items.filter { $0.isPinned }
+        }
+
+        // 关键词搜索（含分类词扩展）
+        if !query.isEmpty {
+            let expanded = Self.expandQuery(query)
+            base = DatabaseManager.shared.search(query: expanded, limit: 200).filter { item in
+                // 如果当前在 pin tab，只保留 pinned 的
+                pinTab == .all || item.isPinned
             }
         }
+
+        // 类型筛选
+        if let type = typeFilter {
+            base = base.filter { $0.contentType == type }
+        }
+
+        // App 筛选
+        if let app = appFilter {
+            base = base.filter { $0.appName == app }
+        }
+
+        // 时间筛选
+        if let start = timeFilter.startDate {
+            base = base.filter { $0.timestamp >= start }
+        }
+
+        filteredItems = base
+    }
+
+    private func clearNonPinnedWithClipboard() {
+        DatabaseManager.shared.clearNonFavorites()
+        items = items.filter { $0.isPinned }
+        if items.isEmpty {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.declareTypes([.string], owner: nil)
+            pb.setString("", forType: .string)
+            ClipboardMonitor.shared.syncChangeCount()
+        }
+        performSearch()
+        refreshStats()
+    }
+
+    private func refreshAvailableApps() {
+        let apps = Set(items.compactMap { $0.appName }.filter { $0 != "Finder" && $0 != "loginwindow" })
+        availableApps = apps.sorted()
     }
 
     private func refreshStats() {

@@ -130,7 +130,7 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 3, (item.content as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 4, (item.contentType.rawValue as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 5, (item.appName as NSString?)?.utf8String ?? nil, -1, nil)
-        sqlite3_bind_int(stmt, 6, 0)  // is_favorite 已废弃
+        sqlite3_bind_int(stmt, 6, item.isPinned ? 1 : 0)  // is_pinned
         sqlite3_bind_int(stmt, 7, Int32(item.displayCount))
 
         let rc = sqlite3_step(stmt)
@@ -256,8 +256,9 @@ final class DatabaseManager {
         return results
     }
 
-    /// 切换收藏
-    func toggleFavorite(id: String) -> Bool {
+    /// 切换 pin 状态
+    @discardableResult
+    func togglePin(id: String) -> Bool {
         let sql = "UPDATE clips SET is_favorite = ~is_favorite WHERE id = ?;"
 
         var stmt: OpaquePointer?
@@ -358,7 +359,7 @@ final class DatabaseManager {
                 guard let ptr = sqlite3_column_text(stmt, 4) else { return nil }
                 return String(cString: ptr)
             }()
-            _ = sqlite3_column_int(stmt, 5)  // is_favorite 已废弃
+            let pinned = sqlite3_column_int(stmt, 5) != 0
             let dispCount = Int(sqlite3_column_int(stmt, 6))
 
             let item = ClipboardItem(
@@ -367,7 +368,8 @@ final class DatabaseManager {
                 content: content,
                 contentType: ClipType(rawValue: typeStr) ?? .text,
                 appName: appName,
-                displayCount: dispCount
+                displayCount: dispCount,
+                isPinned: pinned
             )
             items.append(item)
         }

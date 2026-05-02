@@ -61,10 +61,8 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
-# 🔑 对整个 .app bundle 重新 ad-hoc 签名
-codesign -s - --force --deep \
-    -r='designated => identifier "com.nekutai.pastry"' \
-    "$APP_DIR" 2>/dev/null || true
+# 确保没有残留的 bundle 级签名（会让 TCC 失效）
+rm -rf "$CONTENTS/../_CodeSignature" 2>/dev/null || true
 
 echo "🚀 Launching $APP_NAME..."
 open "$APP_DIR"
