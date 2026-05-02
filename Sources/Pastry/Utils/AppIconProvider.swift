@@ -44,6 +44,9 @@ final class AppIconProvider {
 
     private init() {}
 
+    /// 测试专用
+    init(forTesting: Void) {}
+
     // MARK: - 公开接口
 
     /// 获取应用图标（SF Symbol fallback）

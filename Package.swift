@@ -21,5 +21,10 @@ let package = Package(
             path: "Sources/Pastry",
             resources: []
         ),
+        .testTarget(
+            name: "PastryTests",
+            dependencies: ["Pastry"],
+            path: "Tests/PastryTests"
+        ),
     ]
 )
