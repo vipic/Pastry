@@ -11,13 +11,6 @@ struct SettingsSceneView: View {
     @AppStorage(UserDefaultsKeys.soundEnabled)
     private var soundEnabled = false
 
-    @AppStorage(UserDefaultsKeys.maxHistory)
-    private var maxHistory = Constants.defaultMaxHistory
-    @AppStorage(UserDefaultsKeys.cleanupMaxDays)
-    private var cleanupMaxDays = Constants.defaultMaxDays
-    @AppStorage(UserDefaultsKeys.cleanupMaxItems)
-    private var cleanupMaxItems = Constants.defaultMaxItems
-
     // 快捷键
     @AppStorage(UserDefaultsKeys.hotkeyKeyCode)
     private var hotkeyKeyCode = Int(GlobalHotkeyManager.defaultKeyCode)
@@ -31,7 +24,6 @@ struct SettingsSceneView: View {
     enum SettingsTab: String, CaseIterable, Identifiable {
         case general  = "通用"
         case shortcut = "快捷键"
-        case storage  = "存储"
 
         var id: String { rawValue }
 
@@ -39,7 +31,6 @@ struct SettingsSceneView: View {
             switch self {
             case .general:  return "gearshape"
             case .shortcut: return "command"
-            case .storage:  return "internaldrive"
             }
         }
     }
@@ -101,32 +92,7 @@ struct SettingsSceneView: View {
                     }
                     .padding(.vertical, 4)
                 }
-            }
-            .formStyle(.grouped)
-            .padding(20)
-
-        case .shortcut:
-            shortcutTab
-
-        case .storage:
-            Form {
-                Section("历史数量") {
-                    Stepper("最大历史: \(maxHistory) 条",
-                            value: $maxHistory, in: 100...2000, step: 100)
-                }
-                Section("自动清理") {
-                    Stepper("保留天数: \(cleanupMaxDays) 天",
-                            value: $cleanupMaxDays, in: 1...90, step: 1)
-                    Text("超过此天数的记录将被自动删除")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Stepper("绝对上限: \(cleanupMaxItems) 条",
-                            value: $cleanupMaxItems, in: 500...50000, step: 500)
-                    Text("超过此数量的最旧记录将被裁剪")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Section("数据管理") {
+                Section {
                     Button(role: .destructive) {
                         showingClearConfirm = true
                     } label: {
@@ -144,6 +110,9 @@ struct SettingsSceneView: View {
             }
             .formStyle(.grouped)
             .padding(20)
+
+        case .shortcut:
+            shortcutTab
         }
     }
 
