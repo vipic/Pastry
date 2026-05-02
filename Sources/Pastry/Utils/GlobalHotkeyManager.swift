@@ -17,15 +17,25 @@ final class GlobalHotkeyManager {
     static let defaultKeyCode: Int32 = 9       // kVK_ANSI_V
     static let defaultModifiers: UInt32 = UInt32(cmdKey) | UInt32(shiftKey)
 
-    /// 当前生效的快捷键 — 从 UserDefaults 读取，无保存值则用默认
+    /// keyCode = -1 表示快捷键已禁用
+    static let disabledSentinel: Int32 = -1
+
+    /// 当前生效的快捷键 — 从 UserDefaults 读取
     private var currentKeyCode: Int32 {
+        // object(forKey:) 区分「未设置」(nil) 与「设置为 0」(keyCode 0 是 A 键)
+        if UserDefaults.standard.object(forKey: UserDefaultsKeys.hotkeyKeyCode) == nil {
+            return Self.defaultKeyCode
+        }
         let raw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.hotkeyKeyCode)
-        return raw != 0 ? Int32(raw) : Self.defaultKeyCode
+        return Int32(raw)
     }
 
     private var currentModifiers: UInt32 {
+        if UserDefaults.standard.object(forKey: UserDefaultsKeys.hotkeyModifiers) == nil {
+            return Self.defaultModifiers
+        }
         let raw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.hotkeyModifiers)
-        return raw != 0 ? UInt32(raw) : Self.defaultModifiers
+        return UInt32(raw)
     }
 
     private init() {
@@ -48,6 +58,13 @@ final class GlobalHotkeyManager {
         guard hotKeyRef == nil else { return }
 
         let code = currentKeyCode
+
+        // 禁用状态 — 不注册任何热键
+        guard code >= 0 else {
+            log.info("全局快捷键未配置，跳过注册")
+            return
+        }
+
         let mods = currentModifiers
 
         // 1. 注册热键
