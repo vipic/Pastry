@@ -114,7 +114,6 @@ final class StoreManager: ObservableObject {
             .autoconnect()
             .sink { [weak self] _ in
                 self?.refreshStats()
-                self?.performCleanup()
             }
             .store(in: &cancellables)
     }
@@ -366,12 +365,5 @@ final class StoreManager: ObservableObject {
 
     private func refreshStats() {
         stats = DatabaseManager.shared.stats()
-    }
-
-    private func performCleanup() {
-        let days = UserDefaults.standard.integer(forKey: UserDefaultsKeys.cleanupMaxDays)
-        let maxItems = UserDefaults.standard.integer(forKey: UserDefaultsKeys.cleanupMaxItems)
-        guard days > 0, maxItems > 0 else { return }
-        DatabaseManager.shared.cleanup(maxDays: days, maxItems: maxItems)
     }
 }

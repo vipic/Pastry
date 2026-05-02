@@ -335,22 +335,6 @@ final class DatabaseManager {
         execute("DELETE FROM clips;")
     }
 
-    /// 按设置清理：删除 maxDays 天前的记录 + 裁剪超过 maxItems 的最旧记录
-    func cleanup(maxDays: Int, maxItems: Int) {
-        // 1. 删除过期记录
-        let delSQL = "DELETE FROM clips WHERE timestamp < strftime('%s', 'now', '-\(maxDays) days') * 1.0;"
-        execute(delSQL)
-
-        // 2. 裁剪超额
-        let trimSQL = """
-        DELETE FROM clips WHERE rowid IN (
-            SELECT rowid FROM clips ORDER BY timestamp ASC
-            LIMIT MAX(0, (SELECT COUNT(*) FROM clips) - \(maxItems))
-        );
-        """
-        execute(trimSQL)
-    }
-
     // MARK: - 统计
 
     func stats() -> ClipboardStats {

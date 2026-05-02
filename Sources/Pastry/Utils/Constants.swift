@@ -5,11 +5,6 @@ import SwiftUI
 
 enum Constants {
     static let appName = "Pastry"
-
-    // 默认配置值 — @AppStorage 的回退值也引用这些
-    static let defaultMaxHistory = 500
-    static let defaultMaxDays = 7
-    static let defaultMaxItems = 10000
 }
 
 // MARK: - SF Symbols 封装
@@ -36,11 +31,7 @@ enum AppIcons {
 
 enum UserDefaultsKeys {
     static let launchAtLogin = "launch_at_login"
-    static let maxHistory = "max_history"
-    static let pollInterval = "poll_interval"
     static let soundEnabled = "sound_enabled"
-    static let cleanupMaxDays = "cleanup_max_days"
-    static let cleanupMaxItems = "cleanup_max_items"
     static let hotkeyKeyCode = "hotkey_keycode"
     static let hotkeyModifiers = "hotkey_modifiers"
 }
