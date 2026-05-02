@@ -16,7 +16,11 @@ swift build -c release
 # Quit running instance (try both old and new bundle IDs)
 pkill -f "Pastry" 2>/dev/null || true
 pkill -f "ClipboardManager" 2>/dev/null || true
-sleep 0.5
+# 轮询等待进程完全退出（最多 5 秒）
+for i in $(seq 1 10); do
+    if ! pgrep -f "Pastry" > /dev/null 2>&1; then break; fi
+    sleep 0.5
+done
 
 # Create bundle structure once (preserves inode → TCC permissions stay)
 if [ ! -d "$MACOS_DIR" ]; then
@@ -25,6 +29,7 @@ if [ ! -d "$MACOS_DIR" ]; then
 fi
 
 # Replace binary in-place (never rm -rf the bundle!)
+test -f "$BUILD_DIR/Pastry" || { echo "❌ 构建产物不存在: $BUILD_DIR/Pastry"; exit 1; }
 cp "$BUILD_DIR/Pastry" "$MACOS_DIR/$APP_NAME"
 
 # Copy sound resource
@@ -62,7 +67,7 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
 PLIST
 
 # 确保没有残留的 bundle 级签名（会让 TCC 失效）
-rm -rf "$CONTENTS/../_CodeSignature" 2>/dev/null || true
+rm -rf "$APP_DIR/_CodeSignature" 2>/dev/null || true
 
 echo "🚀 Launching $APP_NAME..."
 open "$APP_DIR"

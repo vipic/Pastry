@@ -210,8 +210,8 @@ final class StoreManager: ObservableObject {
         refreshAvailableApps()
     }
 
-    /// 清空除 pinned 外的所有记录
-    func clearHistory() {
+    /// 清空除 pinned 外的所有记录（菜单栏使用）
+    func clearNonPinned() {
         ClipboardMonitor.shared.suspend()
         clearNonPinnedWithClipboard()
         loadRecent()

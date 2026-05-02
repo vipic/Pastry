@@ -4,22 +4,12 @@ import SwiftUI
 // MARK: - 应用常量
 
 enum Constants {
-    static let appName = "ClipboardManager"
-    static let appVersion = "1.0.0"
+    static let appName = "Pastry"
 
-    // 数据库
-    static let maxHistoryItems = 500
-    static let maxDaysToKeep = 7
-    static let displayLimit = 100
-
-    // 轮询
-    static let pollInterval: TimeInterval = 0.5
-
-    // UI
-    static let popupWidth: CGFloat = 360
-    static let popupHeight: CGFloat = 500
-    static let rowHeight: CGFloat = 44
-    static let maxPreviewChars = 150
+    // 默认配置值 — @AppStorage 的回退值也引用这些
+    static let defaultMaxHistory = 500
+    static let defaultMaxDays = 7
+    static let defaultMaxItems = 10000
 }
 
 // MARK: - SF Symbols 封装
