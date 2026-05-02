@@ -130,8 +130,13 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         StoreManager.shared.clearHistory()
     }
 
+    @MainActor
     @objc private func openSettingsAction() {
-        NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
+        OverlayPanelManager.shared.hide()
+        // 延迟一帧：等面板关闭和菜单退出 tracking mode 后再创建设置窗口
+        DispatchQueue.main.async {
+            AppDelegate.shared?.openSettingsWindow()
+        }
     }
 
     @MainActor
@@ -148,9 +153,4 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             refreshStats()
         }
     }
-}
-
-// MARK: - 通知
-extension Notification.Name {
-    static let openSettingsWindow = Notification.Name("openSettingsWindow")
 }
