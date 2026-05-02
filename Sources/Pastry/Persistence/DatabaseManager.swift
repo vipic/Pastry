@@ -30,6 +30,14 @@ final class DatabaseManager {
         runMigrations()
     }
 
+    /// 测试专用：使用临时数据库，不污染生产数据
+    init(dbPath: String) {
+        self.dbPath = dbPath
+        openDatabase()
+        createTables()
+        runMigrations()
+    }
+
     deinit {
         if let db = db {
             sqlite3_close(db)
@@ -271,7 +279,7 @@ final class DatabaseManager {
     /// 切换 pin 状态
     @discardableResult
     func togglePin(id: String) -> Bool {
-        let sql = "UPDATE clips SET is_favorite = ~is_favorite WHERE id = ?;"
+        let sql = "UPDATE clips SET is_favorite = CASE WHEN is_favorite THEN 0 ELSE 1 END WHERE id = ?;"
 
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -281,8 +289,9 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
 
         let rc = sqlite3_step(stmt)
+        let changed = sqlite3_changes(db)
         sqlite3_finalize(stmt)
-        return rc == SQLITE_DONE
+        return rc == SQLITE_DONE && changed > 0
     }
 
     /// 增加粘贴次数
@@ -321,8 +330,9 @@ final class DatabaseManager {
         }
         sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
         let rc = sqlite3_step(stmt)
+        let changed = sqlite3_changes(db)
         sqlite3_finalize(stmt)
-        return rc == SQLITE_DONE
+        return rc == SQLITE_DONE && changed > 0
     }
 
     /// 清空所有（保留 pinned）

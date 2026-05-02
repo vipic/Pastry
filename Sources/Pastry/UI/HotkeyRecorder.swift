@@ -251,7 +251,7 @@ func shortcutDisplayString(keyCode: Int, modifiers: Int) -> String {
 }
 
 /// NSEvent.ModifierFlags → Carbon 修饰键位
-private func nseventModifiersToCarbon(_ flags: NSEvent.ModifierFlags) -> UInt32 {
+func nseventModifiersToCarbon(_ flags: NSEvent.ModifierFlags) -> UInt32 {
     var carbon: UInt32 = 0
     if flags.contains(.command) { carbon |= UInt32(cmdKey) }
     if flags.contains(.shift)   { carbon |= UInt32(shiftKey) }
@@ -260,7 +260,7 @@ private func nseventModifiersToCarbon(_ flags: NSEvent.ModifierFlags) -> UInt32 
     return carbon
 }
 
-private func keyCodeToDisplayName(_ code: Int32) -> String? {
+func keyCodeToDisplayName(_ code: Int32) -> String? {
     switch code {
     case 0:  return "A"; case 1:  return "S"; case 2:  return "D"; case 3:  return "F"
     case 4:  return "H"; case 5:  return "G"; case 6:  return "Z"; case 7:  return "X"

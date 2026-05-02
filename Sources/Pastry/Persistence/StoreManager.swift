@@ -118,6 +118,13 @@ final class StoreManager: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// 测试专用：直接注入剪贴板数据，不经过数据库
+    init(items: [ClipboardItem]) {
+        self.items = items
+        performSearch()
+        refreshAvailableApps()
+    }
+
     // MARK: - 公开方法
 
     func start() {
@@ -285,7 +292,7 @@ final class StoreManager: ObservableObject {
     }
 
     /// 分类词映射：将搜索词中的中文分类词替换为文件扩展名 OR 子句
-    private static func expandQuery(_ raw: String) -> String {
+    static func expandQuery(_ raw: String) -> String {
         let terms = raw.split(separator: " ").map(String.init)
         var expanded: [String] = []
 
