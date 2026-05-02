@@ -56,9 +56,9 @@ final class OverlayPanelManager {
     func hideAndPaste(_ item: ClipboardItem) {
         guard panel != nil else { return }
 
-        removeKeyboardMonitor()
         panel?.orderOut(nil)
         panel = nil
+        removeKeyboardMonitor()
 
         let targetApp = previousFrontApp
         previousFrontApp = nil
@@ -192,10 +192,11 @@ final class OverlayPanelManager {
 
     /// 检查当前焦点是否在文本输入框内（搜索框等）
     private static func isTextInputFocused() -> Bool {
-        guard let responder = NSApp.keyWindow?.firstResponder as? NSView else { return false }
-        // NSTextView 及其子类（SwiftUI TextField 内部使用）
+        guard let responder = NSApp.keyWindow?.firstResponder else { return false }
+        // 限定为已知的文本编辑类，避免误判自定义 View
         if responder.isKind(of: NSTextView.self) { return true }
-        if responder.responds(to: NSSelectorFromString("insertText:")) { return true }
+        if responder.isKind(of: NSTextField.self) { return true }
+        if responder.isKind(of: NSSearchField.self) { return true }
         return false
     }
 
@@ -210,7 +211,10 @@ final class OverlayPanelManager {
 
     private static func simulatePaste() {
         let vKey = CGKeyCode(9)
-        let source = CGEventSource(stateID: .privateState)
+        guard let source = CGEventSource(stateID: .privateState) else {
+            Logger(subsystem: "com.nekutai.pastry", category: "paste").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
+            return
+        }
 
         guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
               let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false) else {

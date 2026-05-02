@@ -79,13 +79,24 @@ final class DatabaseManager {
         );
         """
 
-        // 自动清理触发器：每天清理7天前的历史
+        // 安全网触发器：超过 50000 条时强制裁剪（兜底，主清理由 StoreManager 定时执行）
         let cleanupTrigger = """
         CREATE TRIGGER IF NOT EXISTS trg_cleanup_old
         AFTER INSERT ON clips
         BEGIN
-            DELETE FROM clips WHERE timestamp < strftime('%s', 'now', '-7 days') * 1.0
-                AND (SELECT COUNT(*) FROM clips) > 500;
+            DELETE FROM clips WHERE rowid IN (
+                SELECT rowid FROM clips ORDER BY timestamp ASC
+                LIMIT MAX(0, (SELECT COUNT(*) FROM clips) - 50000)
+            );
+        END;
+        """
+
+        // 同步 FTS 删除
+        let ftsDeleteTrigger = """
+        CREATE TRIGGER IF NOT EXISTS trg_clips_fts_delete
+        AFTER DELETE ON clips
+        BEGIN
+            DELETE FROM clips_fts WHERE rowid = old.rowid;
         END;
         """
 
@@ -93,6 +104,7 @@ final class DatabaseManager {
         _ = execute(idxSQL)
         _ = execute(ftsSQL)
         _ = execute(cleanupTrigger)
+        _ = execute(ftsDeleteTrigger)
 
         log.info("数据库表初始化完成")
     }
@@ -173,10 +185,10 @@ final class DatabaseManager {
             return fallbackSearch(query: query, limit: limit)
         }
 
-        // FTS 查询字符串：支持前缀匹配
+        // FTS 查询字符串：双引号包裹防操作符注入 + 前缀匹配
         let ftsQuery = query
             .split(separator: " ")
-            .map { "\($0)*" }
+            .map { "\"\($0)\"*" }
             .joined(separator: " AND ")
 
         sqlite3_bind_text(stmt, 1, (ftsQuery as NSString).utf8String, -1, nil)
@@ -301,7 +313,16 @@ final class DatabaseManager {
     /// 删除单项
     @discardableResult
     func delete(id: String) -> Bool {
-        execute("DELETE FROM clips WHERE id = '\(id)';")
+        let sql = "DELETE FROM clips WHERE id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            log.error("DELETE prepare 失败: \(self.lastError)")
+            return false
+        }
+        sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        return rc == SQLITE_DONE
     }
 
     /// 清空所有（保留收藏）
@@ -312,6 +333,22 @@ final class DatabaseManager {
     /// 清空全部
     func clearAll() {
         execute("DELETE FROM clips;")
+    }
+
+    /// 按设置清理：删除 maxDays 天前的记录 + 裁剪超过 maxItems 的最旧记录
+    func cleanup(maxDays: Int, maxItems: Int) {
+        // 1. 删除过期记录
+        let delSQL = "DELETE FROM clips WHERE timestamp < strftime('%s', 'now', '-\(maxDays) days') * 1.0;"
+        execute(delSQL)
+
+        // 2. 裁剪超额
+        let trimSQL = """
+        DELETE FROM clips WHERE rowid IN (
+            SELECT rowid FROM clips ORDER BY timestamp ASC
+            LIMIT MAX(0, (SELECT COUNT(*) FROM clips) - \(maxItems))
+        );
+        """
+        execute(trimSQL)
     }
 
     // MARK: - 统计

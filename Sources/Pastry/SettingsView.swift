@@ -12,6 +12,10 @@ struct SettingsSceneView: View {
 
     @AppStorage(UserDefaultsKeys.maxHistory)
     private var maxHistory = 500
+    @AppStorage(UserDefaultsKeys.cleanupMaxDays)
+    private var cleanupMaxDays = 7
+    @AppStorage(UserDefaultsKeys.cleanupMaxItems)
+    private var cleanupMaxItems = 10000
 
     @State private var showingClearConfirm = false
     @State private var accessibilityTrusted = false
@@ -101,9 +105,21 @@ struct SettingsSceneView: View {
 
         case .storage:
             Form {
-                Section {
+                Section("历史数量") {
                     Stepper("最大历史: \(maxHistory) 条",
                             value: $maxHistory, in: 100...2000, step: 100)
+                }
+                Section("自动清理") {
+                    Stepper("保留天数: \(cleanupMaxDays) 天",
+                            value: $cleanupMaxDays, in: 1...90, step: 1)
+                    Text("超过此天数的记录将被自动删除")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Stepper("绝对上限: \(cleanupMaxItems) 条",
+                            value: $cleanupMaxItems, in: 500...50000, step: 500)
+                    Text("超过此数量的最旧记录将被裁剪")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .formStyle(.grouped)
