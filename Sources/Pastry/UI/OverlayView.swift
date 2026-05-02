@@ -15,7 +15,7 @@ struct OverlayView: View {
 
     @EnvironmentObject private var store: StoreManager
 
-    @State private var cardVisible: Bool? = nil
+    @State private var cardVisible = false
     @State private var selectedIds: Set<UUID> = []
     @State private var showDeleteConfirm = false
     @State private var showSearch = false
@@ -44,8 +44,8 @@ struct OverlayView: View {
                 cardContainer
                     .padding(.horizontal, 28)
                     .padding(.bottom, bottomInset)
-                    .offset(y: (cardVisible == true) ? 0 : 200)
-                    .opacity((cardVisible == true) ? 1 : 0)
+                    .offset(y: cardVisible ? 0 : 200)
+                    .opacity(cardVisible ? 1 : 0)
             }
             .animation(.easeInOut(duration: 0.2), value: showSearch)
         }
@@ -109,7 +109,7 @@ struct OverlayView: View {
     // MARK: - 退场
 
     private func dismiss() {
-        guard cardVisible == true else { return }
+        guard cardVisible else { return }
         showSearch = false
         showFilterPanel = false
         isSearchFocused = false
@@ -159,7 +159,7 @@ struct OverlayView: View {
                 .font(.system(size: 13))
                 .foregroundColor(.white)
                 .focused($isSearchFocused)
-                .frame(width: 576)
+                .frame(maxWidth: 400)
 
             if !store.searchQuery.isEmpty {
                 Button {
@@ -216,7 +216,7 @@ struct OverlayView: View {
 
             filterSection(title: "类型") {
                 HStack(spacing: 6) {
-                    ForEach(ClipType.allCases, id: \.rawValue) { type in
+                    ForEach(ClipType.allCases, id: \.storageKey) { type in
                         filterChip(type.label, isSelected: store.typeFilter == type) {
                             store.typeFilter = (store.typeFilter == type) ? nil : type
                         }
@@ -407,10 +407,7 @@ struct OverlayView: View {
 
     // MARK: - 卡片列表
 
-    private var isHorizontalLayout: Bool {
-        let screen = NSScreen.main?.frame ?? .zero
-        return screen.width > 1200
-    }
+    @State private var isHorizontalLayout = NSScreen.main?.frame.width ?? 0 > 1200
 
     @ViewBuilder
     private func cardList(_ items: [ClipboardItem]) -> some View {
