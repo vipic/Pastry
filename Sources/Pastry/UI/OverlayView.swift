@@ -19,7 +19,7 @@ struct OverlayView: View {
     @State private var showDeleteConfirm = false
 
     private let cardSpacing: CGFloat = 10
-    private let bottomInset: CGFloat = 40
+    private let bottomInset: CGFloat = 20
     private let animationDuration = 0.20
 
     var body: some View {
@@ -116,10 +116,10 @@ struct OverlayView: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 16)
         .background(
-            GlassBackground(style: .regular, cornerRadius: 14)
+            GlassBackground(style: .regular, cornerRadius: 20)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
         )
     }
