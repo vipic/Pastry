@@ -123,7 +123,7 @@ struct OverlayView: View {
                 } label: {
                     Image(systemName: "gearshape")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white.opacity(0.35))
+                        .foregroundColor(.white.opacity(0.55))
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
@@ -132,18 +132,21 @@ struct OverlayView: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
 
-            // 卡片列表 / 空状态
-            if displayItems.isEmpty {
-                emptyHint
-            } else {
-                cardList(displayItems)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            // 卡片列表 / 空状态 — 统一最小高度防止托盘抖动
+            Group {
+                if displayItems.isEmpty {
+                    emptyHint
+                } else {
+                    cardList(displayItems)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
             }
+            .frame(minHeight: 208)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
         .background(
-            GlassBackground(style: .regular, cornerRadius: 20)
+            GlassBackground(cornerRadius: 20)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -207,11 +210,11 @@ struct OverlayView: View {
         VStack(spacing: 14) {
             Image(systemName: "clipboard")
                 .font(.system(size: 32))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.white.opacity(0.6))
             Text("还没有剪贴板历史")
                 .font(.body)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.white.opacity(0.65))
         }
-        .frame(maxWidth: .infinity, minHeight: 200)
+        .frame(maxWidth: .infinity, minHeight: 208)
     }
 }
