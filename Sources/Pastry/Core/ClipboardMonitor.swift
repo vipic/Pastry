@@ -20,15 +20,10 @@ final class ClipboardMonitor: ObservableObject {
     private var lastChangeCount = NSPasteboard.general.changeCount
     private var timer: Timer?
     private let pollInterval: TimeInterval = 0.5
-    private let sensitiveThreshold = 4
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
 
     // 防止同一内容重复触发
     private var lastDedupKey = ""
-
-    /// 暂停/恢复监听
-    private var suspendCount = 0
-    var isSuspended: Bool { suspendCount > 0 }
 
     // MARK: - 来源识别：用户主动切换 App = 上下文
     /// 最近 10 秒内用户主动切换到的 App（didActivateApplicationNotification）。
@@ -40,11 +35,17 @@ final class ClipboardMonitor: ObservableObject {
     /// 上一轮轮询时的前台 App — 捕获截图软件等不激活自身的工具
     private var previousFrontApp: String?
 
+    /// 暂停/恢复监听（仅主线程调用）
+    private var suspendCount = 0
+    var isSuspended: Bool { suspendCount > 0 }
+
     func suspend() {
+        assert(Thread.isMainThread, "suspend() 必须在主线程调用")
         suspendCount += 1
     }
 
     func resume() {
+        assert(Thread.isMainThread, "resume() 必须在主线程调用")
         guard suspendCount > 0 else { return }
         suspendCount -= 1
         if suspendCount == 0 {
@@ -128,7 +129,7 @@ final class ClipboardMonitor: ObservableObject {
         let capturedApp = bestGuessAppName(currentFront: currentFront)
         previousFrontApp = currentFront
 
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             [weak self] in
             self?.processChange(capturedApp: capturedApp)
         }
@@ -164,19 +165,13 @@ final class ClipboardMonitor: ObservableObject {
 
         guard let types = pb.types, !types.isEmpty else { return }
 
-        if let item = readImage(from: pb, appName: capturedApp)
-            ?? readFileURLs(from: pb, appName: capturedApp)
-            ?? readHTML(from: pb, appName: capturedApp)
-            ?? readRTF(from: pb, appName: capturedApp)
-            ?? readText(from: pb, appName: capturedApp) {
+            if let item = readImage(from: pb, appName: capturedApp)
+                ?? readFileURLs(from: pb, appName: capturedApp)
+                ?? readHTML(from: pb, appName: capturedApp)
+                ?? readRTF(from: pb, appName: capturedApp)
+                ?? readText(from: pb, appName: capturedApp) {
 
-            if isSensitive(item) {
-                log.notice("跳过敏感内容: \(item.content.prefix(20))")
                 lastDedupKey = dedup
-                return
-            }
-
-            lastDedupKey = dedup
 
             DispatchQueue.main.async {
                 self.latestItem = item
@@ -240,14 +235,9 @@ final class ClipboardMonitor: ObservableObject {
         let pb = NSPasteboard.general
         let change = pb.changeCount
         let types = pb.types?.map(\.rawValue).joined() ?? ""
-        return "\(change):\(types)"
-    }
-
-    private func isSensitive(_ item: ClipboardItem) -> Bool {
-        guard item.contentType == .text else { return false }
-        let trimmed = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count < sensitiveThreshold else { return false }
-        return trimmed.allSatisfy { $0.isNumber }
+        // 加入内容摘要，防止同格式连续复制去重失效
+        let snapshot = pb.string(forType: pb.types?.first ?? .string)?.prefix(100) ?? ""
+        return "\(change):\(types):\(snapshot)"
     }
 }
 
@@ -274,7 +264,7 @@ final class ImageCacheManager {
         guard let thumbData = thumb.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: thumbData),
               let pngData = bitmap.representation(using: .png, properties: [:])
-        else { return fileURL.path }
+        else { return nil }
         do {
             try pngData.write(to: fileURL)
             return fileURL.path

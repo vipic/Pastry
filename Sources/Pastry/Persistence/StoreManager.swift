@@ -114,6 +114,7 @@ final class StoreManager: ObservableObject {
             .autoconnect()
             .sink { [weak self] _ in
                 self?.refreshStats()
+                self?.performCleanup()
             }
             .store(in: &cancellables)
     }
@@ -153,7 +154,10 @@ final class StoreManager: ObservableObject {
 
     private static func simulatePaste() {
         let vKey = CGKeyCode(9)
-        let source = CGEventSource(stateID: .privateState)
+        guard let source = CGEventSource(stateID: .privateState) else {
+            Logger(subsystem: "com.nekutai.pastry", category: "store").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
+            return
+        }
 
         guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
               let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false) else {
@@ -366,5 +370,12 @@ final class StoreManager: ObservableObject {
 
     private func refreshStats() {
         stats = DatabaseManager.shared.stats()
+    }
+
+    private func performCleanup() {
+        let days = UserDefaults.standard.integer(forKey: UserDefaultsKeys.cleanupMaxDays)
+        let maxItems = UserDefaults.standard.integer(forKey: UserDefaultsKeys.cleanupMaxItems)
+        guard days > 0, maxItems > 0 else { return }
+        DatabaseManager.shared.cleanup(maxDays: days, maxItems: maxItems)
     }
 }

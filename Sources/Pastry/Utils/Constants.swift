@@ -15,9 +15,6 @@ enum Constants {
     // 轮询
     static let pollInterval: TimeInterval = 0.5
 
-    // 安全
-    static let sensitiveCharThreshold = 4
-
     // UI
     static let popupWidth: CGFloat = 360
     static let popupHeight: CGFloat = 500
@@ -52,6 +49,8 @@ enum UserDefaultsKeys {
     static let maxHistory = "max_history"
     static let pollInterval = "poll_interval"
     static let soundEnabled = "sound_enabled"
+    static let cleanupMaxDays = "cleanup_max_days"
+    static let cleanupMaxItems = "cleanup_max_items"
 }
 
 // MARK: - 颜色
