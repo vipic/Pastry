@@ -110,7 +110,7 @@ final class OverlayPanelManager {
 
         previousFrontApp = NSWorkspace.shared.frontmostApplication
 
-        let screenFrame = screen.frame
+        let screenFrame = screen.visibleFrame  // 不含菜单栏，保留菜单栏交互
 
         let newPanel = ClipboardOverlayPanel(
             contentRect: screenFrame,
