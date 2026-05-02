@@ -95,7 +95,6 @@ struct ClipboardCardView: View {
         .background(Color(nsColor: NSColor.windowBackgroundColor))
         .compositingGroup()  // 拍平所有子图层，消除圆角裁边白线
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color.white.opacity(0.08), lineWidth: 0.5)

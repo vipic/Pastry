@@ -17,6 +17,10 @@ struct GlassBackground: NSViewRepresentable {
         let glass = NSGlassEffectView()
         glass.style = style
         glass.cornerRadius = cornerRadius
+        // 消除 NSGlassEffectView 自带的阴影
+        glass.wantsLayer = true
+        glass.layer?.shadowOpacity = 0
+        glass.layer?.masksToBounds = true
         // 透明内容视图 — 玻璃材质本身可见，穿透到桌面
         let clear = NSView()
         clear.wantsLayer = true
