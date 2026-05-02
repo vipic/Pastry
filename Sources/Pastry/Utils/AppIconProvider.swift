@@ -6,7 +6,7 @@ import OSLog
 final class AppIconProvider {
 
     static let shared = AppIconProvider()
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "appicon")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "appicon")
 
     // 常用应用固定颜色映射（美观、稳定）
     private static let appColorMap: [String: NSColor] = [

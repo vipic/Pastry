@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh_CN</string>
 	<key>CFBundleExecutable</key>
-	<string>ClipboardManager</string>
+	<string>Pastry</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.yourcompany.ClipboardManager</string>
+	<string>com.nekutai.pastry</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ClipboardManager</string>
+	<string>Pastry</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>13.0</string>
+	<string>26.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>LSUIElement</key>

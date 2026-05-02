@@ -66,7 +66,7 @@ private class SettingsWindowDelegate: NSObject, NSWindowDelegate {
 
 // MARK: - 应用入口
 @main
-struct ClipboardManagerApp: App {
+struct PastryApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self)
     private var appDelegate
@@ -76,7 +76,7 @@ struct ClipboardManagerApp: App {
     @AppStorage(UserDefaultsKeys.launchAtLogin)
     private var launchAtLogin = false
 
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "app")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "app")
 
     init() {
         let isRegistered = SMAppService.mainApp.status == .enabled

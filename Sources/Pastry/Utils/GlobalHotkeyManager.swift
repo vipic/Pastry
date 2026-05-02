@@ -8,7 +8,7 @@ import OSLog
 final class GlobalHotkeyManager {
 
     static let shared = GlobalHotkeyManager()
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "hotkey")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "hotkey")
 
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?

@@ -7,7 +7,7 @@ import OSLog
 final class DatabaseManager {
 
     static let shared = DatabaseManager()
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "database")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "database")
 
     private var db: OpaquePointer?
     private let dbPath: String

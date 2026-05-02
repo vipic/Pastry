@@ -99,7 +99,7 @@ struct OverlayView: View {
         selectedIds = []
     }
 
-    // MARK: - 卡片容器（浅色圆角背景）
+    // MARK: - 卡片容器（Liquid Glass）
 
     @ViewBuilder
     private var cardContainer: some View {
@@ -116,12 +116,11 @@ struct OverlayView: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 16)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.18))
+            GlassBackground(style: .regular, cornerRadius: 14)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
         )
     }
 
