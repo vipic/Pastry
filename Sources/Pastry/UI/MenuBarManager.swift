@@ -6,7 +6,7 @@ import OSLog
 final class MenuBarManager: NSObject, NSMenuDelegate {
 
     static let shared = MenuBarManager()
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "menubar")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "menubar")
 
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!

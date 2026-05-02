@@ -25,7 +25,7 @@ if [ ! -d "$MACOS_DIR" ]; then
 fi
 
 # Replace binary in-place (never rm -rf the bundle!)
-cp "$BUILD_DIR/ClipboardManager" "$MACOS_DIR/$APP_NAME"
+cp "$BUILD_DIR/Pastry" "$MACOS_DIR/$APP_NAME"
 
 # Copy sound resource
 cp "$PROJECT_DIR/Copy.aiff" "$CONTENTS/Resources/Copy.aiff"

@@ -12,7 +12,7 @@ final class ClipboardOverlayPanel: NSPanel {
 final class OverlayPanelManager {
 
     static let shared = OverlayPanelManager()
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "overlay")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "overlay")
 
     private var panel: ClipboardOverlayPanel?
     private var keyboardMonitor: Any?

@@ -12,14 +12,14 @@ final class StoreManager: ObservableObject {
     /// 自定义复制提示音
     private static let copySound: NSSound? = {
         guard let path = Bundle.main.path(forResource: "Copy", ofType: "aiff") else {
-            Logger(subsystem: "com.clipboardmanager", category: "store").warning("找不到 Copy.aiff")
+            Logger(subsystem: "com.nekutai.pastry", category: "store").warning("找不到 Copy.aiff")
             return nil
         }
         return NSSound(contentsOfFile: path, byReference: true)
     }()
 
     static let shared = StoreManager()
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "store")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "store")
 
     // MARK: Published
 

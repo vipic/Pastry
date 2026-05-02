@@ -3,22 +3,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClipboardManager",
+    name: "Pastry",
     platforms: [
-        .macOS("14.0")
+        .macOS("26.0")
     ],
     products: [
         .executable(
-            name: "ClipboardManager",
-            targets: ["ClipboardManager"]
+            name: "Pastry",
+            targets: ["Pastry"]
         ),
     ],
     dependencies: [],
     targets: [
         .executableTarget(
-            name: "ClipboardManager",
+            name: "Pastry",
             dependencies: [],
-            path: "Sources/ClipboardManager",
+            path: "Sources/Pastry",
             resources: []
         ),
     ]

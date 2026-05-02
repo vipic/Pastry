@@ -21,7 +21,7 @@ final class ClipboardMonitor: ObservableObject {
     private var timer: Timer?
     private let pollInterval: TimeInterval = 0.5
     private let sensitiveThreshold = 4
-    private let log = Logger(subsystem: "com.clipboardmanager", category: "monitor")
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
 
     // 防止同一内容重复触发
     private var lastDedupKey = ""
