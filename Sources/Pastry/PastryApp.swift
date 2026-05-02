@@ -5,17 +5,19 @@ import ServiceManagement
 // MARK: - 应用委托
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
+    /// 静态引用 — 避免依赖 NSApp.delegate 的时机不确定性
+    static private(set) weak var shared: AppDelegate?
+
     private var settingsWindow: NSWindow?
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NotificationCenter.default.addObserver(
-            forName: .openSettingsWindow, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.openSettingsWindow()
-        }
+    override init() {
+        super.init()
+        AppDelegate.shared = self
     }
 
+    @MainActor
     func openSettingsWindow() {
+        // 先关闭面板，否则面板层级高于设置窗口会遮挡
         if let existing = settingsWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)

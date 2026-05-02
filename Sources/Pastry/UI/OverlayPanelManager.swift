@@ -122,7 +122,7 @@ final class OverlayPanelManager {
         newPanel.isOpaque = false
         newPanel.backgroundColor = .clear
         newPanel.hasShadow = false
-        newPanel.level = .screenSaver
+        newPanel.level = .popUpMenu
         newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         newPanel.isReleasedWhenClosed = false
         newPanel.ignoresMouseEvents = false

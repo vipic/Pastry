@@ -81,6 +81,15 @@ struct OverlayView: View {
         }
     }
 
+    // MARK: - 设置（面板内齿轮按钮）
+
+    private func openSettingsFromOverlay() {
+        OverlayPanelManager.shared.hide()
+        DispatchQueue.main.async {
+            AppDelegate.shared?.openSettingsWindow()
+        }
+    }
+
     // MARK: - 批量删除
 
     private func deleteSelected() {
@@ -105,16 +114,34 @@ struct OverlayView: View {
     private var cardContainer: some View {
         let displayItems = store.items
 
-        Group {
+        VStack(spacing: 0) {
+            // 标题栏区域 — 右上角齿轮
+            HStack {
+                Spacer()
+                Button {
+                    openSettingsFromOverlay()
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.white.opacity(0.35))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+
+            // 卡片列表 / 空状态
             if displayItems.isEmpty {
                 emptyHint
             } else {
                 cardList(displayItems)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
         .padding(.horizontal, 16)
+        .padding(.bottom, 16)
         .background(
             GlassBackground(style: .regular, cornerRadius: 20)
         )
@@ -147,6 +174,7 @@ struct OverlayView: View {
                         .id(item.id)
                     }
                 }
+                .padding(.horizontal, 8)
                 .padding(.vertical, 4)
             }
             .animation(nil, value: items.count)
@@ -165,6 +193,7 @@ struct OverlayView: View {
                         .id(item.id)
                     }
                 }
+                .padding(.horizontal, 8)
                 .padding(.vertical, 4)
             }
             .frame(maxWidth: 520)
