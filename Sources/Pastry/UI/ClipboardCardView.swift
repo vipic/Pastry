@@ -47,10 +47,17 @@ final class LinkPreviewLoader {
             let t = html[s.upperBound..<e.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
             if !t.isEmpty { return t }
         }
-        if let s = html.range(of: "og:title\" content=\"") ?? html.range(of: "og:title' content='"),
-           let e = html.range(of: "\"", range: s.upperBound..<html.endIndex) ??
-                    html.range(of: "'", range: s.upperBound..<html.endIndex) {
-            return String(html[s.upperBound..<e.lowerBound])
+        for pattern in [
+            "og:title\" content=\"",
+            "og:title' content='",
+            "property=\"og:title\" content=\"",
+            "property='og:title' content='",
+        ] {
+            if let s = html.range(of: pattern, options: .caseInsensitive),
+               let e = html.range(of: "\"", range: s.upperBound..<html.endIndex) ??
+                        html.range(of: "'", range: s.upperBound..<html.endIndex) {
+                return String(html[s.upperBound..<e.lowerBound])
+            }
         }
         return nil
     }
@@ -71,6 +78,7 @@ struct ClipboardCardView: View {
 
     @State private var linkPreview: LinkPreviewLoader.Preview?
     @State private var linkPreviewLoaded = false
+    @State private var linkPreviewTask: Task<Void, Never>?
 
     private static let cardSize: CGFloat = 200
     private static let headerHeight: CGFloat = 40
@@ -283,15 +291,22 @@ struct ClipboardCardView: View {
     private var detectedLink: URL? {
         let trimmed = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
         if let url = URL(string: trimmed), let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return url }
-        if let d = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue),
+        if let d = Self.linkDetector,
            let m = d.firstMatch(in: item.content, range: NSRange(item.content.startIndex..., in: item.content)),
            let url = m.url, let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return url }
         return nil
     }
 
+    private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
     private func fetchLinkPreviewIfNeeded() {
         guard let url = detectedLink else { return }
-        LinkPreviewLoader.shared.load(url: url) { self.linkPreview = $0; self.linkPreviewLoaded = true }
+        linkPreviewTask?.cancel()
+        linkPreviewTask = Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            LinkPreviewLoader.shared.load(url: url) { self.linkPreview = $0; self.linkPreviewLoaded = true }
+        }
     }
 
     // MARK: - 辅助

@@ -17,24 +17,29 @@ struct SettingsSceneView: View {
     @AppStorage(UserDefaultsKeys.cleanupMaxItems)
     private var cleanupMaxItems = 10000
 
+    // 快捷键
+    @AppStorage(UserDefaultsKeys.hotkeyKeyCode)
+    private var hotkeyKeyCode = Int(GlobalHotkeyManager.defaultKeyCode)
+    @AppStorage(UserDefaultsKeys.hotkeyModifiers)
+    private var hotkeyModifiers = Int(GlobalHotkeyManager.defaultModifiers)
+
     @State private var showingClearConfirm = false
     @State private var accessibilityTrusted = false
     @State private var selectedTab: SettingsTab? = .general
+    @State private var isRecordingHotkey = false
 
     enum SettingsTab: String, CaseIterable, Identifiable {
-        case general    = "通用"
-        case permission = "权限"
-        case storage    = "存储"
-        case manage     = "管理"
+        case general  = "通用"
+        case shortcut = "快捷键"
+        case storage  = "存储"
 
         var id: String { rawValue }
 
         var icon: String {
             switch self {
-            case .general:    return "gearshape"
-            case .permission: return "hand.raised.fill"
-            case .storage:    return "internaldrive"
-            case .manage:     return "trash"
+            case .general:  return "gearshape"
+            case .shortcut: return "command"
+            case .storage:  return "internaldrive"
             }
         }
     }
@@ -51,7 +56,7 @@ struct SettingsSceneView: View {
             }
         }
         .toolbar(removing: .sidebarToggle)
-        .frame(width: 580, height: 400)
+        .frame(width: 580, height: 420)
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
@@ -69,19 +74,13 @@ struct SettingsSceneView: View {
                     Toggle("开机启动", isOn: $launchAtLogin)
                     Toggle("复制提示音", isOn: $soundEnabled)
                 }
-            }
-            .formStyle(.grouped)
-            .padding(20)
-
-        case .permission:
-            Form {
-                Section {
+                Section("辅助功能权限") {
                     HStack {
                         Image(systemName: accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
                             .foregroundColor(accessibilityTrusted ? .green : .orange)
                             .font(.title3)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(accessibilityTrusted ? "辅助功能权限：已授权" : "辅助功能权限：未授权")
+                            Text(accessibilityTrusted ? "已授权" : "未授权")
                                 .font(.body)
                             Text(accessibilityTrusted
                                  ? "模拟 ⌘V 粘贴功能可用"
@@ -103,6 +102,9 @@ struct SettingsSceneView: View {
             .formStyle(.grouped)
             .padding(20)
 
+        case .shortcut:
+            shortcutTab
+
         case .storage:
             Form {
                 Section("历史数量") {
@@ -121,13 +123,7 @@ struct SettingsSceneView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            }
-            .formStyle(.grouped)
-            .padding(20)
-
-        case .manage:
-            Form {
-                Section {
+                Section("数据管理") {
                     Button(role: .destructive) {
                         showingClearConfirm = true
                     } label: {
@@ -146,6 +142,52 @@ struct SettingsSceneView: View {
             .formStyle(.grouped)
             .padding(20)
         }
+    }
+
+    // MARK: - 快捷键 Tab
+
+    private var shortcutTab: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("唤醒快捷键")
+                            .font(.body)
+                        Spacer()
+
+                        HotkeyRecorderView(
+                            keyCode: $hotkeyKeyCode,
+                            modifiers: $hotkeyModifiers,
+                            isRecording: isRecordingHotkey,
+                            onStartRecording: { isRecordingHotkey = true },
+                            onCommit: { isRecordingHotkey = false },
+                            onCancel: { isRecordingHotkey = false }
+                        )
+                        .frame(width: 160, height: 28)
+                    }
+
+                    Text("按下此快捷键可随时唤起 Pastry 面板")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Divider()
+
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                        Text("修改后立即生效，无需重启")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("全局快捷键")
+            }
+        }
+        .formStyle(.grouped)
+        .padding(20)
     }
 
     private func refreshAccessibilityStatus() {

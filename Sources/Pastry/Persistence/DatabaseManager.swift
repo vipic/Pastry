@@ -140,7 +140,7 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 1, (item.id.uuidString as NSString).utf8String, -1, nil)
         sqlite3_bind_double(stmt, 2, item.timestamp.timeIntervalSince1970)
         sqlite3_bind_text(stmt, 3, (item.content as NSString).utf8String, -1, nil)
-        sqlite3_bind_text(stmt, 4, (item.contentType.rawValue as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 4, (item.contentType.storageKey as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 5, (item.appName as NSString?)?.utf8String ?? nil, -1, nil)
         sqlite3_bind_int(stmt, 6, item.isPinned ? 1 : 0)  // is_pinned
         sqlite3_bind_int(stmt, 7, Int32(item.displayCount))
@@ -325,8 +325,8 @@ final class DatabaseManager {
         return rc == SQLITE_DONE
     }
 
-    /// 清空所有（保留收藏）
-    func clearNonFavorites() {
+    /// 清空所有（保留 pinned）
+    func clearNonPinned() {
         execute("DELETE FROM clips WHERE is_favorite = 0;")
     }
 
@@ -403,7 +403,7 @@ final class DatabaseManager {
                 id: UUID(uuidString: idStr) ?? UUID(),
                 timestamp: Date(timeIntervalSince1970: timestamp),
                 content: content,
-                contentType: ClipType(rawValue: typeStr) ?? .text,
+                contentType: ClipType(storageKey: typeStr),
                 appName: appName,
                 displayCount: dispCount,
                 isPinned: pinned

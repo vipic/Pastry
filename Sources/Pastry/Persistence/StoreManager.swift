@@ -235,7 +235,7 @@ final class StoreManager: ObservableObject {
 
     /// 是否有活跃的筛选条件
     var hasActiveFilters: Bool {
-        searchQuery.isEmpty && typeFilter == nil && appFilter == nil && timeFilter == .any && pinTab == .all
+        !(searchQuery.isEmpty && typeFilter == nil && appFilter == nil && timeFilter == .any && pinTab == .all)
     }
 
     /// 清除所有筛选条件
@@ -258,10 +258,6 @@ final class StoreManager: ObservableObject {
         guard DatabaseManager.shared.insert(item) else { return }
 
         items.insert(item, at: 0)
-
-        if items.count > 500 {
-            items = Array(items.prefix(500))
-        }
 
         let noActiveFilters = searchQuery.isEmpty
             && typeFilter == nil
@@ -297,7 +293,7 @@ final class StoreManager: ObservableObject {
         for term in terms {
             var found = false
             for (keyword, extensions) in categoryMappings {
-                if term.contains(keyword) {
+                if term == keyword {
                     // 保留原词 + 扩展名 OR 子句
                     expanded.append(term)
                     expanded.append("(" + extensions.joined(separator: " OR ") + ")")
@@ -350,7 +346,7 @@ final class StoreManager: ObservableObject {
     }
 
     private func clearNonPinnedWithClipboard() {
-        DatabaseManager.shared.clearNonFavorites()
+        DatabaseManager.shared.clearNonPinned()
         items = items.filter { $0.isPinned }
         if items.isEmpty {
             let pb = NSPasteboard.general

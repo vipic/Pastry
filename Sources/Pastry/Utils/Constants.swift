@@ -51,6 +51,8 @@ enum UserDefaultsKeys {
     static let soundEnabled = "sound_enabled"
     static let cleanupMaxDays = "cleanup_max_days"
     static let cleanupMaxItems = "cleanup_max_items"
+    static let hotkeyKeyCode = "hotkey_keycode"
+    static let hotkeyModifiers = "hotkey_modifiers"
 }
 
 // MARK: - 颜色
