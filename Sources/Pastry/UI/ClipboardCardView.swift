@@ -62,6 +62,7 @@ struct ClipboardCardView: View {
     let item: ClipboardItem
     let isSelected: Bool
     let onTap: (ClipboardItem) -> Void
+    let onPin: (ClipboardItem) -> Void
 
     @State private var appIcon: NSImage?
     @State private var themeColor: Color = .accentColor
@@ -72,7 +73,8 @@ struct ClipboardCardView: View {
     @State private var linkPreviewLoaded = false
 
     private static let cardSize: CGFloat = 200
-    private static let headerHeight: CGFloat = 32
+    private static let headerHeight: CGFloat = 40
+    private static let appIconSize: CGFloat = 60
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -119,7 +121,8 @@ struct ClipboardCardView: View {
             RightClickInterceptor(
                 onWillShow: { isContextHighlighted = true },
                 onDidDismiss: { isContextHighlighted = false },
-                onDelete: { StoreManager.shared.deleteItem(item) }
+                onDelete: { StoreManager.shared.deleteItem(item) },
+                onPin: { onPin(item) }
             )
         )
         .onAppear {
@@ -142,32 +145,33 @@ struct ClipboardCardView: View {
                 .padding(.leading, 10)
 
             Spacer()
-
-            appIconView
-                .frame(width: 20, height: 20)
-                .padding(.trailing, 8)
         }
         .frame(height: Self.headerHeight)
         .background(themeColor)
+        .clipped()
+        .overlay(alignment: .topTrailing) {
+            appIconOverlay
+        }
     }
 
+    /// 应用图标 — 60×60，标题栏内垂直居中，右移 50% 让一半溢出卡片被裁切
     @ViewBuilder
-    private var appIconView: some View {
+    private var appIconOverlay: some View {
         Group {
             if let icon = appIcon {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 3))
-                    .transition(.opacity)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 3)
             } else {
-                Image(systemName: item.contentType.iconName)
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.7))
-                    .transition(.opacity)
+                Color.clear
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: appIcon != nil)
+        .frame(width: Self.appIconSize, height: Self.appIconSize)
+        // 垂直居中于标题栏再上移一点
+        .offset(x: 12, y: (Self.headerHeight - Self.appIconSize) / 2 - 2)
+        .animation(.easeInOut(duration: 0.25), value: appIcon != nil)
     }
 
     // MARK: - 内容区
@@ -321,6 +325,7 @@ private struct RightClickInterceptor: NSViewRepresentable {
     let onWillShow: () -> Void
     let onDidDismiss: () -> Void
     let onDelete: () -> Void
+    let onPin: () -> Void
 
     func makeNSView(context: Context) -> _InterceptorView {
         let v = _InterceptorView()
@@ -333,17 +338,19 @@ private struct RightClickInterceptor: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onWillShow: onWillShow, onDidDismiss: onDidDismiss, onDelete: onDelete)
+        Coordinator(onWillShow: onWillShow, onDidDismiss: onDidDismiss, onDelete: onDelete, onPin: onPin)
     }
 
     final class Coordinator: NSObject {
         let onWillShow: () -> Void
         let onDidDismiss: () -> Void
         let onDelete: () -> Void
-        init(onWillShow: @escaping () -> Void, onDidDismiss: @escaping () -> Void, onDelete: @escaping () -> Void) {
-            self.onWillShow = onWillShow; self.onDidDismiss = onDidDismiss; self.onDelete = onDelete
+        let onPin: () -> Void
+        init(onWillShow: @escaping () -> Void, onDidDismiss: @escaping () -> Void, onDelete: @escaping () -> Void, onPin: @escaping () -> Void) {
+            self.onWillShow = onWillShow; self.onDidDismiss = onDidDismiss; self.onDelete = onDelete; self.onPin = onPin
         }
         @objc func deleteAction() { onDelete() }
+        @objc func pinAction() { onPin() }
     }
 }
 
@@ -356,12 +363,14 @@ private final class _InterceptorView: NSView {
         coord.onWillShow()
 
         let menu = NSMenu()
-        let item = NSMenuItem(title: "删除", action: #selector(RightClickInterceptor.Coordinator.deleteAction), keyEquivalent: "")
-        item.target = coord
-        menu.addItem(item)
+        let pinItem = NSMenuItem(title: "钉选", action: #selector(RightClickInterceptor.Coordinator.pinAction), keyEquivalent: "")
+        pinItem.target = coord
+        menu.addItem(pinItem)
+        menu.addItem(.separator())
+        let deleteItem = NSMenuItem(title: "删除", action: #selector(RightClickInterceptor.Coordinator.deleteAction), keyEquivalent: "")
+        deleteItem.target = coord
+        menu.addItem(deleteItem)
 
-        // popUpContextMenu 是同步 API，内部运行嵌套 run loop 直到菜单关闭。
-        // Esc 直接关闭菜单，不会额外吞键。
         NSMenu.popUpContextMenu(menu, with: event, for: self)
 
         coord.onDidDismiss()

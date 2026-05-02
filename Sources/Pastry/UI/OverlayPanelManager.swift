@@ -99,6 +99,9 @@ final class OverlayPanelManager {
 
     var isVisible: Bool { panel != nil }
 
+    /// 搜索栏是否展开 — ESC 优先级判断
+    var isSearchActive = false
+
     // MARK: - 私有
 
     @MainActor
@@ -161,24 +164,39 @@ final class OverlayPanelManager {
 
         keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return nil }
-            // Esc：弹窗激活时放行，否则关闭面板
+            // Esc：搜索栏展开时先关搜索栏，否则关闭面板
             if event.keyCode == 53 {
                 if self.alertActive { return event }
+                if self.isSearchActive {
+                    NotificationCenter.default.post(name: .overlayCloseSearch, object: nil)
+                    return nil
+                }
                 NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
                 return nil
             }
-            // ⌘A 全选
+            // ⌘A 全选 — 若焦点在文本输入框则放行
             if event.keyCode == 0, event.modifierFlags.contains(.command) {
+                if Self.isTextInputFocused() { return event }
                 NotificationCenter.default.post(name: .overlaySelectAll, object: nil)
                 return nil
             }
-            // Delete / Forward Delete 删除选中
+            // Delete / Forward Delete — 若焦点在文本输入框则放行
             if event.keyCode == 51 || event.keyCode == 117 {
+                if Self.isTextInputFocused() { return event }
                 NotificationCenter.default.post(name: .overlayDeleteSelected, object: nil)
                 return nil
             }
             return event
         }
+    }
+
+    /// 检查当前焦点是否在文本输入框内（搜索框等）
+    private static func isTextInputFocused() -> Bool {
+        guard let responder = NSApp.keyWindow?.firstResponder as? NSView else { return false }
+        // NSTextView 及其子类（SwiftUI TextField 内部使用）
+        if responder.isKind(of: NSTextView.self) { return true }
+        if responder.responds(to: NSSelectorFromString("insertText:")) { return true }
+        return false
     }
 
     private func removeKeyboardMonitor() {
@@ -192,7 +210,6 @@ final class OverlayPanelManager {
 
     private static func simulatePaste() {
         let vKey = CGKeyCode(9)
-
         let source = CGEventSource(stateID: .privateState)
 
         guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
@@ -203,8 +220,9 @@ final class OverlayPanelManager {
         cmdDown.flags = .maskCommand
         cmdUp.flags = .maskCommand
 
-        cmdDown.post(tap: .cgSessionEventTap)
-        cmdUp.post(tap: .cgSessionEventTap)
+        let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+        cmdDown.postToPid(pid)
+        cmdUp.postToPid(pid)
     }
 
     deinit {

@@ -17,6 +17,16 @@ enum ClipType: String, Codable, CaseIterable {
         case .html:    return "chevron.left.forwardslash.chevron.right"
         }
     }
+
+    var label: String {
+        switch self {
+        case .text:    return "文本"
+        case .rtf:     return "富文本"
+        case .image:   return "图片"
+        case .fileURL: return "文件"
+        case .html:    return "HTML"
+        }
+    }
 }
 
 // MARK: - 核心数据模型
@@ -27,6 +37,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let contentType: ClipType
     let appName: String?        // 来源应用名
     var displayCount: Int       // 被粘贴回的次数
+    var isPinned: Bool          // 钉选（pin），批量删除时保留
 
     init(
         id: UUID = UUID(),
@@ -34,7 +45,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         content: String,
         contentType: ClipType,
         appName: String? = nil,
-        displayCount: Int = 0
+        displayCount: Int = 0,
+        isPinned: Bool = false
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -42,6 +54,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.contentType = contentType
         self.appName = appName
         self.displayCount = displayCount
+        self.isPinned = isPinned
     }
 
     /// 去重用的内容摘要（忽略时间戳）

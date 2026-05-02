@@ -97,10 +97,9 @@ final class AppIconProvider {
 
     /// 通过应用名查找实际图标
     private func findAppIcon(named name: String) -> NSImage {
-        // 先找精确匹配
         let ws = NSWorkspace.shared
 
-        // 常见路径
+        // 1. 常见路径精确匹配
         let paths = [
             "/Applications/\(name).app",
             "/Applications/Utilities/\(name).app",
@@ -114,24 +113,28 @@ final class AppIconProvider {
             }
         }
 
-        // 用 LaunchServices 模糊搜索
+        // 2. 通过 Bundle ID 查找
         if let bundleID = bundleID(for: name),
-           ws.urlForApplication(withBundleIdentifier: bundleID) != nil {
+           let appURL = ws.urlForApplication(withBundleIdentifier: bundleID) {
+            return ws.icon(forFile: appURL.path)
+        }
 
-            // 遍历 Applications 找近似名
-            let appDirs = [
-                "/Applications",
-                "/System/Applications",
-                "/System/Library/CoreServices",
-                NSHomeDirectory() + "/Applications",
-            ]
+        // 3. 模糊搜索（双向匹配，处理 iTerm2↔iTerm 这种差异）
+        let appDirs = [
+            "/Applications",
+            "/System/Applications",
+            "/System/Library/CoreServices",
+            NSHomeDirectory() + "/Applications",
+        ]
 
-            for dir in appDirs {
-                if let apps = try? FileManager.default.contentsOfDirectory(atPath: dir) {
-                    let matched = apps.first { $0.localizedCaseInsensitiveContains(name) && $0.hasSuffix(".app") }
-                    if let match = matched {
-                        return ws.icon(forFile: "\(dir)/\(match)")
-                    }
+        for dir in appDirs {
+            if let apps = try? FileManager.default.contentsOfDirectory(atPath: dir) {
+                let matched = apps.first {
+                    $0.hasSuffix(".app") &&
+                    ($0.localizedCaseInsensitiveContains(name) || name.localizedCaseInsensitiveContains($0))
+                }
+                if let match = matched {
+                    return ws.icon(forFile: "\(dir)/\(match)")
                 }
             }
         }
