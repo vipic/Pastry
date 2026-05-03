@@ -243,13 +243,133 @@ final class ClipboardMonitor: ObservableObject {
         guard let data = pb.data(forType: .html),
               let html = String(data: data, encoding: .utf8)
         else { return nil }
+
+        // 提取纯文本
+        var content: String
         if let attr = try? NSAttributedString(
             data: data,
             options: [.documentType: NSAttributedString.DocumentType.html],
             documentAttributes: nil) {
-            return ClipboardItem(content: attr.string, contentType: .html, appName: appName)
+            content = attr.string
+        } else {
+            content = html
         }
-        return ClipboardItem(content: html, contentType: .html, appName: appName)
+
+        // 提取 HTML 图文混排的有序段
+        let sourceURL = readChromiumSourceURL(from: pb)
+        let segments = extractOrderedSegments(from: html, sourceURL: sourceURL)
+
+        return ClipboardItem(
+            content: content,
+            contentType: .html,
+            appName: appName,
+            segments: segments.isEmpty ? nil : segments
+        )
+    }
+
+    /// 从 Chromium 剪贴板自定义字段中读取源页面 URL
+    private func readChromiumSourceURL(from pb: NSPasteboard) -> URL? {
+        let sourceType = NSPasteboard.PasteboardType("org.chromium.source-url")
+        guard let data = pb.data(forType: sourceType),
+              let urlStr = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        else { return nil }
+        return URL(string: urlStr)
+    }
+
+    /// 解析 HTML 为有序图文段，保留原始 DOM 顺序
+    private func extractOrderedSegments(from html: String, sourceURL: URL?) -> [ContentSegment] {
+        guard let imgRegex = try? NSRegularExpression(
+            pattern: "<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>",
+            options: .caseInsensitive
+        ) else { return [] }
+
+        let nsRange = NSRange(html.startIndex..., in: html)
+        let imgMatches = imgRegex.matches(in: html, range: nsRange)
+
+        // 收集所有 <img> 位置 + 解析后的 URL，最多 5 张，去重
+        var imgEntries: [(range: NSRange, url: String)] = []
+        var seen = Set<String>()
+        for match in imgMatches.prefix(5) {
+            guard let captureRange = Range(match.range(at: 1), in: html) else { continue }
+            let src = String(html[captureRange])
+            guard !src.hasPrefix("data:") else { continue }
+
+            let resolved: String
+            if let source = sourceURL, let r = URL(string: src, relativeTo: source) {
+                resolved = r.absoluteString
+            } else if URL(string: src) != nil {
+                resolved = src
+            } else { continue }
+
+            guard !seen.contains(resolved) else { continue }
+            seen.insert(resolved)
+            imgEntries.append((match.range, resolved))
+        }
+
+        guard !imgEntries.isEmpty else { return [] }
+
+        // 按位置排序
+        imgEntries.sort { $0.range.location < $1.range.location }
+
+        // 在 HTML 中切分：文字段（img 之间）→ 图片段 → 文字段 → ...
+        var segments: [ContentSegment] = []
+        var cursor = html.startIndex
+
+        for entry in imgEntries {
+            guard let imgStart = Range(entry.range, in: html)?.lowerBound else { continue }
+
+            // 提取 img 之前的文字
+            if cursor < imgStart {
+                let rawText = String(html[cursor..<imgStart])
+                let clean = stripHTMLTags(rawText).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !clean.isEmpty {
+                    // 与前一个文字段合并
+                    if case .text(let prev) = segments.last {
+                        segments[segments.count - 1] = .text(prev + clean)
+                    } else {
+                        segments.append(.text(clean))
+                    }
+                }
+            }
+
+            // 插入图片段
+            segments.append(.image(url: entry.url))
+
+            // 移动游标到 img 之后
+            cursor = Range(entry.range, in: html)?.upperBound ?? cursor
+        }
+
+        // img 之后的尾部文字
+        if cursor < html.endIndex {
+            let rawText = String(html[cursor..<html.endIndex])
+            let clean = stripHTMLTags(rawText).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !clean.isEmpty {
+                if case .text(let prev) = segments.last {
+                    segments[segments.count - 1] = .text(prev + clean)
+                } else {
+                    segments.append(.text(clean))
+                }
+            }
+        }
+
+        return segments
+    }
+
+    /// 去除 HTML 标签和实体，保留纯文本
+    private func stripHTMLTags(_ html: String) -> String {
+        // 先处理常见实体
+        var text = html
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+        // 去除标签
+        guard let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: []) else { return text }
+        text = regex.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: "")
+        return text
     }
 
     /// 仅读取剪贴板图片数据和 NSImage（主线程安全，轻量操作）。
