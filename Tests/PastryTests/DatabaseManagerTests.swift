@@ -282,6 +282,46 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(results.count, 0)
     }
 
+    // MARK: - textAnnotation 持久化
+
+    /// 插入带 textAnnotation 的图片条目 → 读回应包含附注文字
+    func testTextAnnotationInsertAndRetrieve() {
+        let item = ClipboardItem(
+            content: "/tmp/img.png",
+            contentType: .image,
+            appName: "WeChat",
+            textAnnotation: "这是附带的文字"
+        )
+        XCTAssertTrue(db.insert(item))
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].textAnnotation, "这是附带的文字")
+    }
+
+    /// 不带 textAnnotation 的条目 → 读回 nil
+    func testTextAnnotationNil() {
+        let item = makeItem(content: "普通文本", type: .text)
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertNil(items[0].textAnnotation)
+    }
+
+    /// 空字符串 textAnnotation 应正常持久化
+    func testTextAnnotationEmptyString() {
+        let item = ClipboardItem(
+            content: "/tmp/img2.png",
+            contentType: .image,
+            textAnnotation: ""
+        )
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items[0].textAnnotation, "")
+    }
+
     // MARK: - 边界条件
 
     /// recent(limit:) 应遵守 limit
