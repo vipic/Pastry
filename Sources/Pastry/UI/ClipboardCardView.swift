@@ -576,6 +576,7 @@ private struct RemoteThumbnail: View {
 
     @State private var image: NSImage?
     @State private var didRequest = false
+    @State private var loadFailed = false
 
     var body: some View {
         Group {
@@ -584,6 +585,8 @@ private struct RemoteThumbnail: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 5))
+            } else if loadFailed {
+                fallback
             } else {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(Color.secondary.opacity(0.12))
@@ -598,8 +601,24 @@ private struct RemoteThumbnail: View {
                 return
             }
             RemoteImageLoader.shared.load(urlString: urlString) { loaded in
-                self.image = loaded
+                if let img = loaded {
+                    self.image = img
+                } else {
+                    self.loadFailed = true
+                }
             }
+        }
+    }
+
+    private var fallback: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.secondary.opacity(0.3), Color.secondary.opacity(0.1)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            Image(systemName: "link")
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(.secondary.opacity(0.35))
         }
     }
 }
