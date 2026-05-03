@@ -273,7 +273,7 @@ final class ImageCacheManager {
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first!
         cacheDir = appSupport
-            .appendingPathComponent("ClipboardManager")
+            .appendingPathComponent(Constants.appName)
             .appendingPathComponent("ImageCache")
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
