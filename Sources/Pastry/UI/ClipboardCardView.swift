@@ -31,6 +31,11 @@ final class LinkPreviewLoader {
 
     private init() {}
 
+    /// 同步查询缓存（不发起网络请求）
+    func cachedPreview(for key: String) -> Preview? {
+        cache.object(forKey: key as NSString)?.preview
+    }
+
     func load(url: URL, completion: @escaping (Preview?) -> Void) {
         let key = url.absoluteString
         if let cached = cache.object(forKey: key as NSString) {
@@ -88,13 +93,16 @@ struct ClipboardCardView: View {
     @State private var isContextHighlighted = false
     @State private var didPaste = false
 
-    @State private var linkPreview: LinkPreviewLoader.Preview?
-    @State private var linkPreviewLoaded = false
     @State private var linkPreviewTask: Task<Void, Never>?
+    /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
+    @State private var previewLoadTrigger = 0
 
     private static let cardSize: CGFloat = 200
     private static let headerHeight: CGFloat = 40
     private static let appIconSize: CGFloat = 60
+
+    /// 路径 → NSImage 缓存，避免重绘时重复创建实例导致闪烁
+    private static let imageCache = NSCache<NSString, NSImage>()
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -156,8 +164,8 @@ struct ClipboardCardView: View {
             loadAppInfo()
             fetchLinkPreviewIfNeeded()
         }
-        .onChange(of: item.content) { _ in
-            linkPreview = nil; linkPreviewLoaded = false
+        .onChange(of: item.content) { old, _ in
+            Self.imageCache.removeObject(forKey: old as NSString)
             fetchLinkPreviewIfNeeded()
         }
     }
@@ -216,7 +224,14 @@ struct ClipboardCardView: View {
 
     @ViewBuilder
     private var imagePreview: some View {
-        if let nsImage = NSImage(contentsOfFile: item.content) {
+        let key = item.content as NSString
+        let nsImage: NSImage? = {
+            if let cached = Self.imageCache.object(forKey: key) { return cached }
+            guard let loaded = NSImage(contentsOfFile: item.content) else { return nil }
+            Self.imageCache.setObject(loaded, forKey: key)
+            return loaded
+        }()
+        if let nsImage = nsImage {
             Image(nsImage: nsImage)
                 .resizable().aspectRatio(contentMode: .fit)
                 .cornerRadius(4)
@@ -250,7 +265,7 @@ struct ClipboardCardView: View {
                 Text(linkDisplayTitle(url: url)).font(.system(size: 11, weight: .semibold)).foregroundColor(.primary).lineLimit(2)
             }
             Text(url.absoluteString).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(2)
-            if !linkPreviewLoaded, detectedLink != nil {
+            if linkPreviewLoading {
                 HStack(spacing: 4) {
                     ProgressView().scaleEffect(0.5).frame(width: 10, height: 10)
                     Text("获取预览…").font(.system(size: 9)).foregroundColor(.secondary)
@@ -316,15 +331,34 @@ struct ClipboardCardView: View {
         return nil
     }
 
+    /// 链接预览：缓存优先，body 求值时同步读取，零帧延迟
+    private var linkPreview: LinkPreviewLoader.Preview? {
+        _ = previewLoadTrigger
+        guard let url = detectedLink else { return nil }
+        return LinkPreviewLoader.shared.cachedPreview(for: url.absoluteString)
+    }
+
+    /// 是否正在加载中（仅缓存未命中 + 任务已发起时显示）
+    private var linkPreviewLoading: Bool {
+        linkPreview == nil && detectedLink != nil && linkPreviewTask != nil
+    }
+
     private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
     private func fetchLinkPreviewIfNeeded() {
         guard let url = detectedLink else { return }
+        // 缓存命中：计算属性已读取，无需额外操作
+        if linkPreview != nil { return }
+
+        // 缓存未命中：延迟后加载
         linkPreviewTask?.cancel()
         linkPreviewTask = Task {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
-            LinkPreviewLoader.shared.load(url: url) { self.linkPreview = $0; self.linkPreviewLoaded = true }
+            LinkPreviewLoader.shared.load(url: url) { preview in
+                guard preview != nil else { return }
+                self.previewLoadTrigger &+= 1
+            }
         }
     }
 

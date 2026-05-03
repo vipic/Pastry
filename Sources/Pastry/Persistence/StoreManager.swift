@@ -28,7 +28,7 @@ final class StoreManager: ObservableObject {
 
     /// 当前 pin tab
     @Published var pinTab: PinTab = .all {
-        didSet { performSearch() }
+        didSet { performSearchImmediate() }
     }
 
     /// 关键词搜索
@@ -38,17 +38,17 @@ final class StoreManager: ObservableObject {
 
     /// 类型筛选（nil = 全部）
     @Published var typeFilter: ClipType? = nil {
-        didSet { performSearch() }
+        didSet { performSearchImmediate() }
     }
 
     /// 来源 App 筛选（nil = 全部）
     @Published var appFilter: String? = nil {
-        didSet { performSearch() }
+        didSet { performSearchImmediate() }
     }
 
     /// 时间筛选
     @Published var timeFilter: TimeFilter = .any {
-        didSet { performSearch() }
+        didSet { performSearchImmediate() }
     }
 
     /// 从当前数据中提取的去重 App 名称列表（供筛选 popover 使用）
@@ -125,7 +125,7 @@ final class StoreManager: ObservableObject {
     /// 测试专用：直接注入剪贴板数据，不经过数据库
     init(items: [ClipboardItem]) {
         self.items = items
-        performSearch()
+        performSearchImmediate()
         refreshAvailableApps()
     }
 
@@ -187,13 +187,13 @@ final class StoreManager: ObservableObject {
         guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
         DatabaseManager.shared.togglePin(id: item.id.uuidString)
         items[idx].isPinned.toggle()
-        performSearch()
+        performSearchImmediate()
     }
 
     func deleteItem(_ item: ClipboardItem) {
         DatabaseManager.shared.delete(id: item.id.uuidString)
         items.removeAll { $0.id == item.id }
-        performSearch()
+        performSearchImmediate()
         refreshAvailableApps()
     }
 
@@ -216,7 +216,7 @@ final class StoreManager: ObservableObject {
         }
 
         ClipboardMonitor.shared.resume()
-        performSearch()
+        performSearchImmediate()
         refreshAvailableApps()
     }
 
@@ -278,7 +278,7 @@ final class StoreManager: ObservableObject {
         if noActiveFilters {
             filteredItems = items
         } else {
-            performSearch()
+            performSearchImmediate()
         }
 
         if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
@@ -291,7 +291,7 @@ final class StoreManager: ObservableObject {
 
     private func loadRecent() {
         items = DatabaseManager.shared.recent(limit: 500)
-        performSearch()
+        performSearchImmediate()
         refreshAvailableApps()
     }
 
@@ -322,44 +322,51 @@ final class StoreManager: ObservableObject {
     private func performSearch() {
         searchTask?.cancel()
         searchTask = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms 防抖
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms 防抖，仅搜索输入使用
             guard !Task.isCancelled else { return }
-
-            let query = searchQuery.trimmingCharacters(in: .whitespaces)
-
-            // 确定基础数据源
-            var base = items
-            if pinTab == .pinned {
-                base = items.filter { $0.isPinned }
-            }
-
-            // 关键词搜索（含分类词扩展）
-            if !query.isEmpty {
-                let expanded = Self.expandQuery(query)
-                base = DatabaseManager.shared.search(query: expanded, limit: 200).filter { item in
-                    // 如果当前在 pin tab，只保留 pinned 的
-                    pinTab == .all || item.isPinned
-                }
-            }
-
-            // 类型筛选
-            if let type = typeFilter {
-                base = base.filter { $0.contentType == type }
-            }
-
-            // App 筛选
-            if let app = appFilter {
-                base = base.filter { $0.appName == app }
-            }
-
-            // 时间筛选
-            if let start = timeFilter.startDate {
-                base = base.filter { $0.timestamp >= start }
-            }
-
-            guard !Task.isCancelled else { return }
-            filteredItems = base
+            executeSearch()
         }
+    }
+
+    private func performSearchImmediate() {
+        searchTask?.cancel()
+        executeSearch()
+    }
+
+    private func executeSearch() {
+        let query = searchQuery.trimmingCharacters(in: .whitespaces)
+
+        // 确定基础数据源
+        var base = items
+        if pinTab == .pinned {
+            base = items.filter { $0.isPinned }
+        }
+
+        // 关键词搜索（含分类词扩展）
+        if !query.isEmpty {
+            let expanded = Self.expandQuery(query)
+            base = DatabaseManager.shared.search(query: expanded, limit: 200).filter { item in
+                pinTab == .all || item.isPinned
+            }
+        }
+
+        // 类型筛选
+        if let type = typeFilter {
+            base = base.filter { $0.contentType == type }
+        }
+
+        // App 筛选
+        if let app = appFilter {
+            base = base.filter { $0.appName == app }
+        }
+
+        // 时间筛选
+        if let start = timeFilter.startDate {
+            base = base.filter { $0.timestamp >= start }
+        }
+
+        guard !Task.isCancelled else { return }
+        filteredItems = base
     }
 
     private func clearNonPinnedWithClipboard() {
@@ -372,7 +379,7 @@ final class StoreManager: ObservableObject {
             pb.setString("", forType: .string)
             ClipboardMonitor.shared.syncChangeCount()
         }
-        performSearch()
+        performSearchImmediate()
         refreshStats()
     }
 

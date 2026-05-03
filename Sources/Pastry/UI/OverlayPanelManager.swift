@@ -69,7 +69,7 @@ final class OverlayPanelManager {
             ClipboardMonitor.shared.suspend()
 
             if let app = targetApp {
-                app.activate(options: .activateIgnoringOtherApps)
+                app.activate()
             }
 
             let pb = NSPasteboard.general
@@ -173,6 +173,13 @@ final class OverlayPanelManager {
                     return nil
                 }
                 NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
+                return nil
+            }
+            // ⌘F 搜索
+            if event.keyCode == 3, event.modifierFlags.contains(.command) {
+                if !self.isSearchActive {
+                    NotificationCenter.default.post(name: .overlayOpenSearch, object: nil)
+                }
                 return nil
             }
             // ⌘A 全选 — 若焦点在文本输入框则放行
