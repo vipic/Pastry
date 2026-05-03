@@ -326,6 +326,27 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertEqual(store.filteredItems.count, 1)
     }
 
+    // MARK: - dedupKey 含 textAnnotation
+
+    func testDedupKeyIncludesTextAnnotation() {
+        let a = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "hello")
+        let b = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "world")
+        // 不同附注 → 不同 dedupKey
+        XCTAssertNotEqual(a.dedupKey, b.dedupKey)
+    }
+
+    func testDedupKeySameWhenAnnotationSame() {
+        let a = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "same")
+        let b = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "same")
+        XCTAssertEqual(a.dedupKey, b.dedupKey)
+    }
+
+    func testDedupKeyNilAnnotation() {
+        let a = ClipboardItem(content: "/tmp/img.png", contentType: .image)
+        let b = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "has text")
+        XCTAssertNotEqual(a.dedupKey, b.dedupKey)
+    }
+
     // MARK: - availableApps
 
     func testAvailableAppsDedupedAndSorted() {

@@ -269,6 +269,13 @@ final class ClipboardMonitor: ObservableObject {
         return ClipboardItem(content: paths, contentType: .fileURL, appName: appName)
     }
 
+    // MARK: - 测试入口
+
+    /// 供单元测试使用的 TencentAttributeStringType 解析入口
+    static func readTencentTextForTesting(from pb: NSPasteboard) -> String? {
+        shared.readTencentText(from: pb)
+    }
+
     // MARK: - 辅助
 
     private var currentDedupKey: String {
