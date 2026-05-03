@@ -347,6 +347,32 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertNotEqual(a.dedupKey, b.dedupKey)
     }
 
+    // MARK: - dedupKey 含 segments
+
+    func testDedupKeyIncludesSegments() {
+        let a = ClipboardItem(content: "text", contentType: .html, segments: [
+            .image(url: "https://a.com/1.png"), .text("文字")
+        ])
+        let b = ClipboardItem(content: "text", contentType: .html, segments: [
+            .image(url: "https://a.com/2.png"), .text("文字")
+        ])
+        // 不同图片 URL → 不同 dedupKey
+        XCTAssertNotEqual(a.dedupKey, b.dedupKey)
+    }
+
+    func testDedupKeySameSegmentsSame() {
+        let segs: [ContentSegment] = [.text("A"), .image(url: "https://a.com/pic.png")]
+        let a = ClipboardItem(content: "A", contentType: .html, segments: segs)
+        let b = ClipboardItem(content: "A", contentType: .html, segments: segs)
+        XCTAssertEqual(a.dedupKey, b.dedupKey)
+    }
+
+    func testDedupKeySegmentsNilVsSome() {
+        let a = ClipboardItem(content: "text", contentType: .html, segments: nil)
+        let b = ClipboardItem(content: "text", contentType: .html, segments: [.text("text")])
+        XCTAssertNotEqual(a.dedupKey, b.dedupKey)
+    }
+
     // MARK: - availableApps
 
     func testAvailableAppsDedupedAndSorted() {

@@ -164,7 +164,9 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 6, (item.textAnnotation as NSString?)?.utf8String ?? nil, -1, nil)
         let imageURLsJSON = item.imageURLs.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) }
         sqlite3_bind_text(stmt, 7, (imageURLsJSON as NSString?)?.utf8String ?? nil, -1, nil)
-        let segmentsJSON = item.segments.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) }
+        let segmentsJSON = item.segments.flatMap { segs in
+            segs.isEmpty ? nil : (try? JSONEncoder().encode(segs)).flatMap { String(data: $0, encoding: .utf8) }
+        }
         sqlite3_bind_text(stmt, 8, (segmentsJSON as NSString?)?.utf8String ?? nil, -1, nil)
         sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0)  // is_favorite
         sqlite3_bind_int(stmt, 10, Int32(item.displayCount))

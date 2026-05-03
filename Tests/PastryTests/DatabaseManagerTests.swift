@@ -322,6 +322,53 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(items[0].textAnnotation, "")
     }
 
+    // MARK: - segments 持久化
+
+    /// 带 segments 的 HTML 条目插入后读回
+    func testSegmentsInsertAndRetrieve() {
+        let segs: [ContentSegment] = [
+            .image(url: "https://a.com/pic.png"),
+            .text("图片后的文字"),
+        ]
+        let item = ClipboardItem(
+            content: "图片后的文字",
+            contentType: .html,
+            segments: segs
+        )
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].segments?.count, 2)
+        XCTAssertEqual(items[0].segments?[0].imageURL, "https://a.com/pic.png")
+        XCTAssertEqual(items[0].segments?[1].textValue, "图片后的文字")
+        // imageURLs 计算属性应从 segments 派生
+        XCTAssertEqual(items[0].imageURLs, ["https://a.com/pic.png"])
+    }
+
+    /// 不含 segments 的普通条目 → nil
+    func testSegmentsNilForNonHTML() {
+        let item = makeItem(content: "纯文本", type: .text)
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertNil(items[0].segments)
+        XCTAssertNil(items[0].imageURLs)
+    }
+
+    /// segments 为空数组 → nil
+    func testSegmentsEmptyArray() {
+        let item = ClipboardItem(
+            content: "无图 HTML",
+            contentType: .html,
+            segments: []
+        )
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertNil(items[0].segments)
+    }
+
     // MARK: - 边界条件
 
     /// recent(limit:) 应遵守 limit
