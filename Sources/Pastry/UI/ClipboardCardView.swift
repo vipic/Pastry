@@ -216,6 +216,7 @@ struct ClipboardCardView: View {
         switch item.contentType {
         case .image:   imagePreview
         case .fileURL: fileURLPreview
+        case .html:    htmlWithImagePreview
         default:
             if let url = detectedLink { linkPreviewView(url) }
             else { textPreview }
@@ -294,6 +295,42 @@ struct ClipboardCardView: View {
     private var textPreview: some View {
         Text(previewText).lineLimit(7).font(.system(size: 11)).foregroundColor(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// HTML 图文预览：按 segments 原始顺序渲染
+    @ViewBuilder
+    private var htmlWithImagePreview: some View {
+        if let segs = item.segments, !segs.isEmpty {
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(segs.enumerated()), id: \.offset) { idx, seg in
+                        switch seg {
+                        case .text(let t):
+                            Text(t)
+                                .font(.system(size: 11))
+                                .foregroundColor(.primary)
+                                .lineLimit(idx == 0 ? 5 : 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        case .image(let url):
+                            htmlImageThumbnail(url: url)
+                        }
+                    }
+                }
+            }
+        } else if let url = detectedLink {
+            linkPreviewView(url)
+        } else {
+            textPreview
+        }
+    }
+
+    /// 单张 HTML 内嵌图片缩略图（异步加载，与微信图文缩略图大小一致）
+    private func htmlImageThumbnail(url: String) -> some View {
+        RemoteThumbnail(urlString: url)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(contentMode: .fit)
+            .cornerRadius(4)
+            .padding(.vertical, 2)
     }
 
     private var fallbackPreview: some View {
@@ -394,6 +431,42 @@ struct ClipboardCardView: View {
             let icon = provider.icon(for: name)
             DispatchQueue.main.async {
                 self.appIcon = icon
+            }
+        }
+    }
+}
+
+// MARK: - 远程图片缩略图（异步加载，NSCache 缓存）
+private struct RemoteThumbnail: View {
+    let urlString: String
+
+    @State private var image: NSImage?
+    @State private var didRequest = false
+
+    var body: some View {
+        Group {
+            if let img = image {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+            } else {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.secondary.opacity(0.12))
+                    .overlay(
+                        ProgressView().scaleEffect(0.5)
+                    )
+            }
+        }
+        .onAppear {
+            guard !didRequest else { return }
+            didRequest = true
+            if let cached = RemoteImageLoader.shared.cached(for: urlString) {
+                image = cached
+                return
+            }
+            RemoteImageLoader.shared.load(urlString: urlString) { loaded in
+                self.image = loaded
             }
         }
     }

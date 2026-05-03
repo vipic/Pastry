@@ -62,6 +62,37 @@ enum ClipType: Codable, CaseIterable {
     }
 }
 
+// MARK: - HTML 内容段（保留原始 DOM 图文顺序）
+enum ContentSegment: Codable, Equatable {
+    case text(String)
+    case image(url: String)
+
+    var textValue: String? { if case .text(let s) = self { return s }; return nil }
+    var imageURL: String? { if case .image(let u) = self { return u }; return nil }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let t = try container.decodeIfPresent(String.self, forKey: .text) {
+            self = .text(t)
+        } else if let u = try container.decodeIfPresent(String.self, forKey: .image) {
+            self = .image(url: u)
+        } else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "invalid segment"))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .text(let s):  try container.encode(s, forKey: .text)
+        case .image(let u): try container.encode(u, forKey: .image)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case text, image }
+}
+
 // MARK: - 核心数据模型
 struct ClipboardItem: Identifiable, Codable, Hashable {
     let id: UUID
@@ -69,9 +100,15 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let content: String         // 文本内容 / 图片缓存路径 / 文件URL拼接
     let contentType: ClipType
     let appName: String?        // 来源应用名
-    let textAnnotation: String? // 图片附带的文字（同时复制图文时保留）
-    var displayCount: Int       // 被粘贴回的次数（可变，不计入 hash）
-    var isPinned: Bool          // 钉选（pin），批量删除时保留（可变，不计入 hash）
+    let textAnnotation: String?       // 图片附带的文字（同时复制图文时保留）
+    let segments: [ContentSegment]?  // HTML 图文混排的有序段（仅 .html 类型）
+    var displayCount: Int             // 被粘贴回的次数（可变，不计入 hash）
+    var isPinned: Bool                // 钉选（pin），批量删除时保留（可变，不计入 hash）
+
+    /// 从 segments 中提取的远程图片 URL 列表（方便卡片视图和去重使用）
+    var imageURLs: [String]? {
+        segments?.compactMap { $0.imageURL }
+    }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
@@ -88,6 +125,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         contentType: ClipType,
         appName: String? = nil,
         textAnnotation: String? = nil,
+        segments: [ContentSegment]? = nil,
         displayCount: Int = 0,
         isPinned: Bool = false
     ) {
@@ -97,13 +135,14 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.contentType = contentType
         self.appName = appName
         self.textAnnotation = textAnnotation
+        self.segments = segments
         self.displayCount = displayCount
         self.isPinned = isPinned
     }
 
     /// 去重用的内容摘要（足够长以避免长文本误判）
     var dedupKey: String {
-        "\(contentType.storageKey):\(content):\(textAnnotation ?? "")"
+        "\(contentType.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? "")"
     }
 }
 
