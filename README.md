@@ -89,6 +89,7 @@ Tests/PastryTests/              157 个测试用例
   AppIconProviderTests.swift     图标获取（手动）
   HotkeyUtilsTests.swift         修饰键转换
 build.sh                        构建 + 打包 + TCC 签名
+bench.sh                        性能基准测试（编译/体积/启动/测试）
 ```
 
 ## 技术要点
@@ -109,3 +110,28 @@ build.sh                        构建 + 打包 + TCC 签名
 - **RemoteImageLoader** — NSCache(100 条/20MB) 内存缓存 + URLSession(6s 超时)，远端图片按需拉取缩略图
 - **LinkPreviewLoader** — og:title / og:description / og:image 多格式解析 + `<title>` 标签降级，无 og:image 时降级扫描页面首张有效图片（跳过 data URI / 1×1 像素），NSCache(200 条) 内存缓存
 - **骨架图加载** — 链接卡片加载中显示 `.redacted(reason: .placeholder)` 微光骨架（缩略图 56px + 标题/描述/域名行），布局与真实预览完全一致，零抖动替换
+
+## 性能测试
+
+`bench.sh` 追踪四个指标，改代码前后对比一目了然：
+
+```bash
+./bench.sh            # 跑一次，输出四项指标
+./bench.sh --baseline # 保存当前值作为基线
+./bench.sh --diff     # 对比当前与基线，显示增量
+```
+
+**追踪指标：**
+
+| 指标 | 测量方式 |
+|------|---------|
+| 编译时间 | `swift build -c release` 墙钟耗时 |
+| 二进制体积 | Mach-O 文件 stat |
+| 启动耗时 | `Pastry --bench` 跑完 store.start() 后退出，CFAbsoluteTime 计时 |
+| 测试耗时 | `swift test` 全量墙钟耗时 |
+
+**更深层工具：**
+
+- `footprint -p $(pgrep Pastry)` — 进程实际内存占用
+- `leaks Pastry` — 内存泄漏检测
+- `xctrace record --template 'Time Profiler' --attach Pastry` — CPU 热点定位

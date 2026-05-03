@@ -80,13 +80,25 @@ struct PastryApp: App {
 
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "app")
 
+    /// 性能基准模式：`Pastry --bench` 跑完初始化输出耗时后退出
+    private static let isBenchmark = CommandLine.arguments.contains("--bench")
+
     init() {
+        let benchStart = Self.isBenchmark ? CFAbsoluteTimeGetCurrent() : 0
+
         let isRegistered = SMAppService.mainApp.status == .enabled
         if launchAtLogin != isRegistered {
             launchAtLogin = isRegistered
         }
 
         store.start()
+
+        if Self.isBenchmark {
+            let elapsed = Int((CFAbsoluteTimeGetCurrent() - benchStart) * 1000)
+            print("启动耗时: \(elapsed)ms")
+            exit(0)
+        }
+
         GlobalHotkeyManager.shared.register()
         MenuBarManager.shared.setup()
 
