@@ -10,8 +10,18 @@ final class LinkPreviewLoader {
         let host: String
     }
 
-    private var cache: [String: Preview] = [:]
-    private let lock = NSLock()
+    /// Wrapper to store Preview struct in NSCache (requires class type)
+    final class PreviewWrapper {
+        let preview: Preview
+        init(_ preview: Preview) { self.preview = preview }
+    }
+
+    private let cache: NSCache<NSString, PreviewWrapper> = {
+        let c = NSCache<NSString, PreviewWrapper>()
+        c.countLimit = 200
+        return c
+    }()
+
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 6
@@ -23,9 +33,10 @@ final class LinkPreviewLoader {
 
     func load(url: URL, completion: @escaping (Preview?) -> Void) {
         let key = url.absoluteString
-        lock.lock()
-        if let cached = cache[key] { lock.unlock(); completion(cached); return }
-        lock.unlock()
+        if let cached = cache.object(forKey: key as NSString) {
+            completion(cached.preview)
+            return
+        }
 
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
@@ -36,14 +47,15 @@ final class LinkPreviewLoader {
             else { DispatchQueue.main.async { completion(nil) }; return }
             let title = self.extractTitle(from: html)
             let preview = Preview(title: title ?? "", host: url.host ?? "")
-            self.lock.lock(); self.cache[key] = preview; self.lock.unlock()
+            self.cache.setObject(PreviewWrapper(preview), forKey: key as NSString)
             DispatchQueue.main.async { completion(preview) }
         }.resume()
     }
 
     private func extractTitle(from html: String) -> String? {
         if let s = html.range(of: "<title>", options: .caseInsensitive),
-           let e = html.range(of: "</title>", options: .caseInsensitive) {
+           let e = html.range(of: "</title>", options: .caseInsensitive),
+           s.upperBound <= e.lowerBound {
             let t = html[s.upperBound..<e.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
             if !t.isEmpty { return t }
         }
@@ -119,6 +131,13 @@ struct ClipboardCardView: View {
         )
         .animation(.easeInOut(duration: 0.12), value: isContextHighlighted)
         .animation(.easeInOut(duration: 0.12), value: isSelected)
+        .scaleEffect(didPaste ? 0.95 : 1.0)
+        .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(didPaste ? Color.green : Color.clear, lineWidth: 2.5)
+        )
+        .animation(.easeOut(duration: 0.5), value: didPaste)
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .onTapGesture {
             didPaste = true

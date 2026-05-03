@@ -192,7 +192,7 @@ final class DatabaseManager {
         // FTS 查询字符串：双引号包裹防操作符注入 + 前缀匹配
         let ftsQuery = query
             .split(separator: " ")
-            .map { "\"\($0)\"*" }
+            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"*" }
             .joined(separator: " AND ")
 
         sqlite3_bind_text(stmt, 1, (ftsQuery as NSString).utf8String, -1, nil)

@@ -407,13 +407,17 @@ struct OverlayView: View {
 
     // MARK: - 卡片列表
 
-    @State private var isHorizontalLayout = NSScreen.main?.frame.width ?? 0 > 1200
+    @State private var isHorizontalLayout: Bool = {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+        return (screen?.frame.width ?? NSScreen.main?.frame.width ?? 1440) > 1200
+    }()
 
     @ViewBuilder
     private func cardList(_ items: [ClipboardItem]) -> some View {
         if isHorizontalLayout {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: cardSpacing) {
+                LazyHStack(spacing: cardSpacing) {
                     ForEach(items) { item in
                         cardView(item)
                     }
