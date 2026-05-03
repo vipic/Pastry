@@ -21,7 +21,7 @@ final class DatabaseManager {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         ).first!
-        let dir = appSupport.appendingPathComponent("ClipboardManager")
+        let dir = appSupport.appendingPathComponent(Constants.appName)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         dbPath = dir.appendingPathComponent("clips.db").path
