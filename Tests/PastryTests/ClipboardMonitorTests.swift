@@ -6,6 +6,11 @@ import XCTest
 
 final class ClipboardMonitorTests: XCTestCase {
 
+    override func tearDown() {
+        NSPasteboard.general.clearContents()
+        super.tearDown()
+    }
+
     // MARK: - TencentAttributeStringType plist 解析
 
     /// 标准 Tencent plist：图片 + 文字混合
