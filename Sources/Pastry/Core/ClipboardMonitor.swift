@@ -169,13 +169,14 @@ final class ClipboardMonitor: ObservableObject {
         if let (image, data) = readImageData(from: pb) {
             lastDedupKey = dedup
             let appName = capturedApp
+            let textAnnotation = readText(from: pb, appName: nil)?.content
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 guard let self else { return }
                 guard let savedPath = ImageCacheManager.shared.save(image: image, data: data) else {
                     self.log.error("图片缓存写入失败")
                     return
                 }
-                let item = ClipboardItem(content: savedPath, contentType: .image, appName: appName)
+                let item = ClipboardItem(content: savedPath, contentType: .image, appName: appName, textAnnotation: textAnnotation)
                 DispatchQueue.main.async {
                     self.latestItem = item
                     self.onNewItem?(item)
@@ -201,8 +202,31 @@ final class ClipboardMonitor: ObservableObject {
     // MARK: - 各格式读取器
 
     private func readText(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {
-        guard let text = pb.string(forType: .string), !text.isEmpty else { return nil }
-        return ClipboardItem(content: text, contentType: .text, appName: appName)
+        // 标准纯文本
+        if let text = pb.string(forType: .string), !text.isEmpty {
+            return ClipboardItem(content: text, contentType: .text, appName: appName)
+        }
+        // 微信/QQ 自定义富文本（TencentAttributeStringType plist）
+        if let text = readTencentText(from: pb), !text.isEmpty {
+            return ClipboardItem(content: text, contentType: .text, appName: appName)
+        }
+        return nil
+    }
+
+    /// 微信/QQ 剪贴板自定义类型：二进制 plist 数组，元素含 TencentElementType(11=文本) + TencentElementValue
+    private func readTencentText(from pb: NSPasteboard) -> String? {
+        let tencentType = NSPasteboard.PasteboardType("TencentAttributeStringType")
+        guard let data = pb.data(forType: tencentType),
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [[String: Any]]
+        else { return nil }
+        let texts = plist.compactMap { dict -> String? in
+            guard let type = dict["TencentElementType"] as? Int, type == 11,
+                  let value = dict["TencentElementValue"] as? String
+            else { return nil }
+            return value
+        }
+        let combined = texts.joined()
+        return combined.isEmpty ? nil : combined
     }
 
     private func readRTF(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {

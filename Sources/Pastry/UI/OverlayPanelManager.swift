@@ -82,7 +82,25 @@ final class OverlayPanelManager {
                 pb.writeObjects(urls as [NSURL])
             case .image:
                 if let image = NSImage(contentsOfFile: item.content) {
-                    pb.writeObjects([image])
+                    if let annotation = item.textAnnotation, !annotation.isEmpty {
+                        // 构造 RTFD：图片附件 + 文字，备忘录等富文本应用可还原图文混排
+                        let attr = NSMutableAttributedString()
+                        let attachment = NSTextAttachment()
+                        attachment.image = image
+                        attr.append(NSAttributedString(attachment: attachment))
+                        attr.append(NSAttributedString(string: "\n\(annotation)"))
+                        if let rtfd = try? attr.data(
+                            from: NSRange(location: 0, length: attr.length),
+                            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]
+                        ) {
+                            pb.setData(rtfd, forType: .rtfd)
+                        }
+                        // 同时保留纯图，兼容非富文本应用
+                        pb.setData(image.tiffRepresentation, forType: .tiff)
+                        pb.setString(annotation, forType: .string)
+                    } else {
+                        pb.writeObjects([image])
+                    }
                 }
             }
 

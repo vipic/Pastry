@@ -231,13 +231,24 @@ struct ClipboardCardView: View {
             Self.imageCache.setObject(loaded, forKey: key)
             return loaded
         }()
-        if let nsImage = nsImage {
-            Image(nsImage: nsImage)
-                .resizable().aspectRatio(contentMode: .fit)
-                .cornerRadius(4)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            fallbackPreview
+        VStack(spacing: 0) {
+            if let nsImage = nsImage {
+                Image(nsImage: nsImage)
+                    .resizable().aspectRatio(contentMode: .fit)
+                    .cornerRadius(4)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                fallbackPreview
+            }
+            if let annotation = item.textAnnotation, !annotation.isEmpty {
+                Text(annotation)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
+            }
         }
     }
 

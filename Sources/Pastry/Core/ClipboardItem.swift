@@ -69,6 +69,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let content: String         // 文本内容 / 图片缓存路径 / 文件URL拼接
     let contentType: ClipType
     let appName: String?        // 来源应用名
+    let textAnnotation: String? // 图片附带的文字（同时复制图文时保留）
     var displayCount: Int       // 被粘贴回的次数（可变，不计入 hash）
     var isPinned: Bool          // 钉选（pin），批量删除时保留（可变，不计入 hash）
 
@@ -86,6 +87,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         content: String,
         contentType: ClipType,
         appName: String? = nil,
+        textAnnotation: String? = nil,
         displayCount: Int = 0,
         isPinned: Bool = false
     ) {
@@ -94,13 +96,14 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.content = content
         self.contentType = contentType
         self.appName = appName
+        self.textAnnotation = textAnnotation
         self.displayCount = displayCount
         self.isPinned = isPinned
     }
 
     /// 去重用的内容摘要（足够长以避免长文本误判）
     var dedupKey: String {
-        "\(contentType.storageKey):\(content)"
+        "\(contentType.storageKey):\(content):\(textAnnotation ?? "")"
     }
 }
 
