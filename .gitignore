@@ -19,3 +19,6 @@ DerivedData/
 # ── IDE ──
 .idea/
 .vscode/
+
+# ── Benchmarks ──
+.bench_baseline
