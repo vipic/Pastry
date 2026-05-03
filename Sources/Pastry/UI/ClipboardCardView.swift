@@ -7,6 +7,8 @@ final class LinkPreviewLoader {
 
     struct Preview {
         let title: String
+        let description: String?
+        let imageURL: String?
         let host: String
     }
 
@@ -50,33 +52,105 @@ final class LinkPreviewLoader {
             guard let self, let data = data,
                   let html = String(data: data, encoding: .utf8)
             else { DispatchQueue.main.async { completion(nil) }; return }
-            let title = self.extractTitle(from: html)
-            let preview = Preview(title: title ?? "", host: url.host ?? "")
+            let title = self.extractMeta(from: html, tag: "og:title") ?? self.extractTitleTag(from: html)
+            let description = self.extractMeta(from: html, tag: "og:description")
+            let imageURL = self.extractMeta(from: html, tag: "og:image").flatMap { src in
+                self.resolveImageURL(src: src, baseURL: url)
+            } ?? self.extractFirstImage(from: html, baseURL: url)
+            let preview = Preview(
+                title: title ?? "",
+                description: description,
+                imageURL: imageURL,
+                host: url.host ?? ""
+            )
             self.cache.setObject(PreviewWrapper(preview), forKey: key as NSString)
             DispatchQueue.main.async { completion(preview) }
         }.resume()
     }
 
-    private func extractTitle(from html: String) -> String? {
-        if let s = html.range(of: "<title>", options: .caseInsensitive),
-           let e = html.range(of: "</title>", options: .caseInsensitive),
-           s.upperBound <= e.lowerBound {
-            let t = html[s.upperBound..<e.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !t.isEmpty { return t }
-        }
-        for pattern in [
-            "og:title\" content=\"",
-            "og:title' content='",
-            "property=\"og:title\" content=\"",
-            "property='og:title' content='",
-        ] {
-            if let s = html.range(of: pattern, options: .caseInsensitive),
-               let e = html.range(of: "\"", range: s.upperBound..<html.endIndex) ??
-                        html.range(of: "'", range: s.upperBound..<html.endIndex) {
-                return String(html[s.upperBound..<e.lowerBound])
-            }
+    // MARK: - HTML 元数据提取
+
+    private func extractMeta(from html: String, tag: String) -> String? {
+        // 匹配 og 属性的多种写法
+        let patterns = [
+            "\(tag)\" content=\"",
+            "\(tag)' content='",
+            "property=\"\(tag)\" content=\"",
+            "property='\(tag)' content='",
+            "name=\"\(tag)\" content=\"",
+            "name='\(tag)' content='",
+        ]
+        for pattern in patterns {
+            guard let s = html.range(of: pattern, options: .caseInsensitive) else { continue }
+            let quote = html[html.index(before: s.upperBound)] == "\"" ? "\"" : "'"
+            let searchStart = s.upperBound
+            guard let e = html.range(of: quote, range: searchStart..<html.endIndex) else { continue }
+            let value = String(html[searchStart..<e.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !value.isEmpty { return value }
         }
         return nil
+    }
+
+    private func extractTitleTag(from html: String) -> String? {
+        guard let s = html.range(of: "<title>", options: .caseInsensitive),
+              let e = html.range(of: "</title>", options: .caseInsensitive),
+              s.upperBound <= e.lowerBound
+        else { return nil }
+        let t = html[s.upperBound..<e.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+
+    /// 相对路径图片 URL 用页面 URL 解析
+    private func resolveImageURL(src: String, baseURL: URL) -> String? {
+        if let resolved = URL(string: src, relativeTo: baseURL) {
+            return resolved.absoluteString
+        }
+        return URL(string: src)?.absoluteString
+    }
+
+    /// og:image 缺失时的降级方案：提取 HTML 中第一个有效 <img src>
+    private func extractFirstImage(from html: String, baseURL: URL) -> String? {
+        guard let regex = try? NSRegularExpression(
+            pattern: "<img[^>]+src=[\"']([^\"']+)[\"']",
+            options: .caseInsensitive
+        ) else { return nil }
+
+        let range = NSRange(html.startIndex..., in: html)
+        let matches = regex.matches(in: html, range: range)
+
+        for match in matches.prefix(10) {
+            guard let captureRange = Range(match.range(at: 1), in: html) else { continue }
+            let src = String(html[captureRange])
+
+            // 跳过 data URI 和常见追踪像素（1×1）
+            guard !src.hasPrefix("data:") else { continue }
+            let lower = src.lowercased()
+            if lower.contains("1x1") || lower.contains("pixel") || lower.contains("tracking") { continue }
+
+            return resolveImageURL(src: src, baseURL: baseURL)
+        }
+        return nil
+    }
+
+    // MARK: — 向后兼容
+
+    private func extractTitle(from html: String) -> String? {
+        extractTitleTag(from: html) ?? extractMeta(from: html, tag: "og:title")
+    }
+
+    // MARK: — 测试入口
+
+    static func extractMetaForTesting(from html: String, tag: String) -> String? {
+        shared.extractMeta(from: html, tag: tag)
+    }
+
+    static func extractFirstImageForTesting(from html: String, baseURL: URL?) -> String? {
+        shared.extractFirstImage(from: html, baseURL: baseURL ?? URL(string: "https://example.com")!)
+    }
+
+    static func resolveImageURLForTesting(src: String, baseURL: URL?) -> String? {
+        shared.resolveImageURL(src: src, baseURL: baseURL ?? URL(string: "https://example.com")!)
     }
 }
 
@@ -123,7 +197,7 @@ struct ClipboardCardView: View {
         }
         .frame(width: Self.cardSize, height: Self.cardSize)
         .background(Color(nsColor: NSColor.windowBackgroundColor))
-        .compositingGroup()  // 拍平所有子图层，消除圆角裁边白线
+        .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -218,8 +292,74 @@ struct ClipboardCardView: View {
         case .fileURL: fileURLPreview
         case .html:    htmlWithImagePreview
         default:
-            if let url = detectedLink { linkPreviewView(url) }
+            if let url = detectedLink { linkContent(url) }
             else { textPreview }
+        }
+    }
+
+    // MARK: - 链接预览（demo 风格，缩略图 + 标题 + 描述 + 域名）
+
+    @ViewBuilder
+    private func linkContent(_ url: URL) -> some View {
+        let preview = linkPreview
+        VStack(spacing: 0) {
+            if linkPreviewLoading {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
+                    Text("加载预览…").font(.system(size: 10)).foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let p = preview, !p.title.isEmpty {
+                // 缩略图
+                linkThumbnail(imageURL: p.imageURL)
+                    .frame(height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .padding(.bottom, 4)
+
+                // 文字
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(p.title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+                    if let desc = p.description, !desc.isEmpty {
+                        Text(desc)
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    Text(p.host)
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary.opacity(0.6))
+                        .lineLimit(1)
+                }
+            } else {
+                Text(url.absoluteString)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .lineLimit(3)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func linkThumbnail(imageURL: String?) -> some View {
+        if let url = imageURL {
+            RemoteThumbnail(urlString: url)
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+        } else {
+            ZStack {
+                LinearGradient(
+                    colors: [Color.secondary.opacity(0.3), Color.secondary.opacity(0.1)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+                Image(systemName: "link")
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary.opacity(0.35))
+            }
         }
     }
 
@@ -269,29 +409,6 @@ struct ClipboardCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private func linkPreviewView(_ url: URL) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 5) {
-                Image(systemName: "link").font(.system(size: 10, weight: .semibold)).foregroundColor(.blue.opacity(0.75))
-                Text(linkDisplayTitle(url: url)).font(.system(size: 11, weight: .semibold)).foregroundColor(.primary).lineLimit(2)
-            }
-            Text(url.absoluteString).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(2)
-            if linkPreviewLoading {
-                HStack(spacing: 4) {
-                    ProgressView().scaleEffect(0.5).frame(width: 10, height: 10)
-                    Text("获取预览…").font(.system(size: 9)).foregroundColor(.secondary)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func linkDisplayTitle(url: URL) -> String {
-        if let p = linkPreview, !p.title.isEmpty { return p.title }
-        return url.host ?? url.absoluteString
-    }
-
     private var textPreview: some View {
         Text(previewText).lineLimit(7).font(.system(size: 11)).foregroundColor(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -318,7 +435,7 @@ struct ClipboardCardView: View {
                 }
             }
         } else if let url = detectedLink {
-            linkPreviewView(url)
+            linkContent(url)
         } else {
             textPreview
         }
