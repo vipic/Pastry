@@ -396,6 +396,11 @@ final class ClipboardMonitor: ObservableObject {
         shared.readTencentText(from: pb)
     }
 
+    /// 供单元测试使用的 HTML segments 解析入口
+    static func extractOrderedSegmentsForTesting(from html: String, sourceURL: URL?) -> [ContentSegment] {
+        shared.extractOrderedSegments(from: html, sourceURL: sourceURL)
+    }
+
     // MARK: - 辅助
 
     private var currentDedupKey: String {

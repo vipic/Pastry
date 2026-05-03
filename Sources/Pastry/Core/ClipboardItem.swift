@@ -142,7 +142,10 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
 
     /// 去重用的内容摘要（足够长以避免长文本误判）
     var dedupKey: String {
-        "\(contentType.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? "")"
+        let segSig = segments.map { segs in
+            segs.map { $0.imageURL != nil ? "img" : "txt" }.joined(separator: ",")
+        } ?? "nil"
+        return "\(contentType.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? ""):\(segSig)"
     }
 }
 
