@@ -8,6 +8,7 @@ extension Notification.Name {
     static let overlayDeleteSelected = Notification.Name("overlayDeleteSelected")
     static let overlayAlertActive    = Notification.Name("overlayAlertActive")
     static let overlayCloseSearch    = Notification.Name("overlayCloseSearch")
+    static let overlayOpenSearch     = Notification.Name("overlayOpenSearch")
 }
 
 // MARK: - 覆盖层主视图
@@ -62,6 +63,9 @@ struct OverlayView: View {
         .onReceive(NotificationCenter.default.publisher(for: .overlayCloseSearch)) { _ in
             closeSearch()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
+            withAnimation { showSearch = true }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
             let ids = Set(store.items.map { $0.id })
             withAnimation(.easeInOut(duration: 0.1)) { selectedIds = ids }
@@ -76,14 +80,14 @@ struct OverlayView: View {
         } message: {
             Text("确定要删除 \(selectedIds.count) 条选中的记录吗？Pinned 项将被保留。")
         }
-        .onChange(of: showDeleteConfirm) { active in
+        .onChange(of: showDeleteConfirm) {
             NotificationCenter.default.post(name: .overlayAlertActive,
                                             object: nil,
-                                            userInfo: ["active": active])
+                                            userInfo: ["active": showDeleteConfirm])
         }
-        .onChange(of: showSearch) { active in
-            OverlayPanelManager.shared.isSearchActive = active
-            if active {
+        .onChange(of: showSearch) {
+            OverlayPanelManager.shared.isSearchActive = showSearch
+            if showSearch {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isSearchFocused = true
                 }
@@ -306,6 +310,9 @@ struct OverlayView: View {
             }
             .frame(minHeight: 208)
         }
+        .frame(maxHeight: 248)
+        .clipped()
+        .padding(.top, 8)
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
         .background(

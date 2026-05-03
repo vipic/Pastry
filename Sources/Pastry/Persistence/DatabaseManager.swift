@@ -12,8 +12,9 @@ final class DatabaseManager {
     private var db: OpaquePointer?
     private let dbPath: String
 
-    // 上次插入的去重 key，仅跳过连续相同复制
+    // 上次插入的去重 key + 时间，5 秒内连续相同才跳过
     private var lastKey: String?
+    private var lastKeyTime: Date = .distantPast
 
     private init() {
         let appSupport = FileManager.default.urls(
@@ -131,7 +132,8 @@ final class DatabaseManager {
     @discardableResult
     func insert(_ item: ClipboardItem) -> Bool {
         let key = item.dedupKey
-        guard key != lastKey else { return false }
+        let now = Date()
+        if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return false }
 
         let sql = """
         INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, is_favorite, display_count)
@@ -162,6 +164,7 @@ final class DatabaseManager {
 
         // 更新去重缓存
         lastKey = key
+        lastKeyTime = now
 
         return true
     }
@@ -328,17 +331,20 @@ final class DatabaseManager {
         let rc = sqlite3_step(stmt)
         let changed = sqlite3_changes(db)
         sqlite3_finalize(stmt)
+        if changed > 0 { lastKey = nil }
         return rc == SQLITE_DONE && changed > 0
     }
 
     /// 清空所有（保留 pinned）
     func clearNonPinned() {
         execute("DELETE FROM clips WHERE is_favorite = 0;")
+        lastKey = nil
     }
 
     /// 清空全部
     func clearAll() {
         execute("DELETE FROM clips;")
+        lastKey = nil
     }
 
     // MARK: - 统计
