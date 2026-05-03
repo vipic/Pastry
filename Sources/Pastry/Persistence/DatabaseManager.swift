@@ -12,9 +12,8 @@ final class DatabaseManager {
     private var db: OpaquePointer?
     private let dbPath: String
 
-    // 缓存最近 N 条的去重 key，避免频繁写入
-    private var recentKeys = Set<String>()
-    private let maxRecentKeys = 100
+    // 上次插入的去重 key，仅跳过连续相同复制
+    private var lastKey: String?
 
     private init() {
         let appSupport = FileManager.default.urls(
@@ -132,7 +131,7 @@ final class DatabaseManager {
     @discardableResult
     func insert(_ item: ClipboardItem) -> Bool {
         let key = item.dedupKey
-        guard !recentKeys.contains(key) else { return false }
+        guard key != lastKey else { return false }
 
         let sql = """
         INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, is_favorite, display_count)
@@ -162,10 +161,7 @@ final class DatabaseManager {
         syncFTS(item)
 
         // 更新去重缓存
-        recentKeys.insert(key)
-        if recentKeys.count > maxRecentKeys {
-            recentKeys.remove(recentKeys.first!)
-        }
+        lastKey = key
 
         return true
     }
