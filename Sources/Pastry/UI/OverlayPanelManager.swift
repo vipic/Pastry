@@ -106,8 +106,9 @@ final class OverlayPanelManager {
 
     @MainActor
     private func showPanel() {
-        guard let screen = NSScreen.main else {
-            log.error("无法获取主屏幕")
+        let mouseLocation = NSEvent.mouseLocation
+        guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) ?? NSScreen.main ?? NSScreen.screens.first else {
+            log.error("无法获取屏幕")
             return
         }
 
@@ -213,11 +214,13 @@ final class OverlayPanelManager {
         let vKey = CGKeyCode(9)
         guard let source = CGEventSource(stateID: .privateState) else {
             Logger(subsystem: "com.nekutai.pastry", category: "paste").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
+            NSSound.beep()
             return
         }
 
         guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
               let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false) else {
+            NSSound.beep()
             return
         }
 

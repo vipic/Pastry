@@ -165,13 +165,31 @@ final class ClipboardMonitor: ObservableObject {
 
         guard let types = pb.types, !types.isEmpty else { return }
 
-            if let item = readImage(from: pb, appName: capturedApp)
-                ?? readFileURLs(from: pb, appName: capturedApp)
-                ?? readHTML(from: pb, appName: capturedApp)
-                ?? readRTF(from: pb, appName: capturedApp)
-                ?? readText(from: pb, appName: capturedApp) {
+        // 图片处理：主线程读取数据，后台队列生成缩略图并写入磁盘
+        if let (image, data) = readImageData(from: pb) {
+            lastDedupKey = dedup
+            let appName = capturedApp
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                guard let self else { return }
+                guard let savedPath = ImageCacheManager.shared.save(image: image, data: data) else {
+                    self.log.error("图片缓存写入失败")
+                    return
+                }
+                let item = ClipboardItem(content: savedPath, contentType: .image, appName: appName)
+                DispatchQueue.main.async {
+                    self.latestItem = item
+                    self.onNewItem?(item)
+                }
+            }
+            return
+        }
 
-                lastDedupKey = dedup
+        if let item = readFileURLs(from: pb, appName: capturedApp)
+            ?? readHTML(from: pb, appName: capturedApp)
+            ?? readRTF(from: pb, appName: capturedApp)
+            ?? readText(from: pb, appName: capturedApp) {
+
+            lastDedupKey = dedup
 
             DispatchQueue.main.async {
                 self.latestItem = item
@@ -210,15 +228,13 @@ final class ClipboardMonitor: ObservableObject {
         return ClipboardItem(content: html, contentType: .html, appName: appName)
     }
 
-    private func readImage(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {
+    /// 仅读取剪贴板图片数据和 NSImage（主线程安全，轻量操作）。
+    /// 缩略图生成、编码和磁盘写入已移至后台队列。
+    private func readImageData(from pb: NSPasteboard) -> (NSImage, Data)? {
         guard let data = pb.data(forType: .tiff) ?? pb.data(forType: .png),
               let image = NSImage(data: data)
         else { return nil }
-        guard let savedPath = ImageCacheManager.shared.save(image: image, data: data) else {
-            log.error("图片缓存写入失败")
-            return nil
-        }
-        return ClipboardItem(content: savedPath, contentType: .image, appName: appName)
+        return (image, data)
     }
 
     private func readFileURLs(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {
@@ -245,6 +261,11 @@ final class ClipboardMonitor: ObservableObject {
 final class ImageCacheManager {
     static let shared = ImageCacheManager()
 
+    /// 缓存磁盘用量上限（超过触发淘汰）
+    private static let maxCacheSize: Int64 = 200 * 1024 * 1024  // 200 MB
+    /// 淘汰后目标磁盘用量
+    private static let targetCacheSize: Int64 = 150 * 1024 * 1024  // 150 MB
+
     private let cacheDir: URL
 
     private init() {
@@ -267,9 +288,48 @@ final class ImageCacheManager {
         else { return nil }
         do {
             try pngData.write(to: fileURL)
+            evictIfNeeded()
             return fileURL.path
         } catch {
             return nil
+        }
+    }
+
+    /// LRU 磁盘淘汰：超过 maxCacheSize 时按修改时间删除最旧文件，直到低于 targetCacheSize
+    private func evictIfNeeded() {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(
+            at: cacheDir,
+            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        var totalSize: Int64 = 0
+        var fileInfos: [(url: URL, size: Int64, modDate: Date)] = []
+
+        for file in files {
+            guard let attrs = try? file.resourceValues(
+                forKeys: [.fileSizeKey, .contentModificationDateKey]
+            ),
+                  let size = attrs.fileSize.map(Int64.init)
+            else { continue }
+            totalSize += size
+            fileInfos.append((file, size, attrs.contentModificationDate ?? Date.distantPast))
+        }
+
+        guard totalSize > Self.maxCacheSize else { return }
+
+        // 按修改时间升序（最旧 → 最新）
+        fileInfos.sort { $0.modDate < $1.modDate }
+
+        for info in fileInfos {
+            guard totalSize > Self.targetCacheSize else { break }
+            do {
+                try fm.removeItem(at: info.url)
+                totalSize -= info.size
+            } catch {
+                // 无法删除的文件跳过，继续处理下一个
+            }
         }
     }
 

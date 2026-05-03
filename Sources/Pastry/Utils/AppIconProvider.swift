@@ -39,8 +39,9 @@ final class AppIconProvider {
         "音乐":               NSColor(red: 0.94, green: 0.32, blue: 0.22, alpha: 1),  // 红
     ]
 
-    private var iconCache = [String: NSImage]()
-    private var colorCache = [String: NSColor]()
+    private let iconCache = NSCache<NSString, NSImage>()
+    private let colorCache = NSCache<NSString, NSColor>()
+    private let lock = NSLock()
 
     private init() {}
 
@@ -55,10 +56,17 @@ final class AppIconProvider {
             return defaultIcon
         }
 
-        if let cached = iconCache[name] { return cached }
+        let nsName = name as NSString
+        lock.lock()
+        if let cached = iconCache.object(forKey: nsName) { lock.unlock(); return cached }
+        lock.unlock()
 
         let icon = findAppIcon(named: name)
-        iconCache[name] = icon
+
+        lock.lock()
+        iconCache.setObject(icon, forKey: nsName)
+        lock.unlock()
+
         return icon
     }
 
@@ -68,18 +76,24 @@ final class AppIconProvider {
             return NSColor.controlAccentColor
         }
 
-        if let cached = colorCache[name] { return cached }
+        let nsName = name as NSString
+        lock.lock()
+        if let cached = colorCache.object(forKey: nsName) { lock.unlock(); return cached }
 
         // 1. 查固定映射表
         if let mapped = Self.appColorMap[name] {
-            colorCache[name] = mapped
+            colorCache.setObject(mapped, forKey: nsName)
+            lock.unlock()
             return mapped
         }
+        lock.unlock()
 
         // 2. 从应用图标提取主色
         let appIcon = self.icon(for: appName)
         if let extracted = extractDominantColor(from: appIcon) {
-            colorCache[name] = extracted
+            lock.lock()
+            colorCache.setObject(extracted, forKey: nsName)
+            lock.unlock()
             return extracted
         }
 
@@ -87,7 +101,9 @@ final class AppIconProvider {
         let hash = name.hash
         let hue = abs(CGFloat(hash % 360)) / 360.0
         let color = NSColor(hue: hue, saturation: 0.6, brightness: 0.7, alpha: 1)
-        colorCache[name] = color
+        lock.lock()
+        colorCache.setObject(color, forKey: nsName)
+        lock.unlock()
         return color
     }
 

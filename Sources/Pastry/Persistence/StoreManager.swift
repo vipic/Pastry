@@ -99,6 +99,10 @@ final class StoreManager: ObservableObject {
         "代码":   ["swift", "py", "js", "ts", "go", "rs", "java", "c", "cpp"],
     ]
 
+    // MARK: 防抖
+
+    private var searchTask: Task<Void, Never>?
+
     // MARK: 订阅
 
     private var cancellables = Set<AnyCancellable>()
@@ -316,39 +320,46 @@ final class StoreManager: ObservableObject {
     }
 
     private func performSearch() {
-        let query = searchQuery.trimmingCharacters(in: .whitespaces)
+        searchTask?.cancel()
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms 防抖
+            guard !Task.isCancelled else { return }
 
-        // 确定基础数据源
-        var base = items
-        if pinTab == .pinned {
-            base = items.filter { $0.isPinned }
-        }
+            let query = searchQuery.trimmingCharacters(in: .whitespaces)
 
-        // 关键词搜索（含分类词扩展）
-        if !query.isEmpty {
-            let expanded = Self.expandQuery(query)
-            base = DatabaseManager.shared.search(query: expanded, limit: 200).filter { item in
-                // 如果当前在 pin tab，只保留 pinned 的
-                pinTab == .all || item.isPinned
+            // 确定基础数据源
+            var base = items
+            if pinTab == .pinned {
+                base = items.filter { $0.isPinned }
             }
-        }
 
-        // 类型筛选
-        if let type = typeFilter {
-            base = base.filter { $0.contentType == type }
-        }
+            // 关键词搜索（含分类词扩展）
+            if !query.isEmpty {
+                let expanded = Self.expandQuery(query)
+                base = DatabaseManager.shared.search(query: expanded, limit: 200).filter { item in
+                    // 如果当前在 pin tab，只保留 pinned 的
+                    pinTab == .all || item.isPinned
+                }
+            }
 
-        // App 筛选
-        if let app = appFilter {
-            base = base.filter { $0.appName == app }
-        }
+            // 类型筛选
+            if let type = typeFilter {
+                base = base.filter { $0.contentType == type }
+            }
 
-        // 时间筛选
-        if let start = timeFilter.startDate {
-            base = base.filter { $0.timestamp >= start }
-        }
+            // App 筛选
+            if let app = appFilter {
+                base = base.filter { $0.appName == app }
+            }
 
-        filteredItems = base
+            // 时间筛选
+            if let start = timeFilter.startDate {
+                base = base.filter { $0.timestamp >= start }
+            }
+
+            guard !Task.isCancelled else { return }
+            filteredItems = base
+        }
     }
 
     private func clearNonPinnedWithClipboard() {
