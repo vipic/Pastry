@@ -2,7 +2,7 @@ import XCTest
 @testable import Pastry
 
 // MARK: - LinkPreviewLoader 测试套件
-// 验证 HTML 元数据提取（og:title/description/image）+ 图片降级策略
+// 验证 HTML 元数据提取（og:title/description/image）+ 图片降级策略 + title 标签降级 + 缓存
 
 final class LinkPreviewLoaderTests: XCTestCase {
 
@@ -128,5 +128,76 @@ final class LinkPreviewLoaderTests: XCTestCase {
             baseURL: URL(string: "https://example.com")!
         )
         XCTAssertNil(result)
+    }
+
+    // MARK: - <title> 标签提取（og:title 缺失时的降级）
+
+    func testTitleTagSimple() {
+        let html = "<html><head><title>页面标题</title></head><body></body></html>"
+        let result = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        XCTAssertEqual(result, "页面标题")
+    }
+
+    func testTitleTagWithWhitespace() {
+        let html = "<title>  前后空格  </title>"
+        let result = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        XCTAssertEqual(result, "前后空格")
+    }
+
+    func testTitleTagEmpty() {
+        let html = "<title></title>"
+        let result = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        XCTAssertNil(result)
+    }
+
+    func testTitleTagNotPresent() {
+        let html = "<html><head></head><body>无标题</body></html>"
+        let result = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        XCTAssertNil(result)
+    }
+
+    func testTitleTagCaseInsensitive() {
+        let html = "<HTML><HEAD><TITLE>大写标题</TITLE></HEAD></HTML>"
+        let result = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        XCTAssertEqual(result, "大写标题")
+    }
+
+    func testTitleTagOnlyWhitespace() {
+        let html = "<title>   </title>"
+        let result = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        // trim 后为空 → nil
+        XCTAssertNil(result)
+    }
+
+    // MARK: - 缓存行为
+
+    func testCachedPreviewInitiallyNil() {
+        let result = LinkPreviewLoader.shared.cachedPreview(for: "https://never-seen.example.com")
+        XCTAssertNil(result, "未加载过的 URL 缓存应为 nil")
+    }
+
+    func testPreviewStructInit() {
+        let p = LinkPreviewLoader.Preview(
+            title: "标题",
+            description: "描述",
+            imageURL: "https://img.example.com/pic.jpg",
+            host: "example.com"
+        )
+        XCTAssertEqual(p.title, "标题")
+        XCTAssertEqual(p.description, "描述")
+        XCTAssertEqual(p.imageURL, "https://img.example.com/pic.jpg")
+        XCTAssertEqual(p.host, "example.com")
+    }
+
+    func testPreviewStructNilDescription() {
+        let p = LinkPreviewLoader.Preview(
+            title: "仅标题",
+            description: nil,
+            imageURL: nil,
+            host: "host.com"
+        )
+        XCTAssertEqual(p.title, "仅标题")
+        XCTAssertNil(p.description)
+        XCTAssertNil(p.imageURL)
     }
 }

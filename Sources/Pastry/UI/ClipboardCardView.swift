@@ -152,6 +152,10 @@ final class LinkPreviewLoader {
     static func resolveImageURLForTesting(src: String, baseURL: URL?) -> String? {
         shared.resolveImageURL(src: src, baseURL: baseURL ?? URL(string: "https://example.com")!)
     }
+
+    static func extractTitleTagForTesting(from html: String) -> String? {
+        shared.extractTitleTag(from: html)
+    }
 }
 
 // MARK: - 剪贴板卡片视图
@@ -170,6 +174,8 @@ struct ClipboardCardView: View {
     @State private var linkPreviewTask: Task<Void, Never>?
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
     @State private var previewLoadTrigger = 0
+    /// 是否已发起过预览请求（用于骨架 → 真实内容/URL 降级的状态切换）
+    @State private var previewLoadAttempted = false
 
     private static let cardSize: CGFloat = 200
     private static let headerHeight: CGFloat = 40
@@ -303,12 +309,27 @@ struct ClipboardCardView: View {
     private func linkContent(_ url: URL) -> some View {
         let preview = linkPreview
         VStack(spacing: 0) {
-            if linkPreviewLoading {
-                HStack(spacing: 6) {
-                    ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
-                    Text("加载预览…").font(.system(size: 10)).foregroundColor(.secondary)
+            if linkPreview == nil && !previewLoadAttempted {
+                VStack(spacing: 0) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.15))
+                        .frame(height: 56)
+                        .padding(.bottom, 4)
+                    VStack(alignment: .leading, spacing: 2) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.secondary.opacity(0.15))
+                            .frame(height: 11)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.secondary.opacity(0.12))
+                            .frame(height: 9)
+                            .frame(maxWidth: 100, alignment: .leading)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.secondary.opacity(0.10))
+                            .frame(height: 8)
+                            .frame(maxWidth: 70, alignment: .leading)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .redacted(reason: .placeholder)
             } else if let p = preview, !p.title.isEmpty {
                 // 缩略图
                 linkThumbnail(imageURL: p.imageURL)
@@ -503,11 +524,6 @@ struct ClipboardCardView: View {
         return LinkPreviewLoader.shared.cachedPreview(for: url.absoluteString)
     }
 
-    /// 是否正在加载中（仅缓存未命中 + 任务已发起时显示）
-    private var linkPreviewLoading: Bool {
-        linkPreview == nil && detectedLink != nil && linkPreviewTask != nil
-    }
-
     private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
     private func fetchLinkPreviewIfNeeded() {
@@ -521,6 +537,7 @@ struct ClipboardCardView: View {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             LinkPreviewLoader.shared.load(url: url) { preview in
+                self.previewLoadAttempted = true
                 guard preview != nil else { return }
                 self.previewLoadTrigger &+= 1
             }
@@ -570,9 +587,7 @@ private struct RemoteThumbnail: View {
             } else {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(Color.secondary.opacity(0.12))
-                    .overlay(
-                        ProgressView().scaleEffect(0.5)
-                    )
+                    .redacted(reason: .placeholder)
             }
         }
         .onAppear {
