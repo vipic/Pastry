@@ -118,11 +118,13 @@ final class DatabaseManager {
     }
 
     private func runMigrations() {
-        // 版本迁移预留
         let version = userVersion
         if version < 1 {
-            // 未来迁移：e.g., 添加新字段
             userVersion = 1
+        }
+        if version < 2 {
+            _ = execute("ALTER TABLE clips ADD COLUMN text_annotation TEXT;")
+            userVersion = 2
         }
     }
 
@@ -136,8 +138,8 @@ final class DatabaseManager {
         if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return false }
 
         let sql = """
-        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, is_favorite, display_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, is_favorite, display_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -151,8 +153,9 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 3, (item.content as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 4, (item.contentType.storageKey as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 5, (item.appName as NSString?)?.utf8String ?? nil, -1, nil)
-        sqlite3_bind_int(stmt, 6, item.isPinned ? 1 : 0)  // is_pinned
-        sqlite3_bind_int(stmt, 7, Int32(item.displayCount))
+        sqlite3_bind_text(stmt, 6, (item.textAnnotation as NSString?)?.utf8String ?? nil, -1, nil)
+        sqlite3_bind_int(stmt, 7, item.isPinned ? 1 : 0)  // is_favorite
+        sqlite3_bind_int(stmt, 8, Int32(item.displayCount))
 
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -178,7 +181,7 @@ final class DatabaseManager {
         // FTS5 搜索（带前缀通配）
         let ftsSQL = """
         SELECT c.id, c.timestamp, c.content, c.content_type, c.app_name,
-               c.is_favorite, c.display_count
+               c.text_annotation, c.is_favorite, c.display_count
         FROM clips c
         JOIN clips_fts f ON c.rowid = f.rowid
         WHERE clips_fts MATCH ?
@@ -211,7 +214,7 @@ final class DatabaseManager {
     /// LIKE 降级搜索
     private func fallbackSearch(query: String, limit: Int) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, is_favorite, display_count
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, is_favorite, display_count
         FROM clips
         WHERE content LIKE ?
         ORDER BY timestamp DESC
@@ -235,7 +238,7 @@ final class DatabaseManager {
     /// 最近历史
     func recent(limit: Int = 100) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, is_favorite, display_count
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, is_favorite, display_count
         FROM clips
         ORDER BY timestamp DESC
         LIMIT ?;
@@ -256,7 +259,7 @@ final class DatabaseManager {
     /// 收藏列表
     func favorites(limit: Int = 200) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, is_favorite, display_count
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, is_favorite, display_count
         FROM clips
         WHERE is_favorite = 1
         ORDER BY timestamp DESC
@@ -392,8 +395,12 @@ final class DatabaseManager {
                 guard let ptr = sqlite3_column_text(stmt, 4) else { return nil }
                 return String(cString: ptr)
             }()
-            let pinned = sqlite3_column_int(stmt, 5) != 0
-            let dispCount = Int(sqlite3_column_int(stmt, 6))
+            let textAnnotation: String? = {
+                guard let ptr = sqlite3_column_text(stmt, 5) else { return nil }
+                return String(cString: ptr)
+            }()
+            let pinned = sqlite3_column_int(stmt, 6) != 0
+            let dispCount = Int(sqlite3_column_int(stmt, 7))
 
             let item = ClipboardItem(
                 id: UUID(uuidString: idStr) ?? UUID(),
@@ -401,6 +408,7 @@ final class DatabaseManager {
                 content: content,
                 contentType: ClipType(storageKey: typeStr),
                 appName: appName,
+                textAnnotation: textAnnotation,
                 displayCount: dispCount,
                 isPinned: pinned
             )
