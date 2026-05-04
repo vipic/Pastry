@@ -56,7 +56,9 @@ final class LinkPreviewLoader {
             let description = self.extractMeta(from: html, tag: "og:description")
             let imageURL = self.extractMeta(from: html, tag: "og:image").flatMap { src in
                 self.resolveImageURL(src: src, baseURL: url)
-            } ?? self.extractFirstImage(from: html, baseURL: url)
+            } ?? self.extractMeta(from: html, tag: "twitter:image").flatMap { src in
+                self.resolveImageURL(src: src, baseURL: url)
+            } ?? self.extractBestImage(from: html, baseURL: url)
             let preview = Preview(
                 title: title ?? "",
                 description: description,
@@ -109,28 +111,162 @@ final class LinkPreviewLoader {
         return URL(string: src)?.absoluteString
     }
 
-    /// og:image 缺失时的降级方案：提取 HTML 中第一个有效 <img src>
-    private func extractFirstImage(from html: String, baseURL: URL) -> String? {
+    /// og:image 缺失时的降级方案：语义排序选择最佳内容图片
+    private func extractBestImage(from html: String, baseURL: URL) -> String? {
         guard let regex = try? NSRegularExpression(
-            pattern: "<img[^>]+src=[\"']([^\"']+)[\"']",
+            pattern: "<img[^>]+>",
             options: .caseInsensitive
         ) else { return nil }
 
         let range = NSRange(html.startIndex..., in: html)
         let matches = regex.matches(in: html, range: range)
 
-        for match in matches.prefix(10) {
-            guard let captureRange = Range(match.range(at: 1), in: html) else { continue }
-            let src = String(html[captureRange])
+        struct Candidate {
+            let src: String
+            let score: Int
+        }
+        var candidates: [Candidate] = []
 
-            // 跳过 data URI 和常见追踪像素（1×1）
-            guard !src.hasPrefix("data:") else { continue }
+        for match in matches.prefix(30) {
+            guard let tagRange = Range(match.range, in: html) else { continue }
+            let tag = String(html[tagRange])
+
+            // 提取 src，懒加载降级到 data-src
+            var src = extractSrc(from: tag)
+            if src?.hasPrefix("data:") ?? true {
+                if let lazy = extractAttr(from: tag, attr: "data-src"), !lazy.isEmpty {
+                    src = lazy
+                }
+            }
+            guard let src, !src.hasPrefix("data:") else { continue }
+
             let lower = src.lowercased()
-            if lower.contains("1x1") || lower.contains("pixel") || lower.contains("tracking") { continue }
+            let lowerTag = tag.lowercased()
 
+            // 黑名单过滤：logo / icon / favicon / gravatar / 追踪像素 / footer/header 装饰图
+            if isNoiseImage(src: lower, tag: lowerTag) { continue }
+
+            // 尺寸过滤：跳过明确的小图标
+            if isSmallIcon(tag: tag) { continue }
+
+            // 打分
+            var score = 0
+
+            // 语义关键词加分
+            let semanticBoost = [
+                "featured": 20, "hero": 20, "cover": 15, "wp-image": 15,
+                "thumbnail": 12, "thumb": 10,
+                "og-image": 18, "post-image": 15, "entry-image": 15,
+                "article-image": 15, "content-image": 12,
+            ]
+            for (keyword, points) in semanticBoost {
+                if lowerTag.contains(keyword) || lower.contains(keyword) {
+                    score += points
+                }
+            }
+
+            // 尺寸加分
+            score += sizeScore(from: tag)
+
+            // alt 文本非空加分（说明是内容图）
+            if let alt = extractAttr(from: tag, attr: "alt"), !alt.trimmingCharacters(in: .whitespaces).isEmpty {
+                let lt = alt.lowercased()
+                if !lt.contains("logo") && !lt.contains("icon") && !lt.contains("home") {
+                    score += 5
+                }
+            }
+
+            candidates.append(Candidate(src: src, score: score))
+        }
+
+        // 按分数降序，取最佳
+        candidates.sort { $0.score > $1.score }
+
+        if let best = candidates.first {
+            return resolveImageURL(src: best.src, baseURL: baseURL)
+        }
+
+        // 全部被过滤：降级取第一个非 dataURI 的 img
+        for match in matches.prefix(10) {
+            guard let tagRange = Range(match.range, in: html) else { continue }
+            let tag = String(html[tagRange])
+            guard let src = extractSrc(from: tag), !src.hasPrefix("data:") else { continue }
             return resolveImageURL(src: src, baseURL: baseURL)
         }
+
         return nil
+    }
+
+    // MARK: - 图片语义分析辅助
+
+    /// 从 <img> 标签提取 src 属性值
+    private func extractSrc(from tag: String) -> String? {
+        for quote in ["\"", "'"] {
+            if let s = tag.range(of: "src=\(quote)", options: .caseInsensitive) {
+                let start = s.upperBound
+                guard let e = tag.range(of: quote, range: start..<tag.endIndex) else { continue }
+                let val = String(tag[start..<e.lowerBound]).trimmingCharacters(in: .whitespaces)
+                if !val.isEmpty { return val }
+            }
+        }
+        return nil
+    }
+
+    /// 从标签提取指定属性值
+    private func extractAttr(from tag: String, attr: String) -> String? {
+        for quote in ["\"", "'"] {
+            if let s = tag.range(of: "\(attr)=\(quote)", options: .caseInsensitive) {
+                let start = s.upperBound
+                guard let e = tag.range(of: quote, range: start..<tag.endIndex) else { continue }
+                return String(tag[start..<e.lowerBound])
+            }
+        }
+        return nil
+    }
+
+    /// 是否为噪音图片（logo / icon / 追踪像素等）
+    private func isNoiseImage(src: String, tag: String) -> Bool {
+        let noisePatterns = [
+            "logo", "icon", "avatar", "favicon", "gravatar",
+            "1x1", "pixel", "tracking", "beacon", "analytics",
+            "button", "header-logo", "site-logo", "footer-logo",
+            "menu-icon", "nav-icon", "social-icon",
+        ]
+        for pattern in noisePatterns {
+            if src.contains(pattern) || tag.contains(pattern) { return true }
+        }
+        return false
+    }
+
+    /// 是否为明确的小图标（width/height 属性 < 100px）
+    private func isSmallIcon(tag: String) -> Bool {
+        if let w = extractAttr(from: tag, attr: "width"),
+           let width = Int(w), width > 0, width < 100 { return true }
+        if let h = extractAttr(from: tag, attr: "height"),
+           let height = Int(h), height > 0, height < 100 { return true }
+        return false
+    }
+
+    /// 根据标签尺寸估算得分
+    private func sizeScore(from tag: String) -> Int {
+        var w = 0, h = 0
+        if let ws = extractAttr(from: tag, attr: "width"), let v = Int(ws) { w = v }
+        if let hs = extractAttr(from: tag, attr: "height"), let v = Int(hs) { h = v }
+        if w > 0 && h > 0 {
+            let area = w * h
+            if area >= 500_000 { return 15 }      // ≥ 1000×500
+            if area >= 200_000 { return 10 }      // ≥ 500×400
+            if area >= 80_000  { return 5 }       // ≥ 400×200
+        }
+        // 从 URL 参数推测（如 ?w=1200 或 /1200x800）
+        if let wRegex = try? NSRegularExpression(pattern: "[?&/]w=(\\d{3,4})", options: .caseInsensitive) {
+            let nsTag = tag as NSString
+            let range = NSRange(location: 0, length: nsTag.length)
+            if let m = wRegex.firstMatch(in: tag, range: range),
+               let r = Range(m.range(at: 1), in: tag),
+               let v = Int(tag[r]), v >= 800 { return 12 }
+        }
+        return 0
     }
 
     // MARK: — 向后兼容
@@ -145,8 +281,8 @@ final class LinkPreviewLoader {
         shared.extractMeta(from: html, tag: tag)
     }
 
-    static func extractFirstImageForTesting(from html: String, baseURL: URL?) -> String? {
-        shared.extractFirstImage(from: html, baseURL: baseURL ?? URL(string: "https://example.com")!)
+    static func extractBestImageForTesting(from html: String, baseURL: URL?) -> String? {
+        shared.extractBestImage(from: html, baseURL: baseURL ?? URL(string: "https://example.com")!)
     }
 
     static func resolveImageURLForTesting(src: String, baseURL: URL?) -> String? {

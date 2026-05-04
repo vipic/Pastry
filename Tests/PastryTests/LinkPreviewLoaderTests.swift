@@ -2,7 +2,7 @@ import XCTest
 @testable import Pastry
 
 // MARK: - LinkPreviewLoader 测试套件
-// 验证 HTML 元数据提取（og:title/description/image）+ 图片降级策略 + title 标签降级 + 缓存
+// 验证 HTML 元数据提取（og/twitter）+ 图片语义排序降级 + title 标签降级 + 缓存
 
 final class LinkPreviewLoaderTests: XCTestCase {
 
@@ -53,8 +53,21 @@ final class LinkPreviewLoaderTests: XCTestCase {
     func testEmptyContentValueIgnored() {
         let html = "<meta property=\"og:title\" content=\"\">"
         let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:title")
-        // 空值会被 trim 后判空 → nil
         XCTAssertNil(result)
+    }
+
+    // MARK: - twitter:image 提取（新增）
+
+    func testTwitterImageExtracted() {
+        let html = "<meta name=\"twitter:image\" content=\"https://example.com/tw-card.jpg\">"
+        let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "twitter:image")
+        XCTAssertEqual(result, "https://example.com/tw-card.jpg")
+    }
+
+    func testTwitterImagePropertyAttr() {
+        let html = "<meta property=\"twitter:image\" content=\"https://example.com/tw-prop.jpg\">"
+        let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "twitter:image")
+        XCTAssertEqual(result, "https://example.com/tw-prop.jpg")
     }
 
     // MARK: - 图片 URL 解析
@@ -83,11 +96,11 @@ final class LinkPreviewLoaderTests: XCTestCase {
         XCTAssertEqual(result, "https://example.com/blog/images/hero.png")
     }
 
-    // MARK: - 降级图片提取
+    // MARK: - 降级图片提取（基础）
 
     func testFirstImageSimple() {
         let html = "<img src='https://example.com/pic.jpg'><p>text</p>"
-        let result = LinkPreviewLoader.extractFirstImageForTesting(
+        let result = LinkPreviewLoader.extractBestImageForTesting(
             from: html,
             baseURL: URL(string: "https://example.com")!
         )
@@ -96,7 +109,7 @@ final class LinkPreviewLoaderTests: XCTestCase {
 
     func testFirstImageSkipsDataURI() {
         let html = "<img src='data:image/png;base64,abc'><img src='https://example.com/real.png'>"
-        let result = LinkPreviewLoader.extractFirstImageForTesting(
+        let result = LinkPreviewLoader.extractBestImageForTesting(
             from: html,
             baseURL: URL(string: "https://example.com")!
         )
@@ -105,7 +118,7 @@ final class LinkPreviewLoaderTests: XCTestCase {
 
     func testFirstImageSkipsTrackingPixel() {
         let html = "<img src='https://a.com/1x1.gif'><img src='https://a.com/real.jpg'>"
-        let result = LinkPreviewLoader.extractFirstImageForTesting(
+        let result = LinkPreviewLoader.extractBestImageForTesting(
             from: html,
             baseURL: URL(string: "https://a.com")!
         )
@@ -114,7 +127,7 @@ final class LinkPreviewLoaderTests: XCTestCase {
 
     func testFirstImageNoImages() {
         let html = "<p>纯文字页面</p>"
-        let result = LinkPreviewLoader.extractFirstImageForTesting(
+        let result = LinkPreviewLoader.extractBestImageForTesting(
             from: html,
             baseURL: URL(string: "https://example.com")!
         )
@@ -123,11 +136,159 @@ final class LinkPreviewLoaderTests: XCTestCase {
 
     func testFirstImageAllDataURIs() {
         let html = "<img src='data:image/svg+xml,abc'><img src='data:image/gif,def'>"
-        let result = LinkPreviewLoader.extractFirstImageForTesting(
+        let result = LinkPreviewLoader.extractBestImageForTesting(
             from: html,
             baseURL: URL(string: "https://example.com")!
         )
         XCTAssertNil(result)
+    }
+
+    // MARK: - 语义过滤：logo / icon 黑名单（新增）
+
+    func testSkipsLogoBySrc() {
+        let html = "<img src='/images/logo.png'><img src='/images/content.jpg'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/images/content.jpg")
+    }
+
+    func testSkipsLogoByClass() {
+        let html = "<img class='site-logo' src='/logo.png'><img src='/hero.jpg'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/hero.jpg")
+    }
+
+    func testSkipsFavicon() {
+        let html = "<img src='/favicon.ico'><img src='/blog-thumb.png'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/blog-thumb.png")
+    }
+
+    func testSkipsGravatar() {
+        let html = "<img src='https://gravatar.com/avatar/abc'><img src='/post-hero.jpg'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/post-hero.jpg")
+    }
+
+    func testSkipsAnalyticsPixel() {
+        let html = "<img src='https://a.com/analytics/pixel.gif'><img src='/photo.jpg'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/photo.jpg")
+    }
+
+    // MARK: - 语义加权：featured / hero 优先（新增）
+
+    func testPrioritizesFeaturedImage() {
+        let html = """
+        <img src='/logo.png' class='nav-logo'>
+        <img src='/featured.jpg' class='featured-image'>
+        <img src='/other.jpg'>
+        """
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/featured.jpg")
+    }
+
+    func testPrioritizesHeroImage() {
+        let html = """
+        <img src='/icons/menu.png'>
+        <img src='/hero-banner.jpg' class='hero'>
+        <img src='/inline.jpg'>
+        """
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/hero-banner.jpg")
+    }
+
+    func testPrioritizesWpImage() {
+        let html = """
+        <img src='/logo.png'>
+        <img class='wp-image-123' src='/content-photo.jpg'>
+        """
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/content-photo.jpg")
+    }
+
+    func testPrioritizesThumbnail() {
+        let html = """
+        <img src='/icon.png' class='header-icon'>
+        <img src='/thumb.jpg' class='post-thumbnail'>
+        """
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/thumb.jpg")
+    }
+
+    // MARK: - 懒加载图片（data-src 降级，新增）
+
+    func testLazyLoadedImageDataSrc() {
+        // src 是 data URI 占位图，真实图片在 data-src
+        let html = """
+        <img src='data:image/gif;base64,R0lGODlhAQABAIAAAA' data-src='/real-photo.jpg'>
+        <img src='/avatar.jpg'>
+        """
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        // data-src 被提取，avatar.jpg 被过滤
+        XCTAssertEqual(result, "https://example.com/real-photo.jpg")
+    }
+
+    // MARK: - 尺寸过滤（新增）
+
+    func testSkipsSmallImageByWidth() {
+        let html = "<img width='32' height='32' src='/icon.png'><img src='/big.jpg'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/big.jpg")
+    }
+
+    func testSkipsSmallImageByHeight() {
+        let html = "<img width='800' height='60' src='/banner.gif'><img src='/photo.jpg'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        // banner.gif 高仅 60 → 被当小图标过滤
+        XCTAssertEqual(result, "https://example.com/photo.jpg")
+    }
+
+    // MARK: - 保底：全部被过滤时返回最大尺寸图（新增）
+
+    func testFallsBackToFirstWhenAllFiltered() {
+        // 两个噪音图都被过滤，返回第一个非 dataURI 的
+        let html = "<img src='https://a.com/logo.png'><img src='https://a.com/favicon.ico'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://a.com/logo.png")
     }
 
     // MARK: - <title> 标签提取（og:title 缺失时的降级）
@@ -165,7 +326,6 @@ final class LinkPreviewLoaderTests: XCTestCase {
     func testTitleTagOnlyWhitespace() {
         let html = "<title>   </title>"
         let result = LinkPreviewLoader.extractTitleTagForTesting(from: html)
-        // trim 后为空 → nil
         XCTAssertNil(result)
     }
 
