@@ -154,6 +154,9 @@ final class StoreManager: ObservableObject {
     }
 
     private static func simulatePaste() {
+        // 首次粘贴时延迟初始化 CGEvent tap（避免启动时弹辅助功能授权）
+        ClipboardMonitor.shared.setupEventTap()
+
         let vKey = CGKeyCode(9)
         guard let source = CGEventSource(stateID: .privateState) else {
             Logger(subsystem: "com.nekutai.pastry", category: "store").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
