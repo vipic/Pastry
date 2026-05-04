@@ -9,15 +9,6 @@ import OSLog
 @MainActor
 final class StoreManager: ObservableObject {
 
-    /// 自定义复制提示音
-    private static let copySound: NSSound? = {
-        guard let path = Bundle.main.path(forResource: "Copy", ofType: "aiff") else {
-            Logger(subsystem: "com.nekutai.pastry", category: "store").warning("找不到 Copy.aiff")
-            return nil
-        }
-        return NSSound(contentsOfFile: path, byReference: true)
-    }()
-
     static let shared = StoreManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "store")
 
@@ -279,10 +270,6 @@ final class StoreManager: ObservableObject {
             filteredItems = items
         } else {
             performSearchImmediate()
-        }
-
-        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
-            Self.copySound?.play()
         }
 
         refreshStats()

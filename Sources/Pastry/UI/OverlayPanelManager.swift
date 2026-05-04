@@ -14,6 +14,16 @@ final class OverlayPanelManager {
     static let shared = OverlayPanelManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "overlay")
 
+    /// 粘贴提示音（预加载避免每次读磁盘阻塞主线程）
+    private static let pasteSound: NSSound? = {
+        guard let path = Bundle.main.path(forResource: "Paste", ofType: "aiff") else { return nil }
+        let sound = NSSound(contentsOfFile: path, byReference: true)
+        // 预暖音频管线，避免首次 play() 的冷启动延迟
+        sound?.play()
+        sound?.stop()
+        return sound
+    }()
+
     private var panel: ClipboardOverlayPanel?
     private var keyboardMonitor: Any?
     private var previousFrontApp: NSRunningApplication?
@@ -52,67 +62,68 @@ final class OverlayPanelManager {
     }
 
     /// 隐藏 + 粘贴到之前的前台应用（点击卡片使用）
+    /// 先写剪贴板 + ⌘V，面板隐藏/DB/音效后台收尾，不阻塞粘贴
     @MainActor
     func hideAndPaste(_ item: ClipboardItem) {
         guard panel != nil else { return }
 
-        panel?.orderOut(nil)
-        panel = nil
-        removeKeyboardMonitor()
-
         let targetApp = previousFrontApp
         previousFrontApp = nil
 
-        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+        // 1. 挂起监听，防止读到自己的写入
+        ClipboardMonitor.shared.suspend()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            ClipboardMonitor.shared.suspend()
-
-            if let app = targetApp {
-                app.activate()
-            }
-
-            let pb = NSPasteboard.general
-            pb.clearContents()
-            switch item.contentType {
-            case .text, .rtf, .html:
-                pb.setString(item.content, forType: .string)
-            case .fileURL:
-                let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
-                pb.writeObjects(urls as [NSURL])
-            case .image:
-                if let image = NSImage(contentsOfFile: item.content) {
-                    if let annotation = item.textAnnotation, !annotation.isEmpty {
-                        // 构造 RTFD：图片附件 + 文字，备忘录等富文本应用可还原图文混排
-                        let attr = NSMutableAttributedString()
-                        let attachment = NSTextAttachment()
-                        attachment.image = image
-                        attr.append(NSAttributedString(attachment: attachment))
-                        attr.append(NSAttributedString(string: "\n\(annotation)"))
-                        if let rtfd = try? attr.data(
-                            from: NSRange(location: 0, length: attr.length),
-                            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]
-                        ) {
-                            pb.setData(rtfd, forType: .rtfd)
-                        }
-                        // 同时保留纯图，兼容非富文本应用
-                        pb.setData(image.tiffRepresentation, forType: .tiff)
-                        pb.setString(annotation, forType: .string)
-                    } else {
-                        pb.writeObjects([image])
+        // 2. 写剪贴板（立即，主线程 <1ms）
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        switch item.contentType {
+        case .text, .rtf, .html:
+            pb.setString(item.content, forType: .string)
+        case .fileURL:
+            let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
+            pb.writeObjects(urls as [NSURL])
+        case .image:
+            if let image = NSImage(contentsOfFile: item.content) {
+                if let annotation = item.textAnnotation, !annotation.isEmpty {
+                    let attr = NSMutableAttributedString()
+                    let attachment = NSTextAttachment()
+                    attachment.image = image
+                    attr.append(NSAttributedString(attachment: attachment))
+                    attr.append(NSAttributedString(string: "\n\(annotation)"))
+                    if let rtfd = try? attr.data(
+                        from: NSRange(location: 0, length: attr.length),
+                        documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]
+                    ) {
+                        pb.setData(rtfd, forType: .rtfd)
                     }
+                    pb.setData(image.tiffRepresentation, forType: .tiff)
+                    pb.setString(annotation, forType: .string)
+                } else {
+                    pb.writeObjects([image])
                 }
             }
-
-            DatabaseManager.shared.bumpTimestamp(id: item.id.uuidString)
-            DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
-            ClipboardMonitor.shared.resume()
-            StoreManager.shared.refresh()
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                Self.simulatePaste()
-            }
         }
+
+        // 内容就绪 → 反馈音效（异步避免阻塞粘贴）
+        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
+            DispatchQueue.main.async { Self.pasteSound?.play() }
+        }
+
+        // 3. 激活目标 App + 隐藏面板（并行）
+        targetApp?.activate()
+        panel?.orderOut(nil)
+        panel = nil
+        removeKeyboardMonitor()
+        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+
+        // 4. ⌘V（面板已隐藏，目标 App 在前台）
+        Self.simulatePaste()
+
+        // 5. 后台收尾：DB / 恢复监听 / 刷新
+        DatabaseManager.shared.bumpTimestamp(id: item.id.uuidString)
+        DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
+        ClipboardMonitor.shared.resume()
+        StoreManager.shared.refresh()
     }
 
     var isVisible: Bool { panel != nil }

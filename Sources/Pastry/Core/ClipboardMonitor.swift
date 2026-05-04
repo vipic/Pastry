@@ -25,6 +25,15 @@ final class ClipboardMonitor: ObservableObject {
     // 防止同一内容重复触发
     private var lastDedupKey = ""
 
+    /// 自定义复制提示音
+    private static let copySound: NSSound? = {
+        guard let path = Bundle.main.path(forResource: "Copy", ofType: "aiff") else {
+            Logger(subsystem: "com.nekutai.pastry", category: "monitor").warning("找不到 Copy.aiff")
+            return nil
+        }
+        return NSSound(contentsOfFile: path, byReference: true)
+    }()
+
     // MARK: - 来源识别：用户主动切换 App = 上下文
     /// 最近 10 秒内用户主动切换到的 App（didActivateApplicationNotification）。
     /// 来源应该反映用户的工作上下文，而非剪贴板写入瞬间碰巧在前台的进程。
@@ -125,6 +134,11 @@ final class ClipboardMonitor: ObservableObject {
         }
         lastChangeCount = currentChange
 
+        // 检测到剪贴板变化 → 立即播提示音（不等 0.1s 延迟和内容解析）
+        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
+            Self.copySound?.play()
+        }
+
         // 来源 = 用户上下文（激活历史） > 上一轮前台 > 当前前台
         let capturedApp = bestGuessAppName(currentFront: currentFront)
         previousFrontApp = currentFront
@@ -161,6 +175,7 @@ final class ClipboardMonitor: ObservableObject {
     private func processChange(capturedApp: String?) {
         let dedup = currentDedupKey
         guard dedup != lastDedupKey else { return }
+
         let pb = NSPasteboard.general
 
         guard let types = pb.types, !types.isEmpty else { return }
