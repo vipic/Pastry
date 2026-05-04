@@ -414,39 +414,72 @@ struct ClipboardCardView: View {
         }
     }
 
+    // MARK: - 文件预览
+
+    /// 文件预览策略（扩展：加 case + 在 filePreviewStyle 中匹配即可）
+    enum FilePreviewStyle {
+        case thumbnail   // 图片 → NSImage 缩略图
+        case systemIcon  // 其他 → NSWorkspace 系统图标
+    }
+
+    static func filePreviewStyle(for url: URL) -> FilePreviewStyle {
+        if imageExtensions.contains(url.pathExtension.lowercased()) { return .thumbnail }
+        return .systemIcon
+    }
+
     @ViewBuilder
     private var fileURLContent: some View {
         let urls = fileURLs
         if urls.count == 1 {
-            if Self.isImageFile(urls[0]) {
-                singleImageFilePreview(urls[0])
-            } else {
-                singleFilePreview(urls[0])
-            }
+            singleFilePreview(urls[0], style: Self.filePreviewStyle(for: urls[0]))
         } else {
             fileURLList
         }
     }
 
-    // MARK: - 文件预览（非图片单文件 → 系统图标）
-
-    /// 单非图片文件：大系统图标 + 文件名（类 QuickLook 体验）
-    private func singleFilePreview(_ url: URL) -> some View {
-        let icon = systemIcon(for: url)
-        return VStack(spacing: 4) {
-            if let icon = icon {
-                Image(nsImage: icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+    /// 单文件卡片：统一布局，预览内容按策略切换
+    private func singleFilePreview(_ url: URL, style: FilePreviewStyle) -> some View {
+        VStack(spacing: style == .thumbnail ? 6 : 4) {
+            filePreviewContent(url: url, style: style)
             Text(url.lastPathComponent)
                 .font(.system(size: 9))
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    @ViewBuilder
+    private func filePreviewContent(url: URL, style: FilePreviewStyle) -> some View {
+        switch style {
+        case .thumbnail:
+            if let img = cachedImage(for: url) {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(4)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                fallbackPreview
+            }
+        case .systemIcon:
+            if let icon = systemIcon(for: url) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(4)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
+    /// NSImage 文件缓存（缩略图用）
+    private func cachedImage(for url: URL) -> NSImage? {
+        let key = url.path as NSString
+        if let cached = Self.imageCache.object(forKey: key) { return cached }
+        guard let loaded = NSImage(contentsOfFile: url.path) else { return nil }
+        Self.imageCache.setObject(loaded, forKey: key)
+        return loaded
     }
 
     // MARK: - 文件列表（多文件 → 小图标行）
@@ -471,7 +504,7 @@ struct ClipboardCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// NSWorkspace 文件图标缓存（避免重复实例化 NSImage）
+    /// NSWorkspace 文件图标缓存
     private func systemIcon(for url: URL) -> NSImage? {
         let cacheKey = "icon:\(url.path)" as NSString
         if let cached = Self.imageCache.object(forKey: cacheKey) { return cached }
@@ -480,42 +513,9 @@ struct ClipboardCardView: View {
         return icon
     }
 
-    private static let imageExtensions: Set<String> = [
+    static let imageExtensions: Set<String> = [
         "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "heic", "heif",
     ]
-
-    private static func isImageFile(_ url: URL) -> Bool {
-        imageExtensions.contains(url.pathExtension.lowercased())
-    }
-
-    /// 单个图片文件：大缩略图预览（NSImage 加载 + NSCache 缓存，失败降级为文件图标）
-    private func singleImageFilePreview(_ url: URL) -> some View {
-        let cacheKey = url.path as NSString
-        let nsImage: NSImage? = {
-            if let cached = Self.imageCache.object(forKey: cacheKey) { return cached }
-            if let loaded = NSImage(contentsOfFile: url.path) {
-                Self.imageCache.setObject(loaded, forKey: cacheKey)
-                return loaded
-            }
-            return nil
-        }()
-        return VStack(spacing: 6) {
-            if let img = nsImage {
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                fallbackPreview
-            }
-            Text(url.lastPathComponent)
-                .font(.system(size: 9))
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .center)
-        }
-    }
 
     private var textPreview: some View {
         Text(previewText).lineLimit(7).font(.system(size: 11)).foregroundColor(.primary)
@@ -645,9 +645,7 @@ struct ClipboardCardView: View {
     private func loadAppInfo() {
         let provider = AppIconProvider.shared
         let name = item.appName
-        // 主题色同步查字典 O(1)
         self.themeColor = Color(nsColor: provider.themeColor(for: name))
-        // 图标异步加载，占位 SF Symbol 不会闪白
         DispatchQueue.global(qos: .userInitiated).async {
             let icon = provider.icon(for: name)
             DispatchQueue.main.async {
@@ -655,6 +653,16 @@ struct ClipboardCardView: View {
             }
         }
     }
+
+    // MARK: - 测试入口
+
+    /// 供单元测试：扩展名 → 预览策略映射
+    static func filePreviewStyleForTesting(extension ext: String) -> FilePreviewStyle {
+        filePreviewStyle(for: URL(fileURLWithPath: "/tmp/test.\(ext)"))
+    }
+
+    /// 供单元测试：图片扩展名集合
+    static var imageExtensionsForTesting: Set<String> { imageExtensions }
 }
 
 // MARK: - 远程图片缩略图（异步加载，NSCache 缓存）

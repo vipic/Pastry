@@ -3,12 +3,13 @@ import XCTest
 
 // MARK: - ClipboardMonitor 测试套件
 // 验证剪贴板格式读取（微信/QQ 自定义类型等）
+// 所有剪贴板操作使用独立 pasteboard，不触及系统剪贴板
 
 final class ClipboardMonitorTests: XCTestCase {
 
-    override func tearDown() {
-        NSPasteboard.general.clearContents()
-        super.tearDown()
+    /// 创建测试用独立 pasteboard
+    private func makeTestPasteboard(_ name: String) -> NSPasteboard {
+        NSPasteboard(name: NSPasteboard.Name("test.hermes.pastry.\(name)"))
     }
 
     // MARK: - TencentAttributeStringType plist 解析
@@ -21,9 +22,7 @@ final class ClipboardMonitorTests: XCTestCase {
         ]
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0)
 
-        // 写入剪贴板，用 Monitor 读取
-        let pb = NSPasteboard.general
-        pb.clearContents()
+        let pb = makeTestPasteboard("tencentMixed")
         pb.setData(data, forType: NSPasteboard.PasteboardType("TencentAttributeStringType"))
 
         let text = ClipboardMonitor.readTencentTextForTesting(from: pb)
@@ -37,8 +36,7 @@ final class ClipboardMonitorTests: XCTestCase {
         ]
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0)
 
-        let pb = NSPasteboard.general
-        pb.clearContents()
+        let pb = makeTestPasteboard("tencentImageOnly")
         pb.setData(data, forType: NSPasteboard.PasteboardType("TencentAttributeStringType"))
 
         let text = ClipboardMonitor.readTencentTextForTesting(from: pb)
@@ -54,8 +52,7 @@ final class ClipboardMonitorTests: XCTestCase {
         ]
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0)
 
-        let pb = NSPasteboard.general
-        pb.clearContents()
+        let pb = makeTestPasteboard("tencentMultiple")
         pb.setData(data, forType: NSPasteboard.PasteboardType("TencentAttributeStringType"))
 
         let text = ClipboardMonitor.readTencentTextForTesting(from: pb)
@@ -67,8 +64,7 @@ final class ClipboardMonitorTests: XCTestCase {
         let plist: [[String: Any]] = []
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0)
 
-        let pb = NSPasteboard.general
-        pb.clearContents()
+        let pb = makeTestPasteboard("tencentEmpty")
         pb.setData(data, forType: NSPasteboard.PasteboardType("TencentAttributeStringType"))
 
         let text = ClipboardMonitor.readTencentTextForTesting(from: pb)
@@ -77,8 +73,7 @@ final class ClipboardMonitorTests: XCTestCase {
 
     /// 无 TencentAttributeStringType 数据
     func testTencentPlistNotPresent() {
-        let pb = NSPasteboard.general
-        pb.clearContents()
+        let pb = makeTestPasteboard("tencentNotPresent")
         pb.setString("普通文字", forType: .string)
 
         let text = ClipboardMonitor.readTencentTextForTesting(from: pb)
@@ -151,7 +146,6 @@ final class ClipboardMonitorTests: XCTestCase {
     func testSegmentsDataURIFiltered() {
         let html = "<img src='data:image/png;base64,abc'><p>data URI 应被过滤，只剩文字走 textPreview</p>"
         let segs = ClipboardMonitor.extractOrderedSegmentsForTesting(from: html, sourceURL: nil)
-        // data URI 图片被跳过，无有效图片 → 返回空 segments，卡片 fallback textPreview
         XCTAssertTrue(segs.isEmpty)
     }
 

@@ -472,6 +472,16 @@ final class ClipboardMonitor: ObservableObject {
         shared.extractOrderedSegments(from: html, sourceURL: sourceURL)
     }
 
+    /// 供单元测试使用的文件 URL 读取入口（验证优先级）
+    static func readFileURLsForTesting(from pb: NSPasteboard) -> ClipboardItem? {
+        shared.readFileURLs(from: pb, appName: "TestApp")
+    }
+
+    /// 供单元测试使用的图片数据读取入口
+    static func readImageDataForTesting(from pb: NSPasteboard) -> (NSImage, Data)? {
+        shared.readImageData(from: pb)
+    }
+
     // MARK: - 辅助
 
     private var currentDedupKey: String {
