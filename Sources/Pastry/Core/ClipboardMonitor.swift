@@ -227,6 +227,16 @@ final class ClipboardMonitor: ObservableObject {
 
         guard let types = pb.types, !types.isEmpty else { return }
 
+        // 文件 URL 优先：Finder 复制文件时剪贴板同时有图片数据，fileURL 更能代表用户意图
+        if let item = readFileURLs(from: pb, appName: capturedApp) {
+            lastDedupKey = dedup
+            DispatchQueue.main.async {
+                self.latestItem = item
+                self.onNewItem?(item)
+            }
+            return
+        }
+
         // 图片处理：主线程读取数据，后台队列生成缩略图并写入磁盘
         if let (image, data) = readImageData(from: pb) {
             lastDedupKey = dedup
@@ -247,8 +257,7 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
-        if let item = readFileURLs(from: pb, appName: capturedApp)
-            ?? readHTML(from: pb, appName: capturedApp)
+        if let item = readHTML(from: pb, appName: capturedApp)
             ?? readRTF(from: pb, appName: capturedApp)
             ?? readText(from: pb, appName: capturedApp) {
 

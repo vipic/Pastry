@@ -295,7 +295,7 @@ struct ClipboardCardView: View {
     private var contentArea: some View {
         switch item.contentType {
         case .image:   imagePreview
-        case .fileURL: fileURLPreview
+        case .fileURL: fileURLContent
         case .html:    htmlWithImagePreview
         default:
             if let url = detectedLink { linkContent(url) }
@@ -414,12 +414,53 @@ struct ClipboardCardView: View {
         }
     }
 
-    private var fileURLPreview: some View {
+    @ViewBuilder
+    private var fileURLContent: some View {
+        let urls = fileURLs
+        if urls.count == 1 {
+            if Self.isImageFile(urls[0]) {
+                singleImageFilePreview(urls[0])
+            } else {
+                singleFilePreview(urls[0])
+            }
+        } else {
+            fileURLList
+        }
+    }
+
+    // MARK: - 文件预览（非图片单文件 → 系统图标）
+
+    /// 单非图片文件：大系统图标 + 文件名（类 QuickLook 体验）
+    private func singleFilePreview(_ url: URL) -> some View {
+        let icon = systemIcon(for: url)
+        return VStack(spacing: 4) {
+            if let icon = icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(4)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            Text(url.lastPathComponent)
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - 文件列表（多文件 → 小图标行）
+
+    private var fileURLList: some View {
         let urls = fileURLs
         return VStack(alignment: .leading, spacing: 3) {
             ForEach(urls.prefix(4), id: \.self) { url in
                 HStack(spacing: 4) {
-                    Image(systemName: "doc").font(.system(size: 9)).foregroundColor(themeColor)
+                    if let icon = systemIcon(for: url) {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 12, height: 12)
+                    }
                     Text(url.lastPathComponent).lineLimit(1).font(.system(size: 10)).foregroundColor(.primary)
                 }
             }
@@ -428,6 +469,52 @@ struct ClipboardCardView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// NSWorkspace 文件图标缓存（避免重复实例化 NSImage）
+    private func systemIcon(for url: URL) -> NSImage? {
+        let cacheKey = "icon:\(url.path)" as NSString
+        if let cached = Self.imageCache.object(forKey: cacheKey) { return cached }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        Self.imageCache.setObject(icon, forKey: cacheKey)
+        return icon
+    }
+
+    private static let imageExtensions: Set<String> = [
+        "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "heic", "heif",
+    ]
+
+    private static func isImageFile(_ url: URL) -> Bool {
+        imageExtensions.contains(url.pathExtension.lowercased())
+    }
+
+    /// 单个图片文件：大缩略图预览（NSImage 加载 + NSCache 缓存，失败降级为文件图标）
+    private func singleImageFilePreview(_ url: URL) -> some View {
+        let cacheKey = url.path as NSString
+        let nsImage: NSImage? = {
+            if let cached = Self.imageCache.object(forKey: cacheKey) { return cached }
+            if let loaded = NSImage(contentsOfFile: url.path) {
+                Self.imageCache.setObject(loaded, forKey: cacheKey)
+                return loaded
+            }
+            return nil
+        }()
+        return VStack(spacing: 6) {
+            if let img = nsImage {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(4)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                fallbackPreview
+            }
+            Text(url.lastPathComponent)
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
     }
 
     private var textPreview: some View {
