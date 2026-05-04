@@ -37,6 +37,8 @@ final class AppIconProvider {
         "照片":               NSColor(red: 0.58, green: 0.15, blue: 0.47, alpha: 1),  // 紫
         "Music":              NSColor(red: 0.94, green: 0.32, blue: 0.22, alpha: 1),  // 红
         "音乐":               NSColor(red: 0.94, green: 0.32, blue: 0.22, alpha: 1),  // 红
+        "Console":            NSColor(red: 0.45, green: 0.45, blue: 0.50, alpha: 1),  // 灰
+        "控制台":             NSColor(red: 0.45, green: 0.45, blue: 0.50, alpha: 1),  // 灰
     ]
 
     private let iconCache = NSCache<NSString, NSImage>()
@@ -235,6 +237,8 @@ final class AppIconProvider {
             "照片":             "com.apple.Photos",
             "Preview":          "com.apple.Preview",
             "预览程序":         "com.apple.Preview",
+            "Console":          "com.apple.Console",
+            "控制台":           "com.apple.Console",
         ]
         return map[name]
     }
