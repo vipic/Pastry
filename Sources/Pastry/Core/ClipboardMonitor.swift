@@ -19,8 +19,11 @@ final class ClipboardMonitor: ObservableObject {
     // MARK: 私有状态
     private var lastChangeCount = NSPasteboard.general.changeCount
     private var timer: Timer?
-    private let pollInterval: TimeInterval = 0.5
+    private let pollInterval: TimeInterval = 0.2
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
+
+    /// CGEvent tap：监听 ⌘C 按键，立即触发轮询（不等 timer）
+    private var eventTap: CFMachPort?
 
     // 防止同一内容重复触发
     private var lastDedupKey = ""
@@ -104,11 +107,55 @@ final class ClipboardMonitor: ObservableObject {
         timer = t
 
         log.info("剪贴板监听已启动 (interval: \(self.pollInterval)s)")
+
+        // CGEvent tap：监听 ⌘C 按键，不等 timer 立即触发轮询
+        let eventMask = CGEventMask(1 << CGEventType.keyUp.rawValue)
+        eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
+                if type == .keyUp {
+                    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+                    let flags = event.flags
+                    // C 键 keycode = 8，⌘C 复制
+                    if keyCode == 8 && flags.contains(.maskCommand) {
+                        let monitor = Unmanaged<ClipboardMonitor>
+                            .fromOpaque(refcon!).takeUnretainedValue()
+                        DispatchQueue.main.async {
+                            monitor.poll()
+                        }
+                    }
+                }
+                return Unmanaged.passRetained(event)
+            },
+            userInfo: UnsafeMutableRawPointer(
+                Unmanaged.passUnretained(self).toOpaque()
+            )
+        )
+        if let tap = eventTap {
+            let runLoopSource = CFMachPortCreateRunLoopSource(
+                kCFAllocatorDefault, tap, 0
+            )
+            CFRunLoopAddSource(
+                RunLoop.main.getCFRunLoop(), runLoopSource, .commonModes
+            )
+            CGEvent.tapEnable(tap: tap, enable: true)
+            log.info("⌘C 事件监听已启动")
+        } else {
+            log.warning("CGEvent tap 创建失败 — 可能需要辅助功能权限")
+        }
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
+            eventTap = nil
+        }
         if let obs = appObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(obs)
             appObserver = nil
@@ -134,7 +181,7 @@ final class ClipboardMonitor: ObservableObject {
         }
         lastChangeCount = currentChange
 
-        // 检测到剪贴板变化 → 立即播提示音（不等 0.1s 延迟和内容解析）
+        // 检测到剪贴板变化 → 立即播提示音
         if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
             Self.copySound?.play()
         }
@@ -143,7 +190,7 @@ final class ClipboardMonitor: ObservableObject {
         let capturedApp = bestGuessAppName(currentFront: currentFront)
         previousFrontApp = currentFront
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.async {
             [weak self] in
             self?.processChange(capturedApp: capturedApp)
         }
