@@ -107,8 +107,12 @@ final class ClipboardMonitor: ObservableObject {
         timer = t
 
         log.info("剪贴板监听已启动 (interval: \(self.pollInterval)s)")
+    }
 
-        // CGEvent tap：监听 ⌘C 按键，不等 timer 立即触发轮询
+    /// ⌘C 事件监听：延迟到首次粘贴时才创建（避免启动时弹辅助功能授权）
+    func setupEventTap() {
+        guard eventTap == nil else { return }
+
         let eventMask = CGEventMask(1 << CGEventType.keyUp.rawValue)
         eventTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -119,7 +123,6 @@ final class ClipboardMonitor: ObservableObject {
                 if type == .keyUp {
                     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
                     let flags = event.flags
-                    // C 键 keycode = 8，⌘C 复制
                     if keyCode == 8 && flags.contains(.maskCommand) {
                         let monitor = Unmanaged<ClipboardMonitor>
                             .fromOpaque(refcon!).takeUnretainedValue()
