@@ -479,6 +479,8 @@ struct ClipboardCardView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.primary)
                         .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     if let desc = p.description, !desc.isEmpty {
                         Text(desc)
                             .font(.system(size: 9))
