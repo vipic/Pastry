@@ -32,11 +32,12 @@ fi
 test -f "$BUILD_DIR/Pastry" || { echo "❌ 构建产物不存在: $BUILD_DIR/Pastry"; exit 1; }
 cp "$BUILD_DIR/Pastry" "$MACOS_DIR/$APP_NAME"
 
-# Copy sound resource
-cp "$PROJECT_DIR/Copy.aiff" "$CONTENTS/Resources/Copy.aiff"
+# Copy sound resources
+cp "$PROJECT_DIR/Resources/Copy.aiff" "$CONTENTS/Resources/Copy.aiff"
+cp "$PROJECT_DIR/Resources/Paste.aiff" "$CONTENTS/Resources/Paste.aiff"
 
 # Copy app icon
-cp "$PROJECT_DIR/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
+cp "$PROJECT_DIR/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 
 # Info.plist (overwrite in-place)
 cat > "$CONTENTS/Info.plist" << 'PLIST'

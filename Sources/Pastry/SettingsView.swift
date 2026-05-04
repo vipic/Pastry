@@ -63,7 +63,7 @@ struct SettingsSceneView: View {
             Form {
                 Section {
                     Toggle("开机启动", isOn: $launchAtLogin)
-                    Toggle("复制提示音", isOn: $soundEnabled)
+                    Toggle("操作提示音", isOn: $soundEnabled)
                 }
                 Section("辅助功能权限") {
                     HStack {
