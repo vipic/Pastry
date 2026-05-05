@@ -220,6 +220,16 @@ final class OverlayPanelManager {
                 NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
                 return nil
             }
+            // Tab — 搜索栏↔卡片焦点互相切换（无 Shift/⌘/⌥/⌃ 修饰）
+            if event.keyCode == 48,
+               event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
+                if self.isSearchActive {
+                    NotificationCenter.default.post(name: .overlayCloseSearch, object: nil)
+                } else {
+                    NotificationCenter.default.post(name: .overlayOpenSearchImmediate, object: nil)
+                }
+                return nil
+            }
             // ⌘F 搜索
             if event.keyCode == 3, event.modifierFlags.contains(.command) {
                 if !self.isSearchActive {
