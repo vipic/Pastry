@@ -28,6 +28,8 @@ final class OverlayPanelManager {
     private var keyboardMonitor: Any?
     private var previousFrontApp: NSRunningApplication?
     private var alertActive = false
+    private var isPasting = false
+    private var panelResignKeyObserver: NSObjectProtocol?
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -67,6 +69,7 @@ final class OverlayPanelManager {
     func hideAndPaste(_ item: ClipboardItem) {
         guard panel != nil else { return }
 
+        isPasting = true
         let targetApp = previousFrontApp
         previousFrontApp = nil
 
@@ -124,6 +127,7 @@ final class OverlayPanelManager {
         DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
         ClipboardMonitor.shared.resume()
         StoreManager.shared.refresh()
+        isPasting = false
     }
 
     var isVisible: Bool { panel != nil }
@@ -174,6 +178,14 @@ final class OverlayPanelManager {
         newPanel.orderFrontRegardless()
         newPanel.makeKey()
 
+        // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起
+        panelResignKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: newPanel, queue: .main
+        ) { [weak self] _ in
+            guard let self, !self.isPasting else { return }
+            DispatchQueue.main.async { self.hide() }
+        }
+
         self.panel = newPanel
         installKeyboardMonitor()
 
@@ -181,6 +193,10 @@ final class OverlayPanelManager {
     }
 
     private func cleanup() {
+        if let observer = panelResignKeyObserver {
+            NotificationCenter.default.removeObserver(observer)
+            panelResignKeyObserver = nil
+        }
         removeKeyboardMonitor()
         panel?.orderOut(nil)
         panel = nil
@@ -243,6 +259,17 @@ final class OverlayPanelManager {
                 NotificationCenter.default.post(name: .overlayConfirmPaste, object: nil)
                 return nil
             default:
+                // 打印字符 → 自动打开搜索栏并追加字符
+                if !self.isSearchActive,
+                   let chars = event.characters,
+                   !chars.isEmpty,
+                   !event.modifierFlags.contains(.command),
+                   !event.modifierFlags.contains(.control),
+                   Self.isRedirectableChar(chars) {
+                    NotificationCenter.default.post(name: .overlayOpenSearch, object: nil)
+                    DispatchQueue.main.async { StoreManager.shared.searchQuery.append(chars) }
+                    return nil
+                }
                 break
             }
             return event
@@ -252,11 +279,16 @@ final class OverlayPanelManager {
     /// 检查当前焦点是否在文本输入框内（搜索框等）
     private static func isTextInputFocused() -> Bool {
         guard let responder = NSApp.keyWindow?.firstResponder else { return false }
-        // 限定为已知的文本编辑类，避免误判自定义 View
         if responder.isKind(of: NSTextView.self) { return true }
         if responder.isKind(of: NSTextField.self) { return true }
         if responder.isKind(of: NSSearchField.self) { return true }
         return false
+    }
+
+    /// 判断字符串首字符是否应重定向到搜索栏（字母/数字/符号/标点/空格）
+    static func isRedirectableChar(_ chars: String) -> Bool {
+        guard let first = chars.first else { return false }
+        return first.isLetter || first.isNumber || first.isSymbol || first.isPunctuation || first.isWhitespace
     }
 
     private func removeKeyboardMonitor() {
