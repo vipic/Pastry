@@ -9,6 +9,11 @@ extension Notification.Name {
     static let overlayAlertActive    = Notification.Name("overlayAlertActive")
     static let overlayCloseSearch    = Notification.Name("overlayCloseSearch")
     static let overlayOpenSearch     = Notification.Name("overlayOpenSearch")
+    static let overlayMoveUp         = Notification.Name("overlayMoveUp")
+    static let overlayMoveDown       = Notification.Name("overlayMoveDown")
+    static let overlayMoveLeft       = Notification.Name("overlayMoveLeft")
+    static let overlayMoveRight      = Notification.Name("overlayMoveRight")
+    static let overlayConfirmPaste   = Notification.Name("overlayConfirmPaste")
 }
 
 // MARK: - 覆盖层主视图
@@ -17,7 +22,8 @@ struct OverlayView: View {
     @EnvironmentObject private var store: StoreManager
 
     @State private var cardVisible = false
-    @State private var selectedIds: Set<UUID> = []
+    @State private var selection = SelectionState()
+    @State private var renderedIds: Set<UUID> = []    // 当前已渲染（可见）的卡片 ID
     @State private var showDeleteConfirm = false
     @State private var showSearch = false
     @State private var showFilterPanel = false
@@ -25,6 +31,7 @@ struct OverlayView: View {
     @State private var hoverGear = false
     @State private var hoverTab: StoreManager.PinTab? = nil
     @FocusState private var isSearchFocused: Bool
+    @StateObject private var keyHandler = KeyboardEventHandler()
 
     private let cardSpacing: CGFloat = 10
     private let bottomInset: CGFloat = 20
@@ -53,6 +60,7 @@ struct OverlayView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             resetAllState()
+            keyHandler.installMouseMonitor()
             withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
                 cardVisible = true
             }
@@ -67,18 +75,35 @@ struct OverlayView: View {
             withAnimation { showSearch = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
-            let ids = Set(store.items.map { $0.id })
-            withAnimation(.easeInOut(duration: 0.1)) { selectedIds = ids }
+            let ids = Set(visibleItems.map { $0.id })
+            withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveUp)) { note in
+            handleArrowNotify(delta: -1, note: note)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveDown)) { note in
+            handleArrowNotify(delta: 1, note: note)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveLeft)) { note in
+            handleArrowNotify(delta: -1, note: note)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveRight)) { note in
+            handleArrowNotify(delta: 1, note: note)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
+            guard let sel = selection.selectedIds.first,
+                  let item = visibleItems.first(where: { $0.id == sel }) else { return }
+            OverlayPanelManager.shared.hideAndPaste(item)
         }
         .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
-            guard !selectedIds.isEmpty else { return }
+            guard !selection.selectedIds.isEmpty else { return }
             showDeleteConfirm = true
         }
         .alert("确认删除", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) { deleteSelected() }
         } message: {
-            Text("确定要删除 \(selectedIds.count) 条选中的记录吗？Pinned 项将被保留。")
+            Text("确定要删除 \(selection.selectedIds.count) 条选中的记录吗？Pinned 项将被保留。")
         }
         .onChange(of: showDeleteConfirm) {
             NotificationCenter.default.post(name: .overlayAlertActive,
@@ -107,13 +132,15 @@ struct OverlayView: View {
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
         store.clearFilters()
-        selectedIds = []
+        selection.reset()
+        renderedIds = []
     }
 
     // MARK: - 退场
 
     private func dismiss() {
         guard cardVisible else { return }
+        keyHandler.uninstall()
         showSearch = false
         showFilterPanel = false
         isSearchFocused = false
@@ -146,8 +173,8 @@ struct OverlayView: View {
     // MARK: - 批量删除
 
     private func deleteSelected() {
-        store.deleteSelected(selectedIds)
-        selectedIds = []
+        store.deleteSelected(selection.selectedIds)
+        selection.selectedIds = []
     }
 
     // MARK: - 搜索框（内联在 header 中）
@@ -423,29 +450,66 @@ struct OverlayView: View {
     @ViewBuilder
     private func cardList(_ items: [ClipboardItem]) -> some View {
         if isHorizontalLayout {
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: cardSpacing) {
-                    ForEach(items) { item in
-                        cardView(item)
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: cardSpacing) {
+                        ForEach(items) { item in
+                            cardView(item)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                }
+                .animation(nil, value: items.count)
+                .onChange(of: selection.cursorIndex) { oldIdx, newIdx in
+                    guard let idx = newIdx, idx < items.count else { return }
+                    let rendered = renderedIds.contains(items[idx].id)
+                    let downward = (oldIdx ?? 0) < idx
+                    let neighborIdx = downward ? idx + 1 : idx - 1
+                    let neighborMissing = neighborIdx >= 0 && neighborIdx < items.count
+                        && !renderedIds.contains(items[neighborIdx].id)
+                    guard !rendered || neighborMissing else { return }
+                    // 滚动目标：边缘时滚动邻卡（露出下一张），否则滚动当前卡
+                    let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
+                    let anchor: UnitPoint = isHorizontalLayout
+                        ? (downward ? .trailing : .leading)
+                        : (downward ? .bottom : .top)
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
             }
-            .animation(nil, value: items.count)
         } else {
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: cardSpacing) {
-                    ForEach(items) { item in
-                        cardView(item)
-                            .frame(maxWidth: 400)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: cardSpacing) {
+                        ForEach(items) { item in
+                            cardView(item)
+                                .frame(maxWidth: 400)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                }
+                .frame(maxWidth: 520)
+                .animation(nil, value: items.count)
+                .onChange(of: selection.cursorIndex) { oldIdx, newIdx in
+                    guard let idx = newIdx, idx < items.count else { return }
+                    let rendered = renderedIds.contains(items[idx].id)
+                    let downward = (oldIdx ?? 0) < idx
+                    let neighborIdx = downward ? idx + 1 : idx - 1
+                    let neighborMissing = neighborIdx >= 0 && neighborIdx < items.count
+                        && !renderedIds.contains(items[neighborIdx].id)
+                    guard !rendered || neighborMissing else { return }
+                    let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
+                    let anchor: UnitPoint = isHorizontalLayout
+                        ? (downward ? .trailing : .leading)
+                        : (downward ? .bottom : .top)
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
             }
-            .frame(maxWidth: 520)
-            .animation(nil, value: items.count)
         }
     }
 
@@ -453,15 +517,48 @@ struct OverlayView: View {
     private func cardView(_ item: ClipboardItem) -> some View {
         ClipboardCardView(
             item: item,
-            isSelected: selectedIds.contains(item.id),
+            isSelected: selection.selectedIds.contains(item.id),
             onTap: { tapped in
-                OverlayPanelManager.shared.hideAndPaste(tapped)
+                handleCardTap(tapped)
             },
             onPin: { _ in
                 store.togglePin(item)
             }
         )
         .id(item.id)
+        .onAppear { renderedIds.insert(item.id) }
+        .onDisappear { renderedIds.remove(item.id) }
+    }
+
+    // MARK: - 选择交互
+
+    /// 卡片单击：委托给 SelectionState
+    private func handleCardTap(_ item: ClipboardItem) {
+        selection.handleTap(
+            item: item,
+            cmdDown: keyHandler.lastMouseModifiers.contains(.command),
+            shiftDown: keyHandler.lastMouseModifiers.contains(.shift),
+            visibleItems: visibleItems
+        )
+    }
+
+    // MARK: - 键盘事件
+
+    /// 获取当前显示中的 items（filtered 或全部）
+    private var visibleItems: [ClipboardItem] {
+        store.filteredItems.isEmpty ? store.items : store.filteredItems
+    }
+
+    /// 处理通知发来的方向键事件
+    private func handleArrowNotify(delta: Int, note: Notification) {
+        guard !showSearch else { return }
+        let extend = note.userInfo?["extend"] as? Bool ?? false
+        moveCursor(delta: delta, extend: extend)
+    }
+
+    /// 方向键导航：委托给 SelectionState
+    private func moveCursor(delta: Int, extend: Bool) {
+        selection.moveCursor(delta: delta, extend: extend, visibleItems: visibleItems)
     }
 
     // MARK: - 空状态
@@ -496,5 +593,23 @@ struct OverlayView: View {
                 .foregroundColor(.white.opacity(0.65))
         }
         .frame(maxWidth: .infinity, minHeight: 208)
+    }
+}
+
+// MARK: - 键盘/鼠标事件处理器（类实例，避免 struct 捕获问题）
+private final class KeyboardEventHandler: ObservableObject {
+    var lastMouseModifiers: NSEvent.ModifierFlags = []  // 最近一次鼠标点击时的修饰键
+    private var mouseMonitor: Any?
+
+    func installMouseMonitor() {
+        guard mouseMonitor == nil else { return }
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            self?.lastMouseModifiers = event.modifierFlags
+            return event
+        }
+    }
+
+    func uninstall() {
+        if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
     }
 }

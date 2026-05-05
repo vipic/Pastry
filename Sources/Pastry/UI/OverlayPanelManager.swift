@@ -223,6 +223,28 @@ final class OverlayPanelManager {
                 NotificationCenter.default.post(name: .overlayDeleteSelected, object: nil)
                 return nil
             }
+            // 方向键 — 搜索框活跃时放行
+            if self.isSearchActive { return event }
+            let extend = event.modifierFlags.contains(.shift)
+            switch event.keyCode {
+            case 126: // 上
+                NotificationCenter.default.post(name: .overlayMoveUp, object: nil, userInfo: ["extend": extend])
+                return nil
+            case 125: // 下
+                NotificationCenter.default.post(name: .overlayMoveDown, object: nil, userInfo: ["extend": extend])
+                return nil
+            case 123: // 左
+                NotificationCenter.default.post(name: .overlayMoveLeft, object: nil, userInfo: ["extend": extend])
+                return nil
+            case 124: // 右
+                NotificationCenter.default.post(name: .overlayMoveRight, object: nil, userInfo: ["extend": extend])
+                return nil
+            case 36: // Enter
+                NotificationCenter.default.post(name: .overlayConfirmPaste, object: nil)
+                return nil
+            default:
+                break
+            }
             return event
         }
     }
