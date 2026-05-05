@@ -107,7 +107,7 @@ struct OverlayView: View {
         }
         .alert("确认删除", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
-            Button("删除", role: .destructive) { deleteSelected() }
+            Button("确认", role: .destructive) { deleteSelected() }
         } message: {
             Text("确定要删除 \(selection.selectedIds.count) 条选中的记录吗？Pinned 项将被保留。")
         }

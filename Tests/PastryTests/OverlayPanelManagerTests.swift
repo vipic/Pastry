@@ -195,7 +195,7 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
-    /// overlayAlertConfirm 通知名称存在（Enter 确认删除）
+    /// overlayAlertConfirm 通知名称存在（Enter 触发确认）
     func testOverlayAlertConfirmNotificationExists() {
         XCTAssertEqual(
             Notification.Name.overlayAlertConfirm.rawValue,
