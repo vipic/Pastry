@@ -259,15 +259,13 @@ final class OverlayPanelManager {
                 NotificationCenter.default.post(name: .overlayConfirmPaste, object: nil)
                 return nil
             default:
-                // 打印字符 → 自动打开搜索栏并追加字符
-                if !self.isSearchActive,
-                   let chars = event.characters,
-                   !chars.isEmpty,
-                   !event.modifierFlags.contains(.command),
-                   !event.modifierFlags.contains(.control),
-                   Self.isRedirectableChar(chars) {
-                    NotificationCenter.default.post(name: .overlayOpenSearch, object: nil)
-                    DispatchQueue.main.async { StoreManager.shared.searchQuery.append(chars) }
+                // 打印字符 → 打开搜索栏并聚焦（不输入字符，让用户自行输入）
+                if Self.shouldFocusSearch(
+                    chars: event.characters,
+                    isSearchActive: self.isSearchActive,
+                    modifierFlags: event.modifierFlags
+                ) {
+                    NotificationCenter.default.post(name: .overlayOpenSearchImmediate, object: nil)
                     return nil
                 }
                 break
@@ -289,6 +287,23 @@ final class OverlayPanelManager {
     static func isRedirectableChar(_ chars: String) -> Bool {
         guard let first = chars.first else { return false }
         return first.isLetter || first.isNumber || first.isSymbol || first.isPunctuation || first.isWhitespace
+    }
+
+    /// 判断按键是否应触发搜索栏聚焦（综合字符、状态、修饰键）
+    static func shouldFocusSearch(
+        chars: String?,
+        isSearchActive: Bool,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> Bool {
+        guard !isSearchActive,
+              !modifierFlags.contains(.command),
+              !modifierFlags.contains(.control),
+              let chars,
+              !chars.isEmpty,
+              isRedirectableChar(chars) else {
+            return false
+        }
+        return true
     }
 
     private func removeKeyboardMonitor() {
