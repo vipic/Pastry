@@ -459,7 +459,10 @@ final class ClipboardMonitor: ObservableObject {
         guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
               !urls.isEmpty
         else { return nil }
-        let paths = urls.map(\.path).joined(separator: "\n")
+        // 只保留 file:// URL，过滤掉 Handoff 同步来的 http/https 等非文件 URL
+        let fileURLs = urls.filter { $0.isFileURL }
+        guard !fileURLs.isEmpty else { return nil }
+        let paths = fileURLs.map(\.path).joined(separator: "\n")
         return ClipboardItem(content: paths, contentType: .fileURL, appName: appName)
     }
 

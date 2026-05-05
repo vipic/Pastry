@@ -183,4 +183,39 @@ final class ClipboardMonitorTests: XCTestCase {
         let imageCount = segs.filter { $0.imageURL != nil }.count
         XCTAssertEqual(imageCount, 5)
     }
+
+    // MARK: - readFileURLs isFileURL 过滤
+
+    /// pasteboard 上只有 file:// URL → 应识别为 fileURL
+    func testFileURLsOnlyFileScheme() {
+        let pb = makeTestPasteboard("fileURLsOnly")
+        pb.clearContents()
+        pb.writeObjects([URL(fileURLWithPath: "/Users/test/photo.png") as NSURL])
+        let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
+        XCTAssertNotNil(item)
+        XCTAssertEqual(item?.contentType, .fileURL)
+        XCTAssertEqual(item?.content, "/Users/test/photo.png")
+    }
+
+    /// pasteboard 上只有 web URL（模拟 Handoff 同步） → 不应识别为 fileURL
+    func testFileURLsHandoffWebURL() {
+        let pb = makeTestPasteboard("fileURLsHandoff")
+        pb.clearContents()
+        pb.writeObjects([URL(string: "https://example.com/article")! as NSURL])
+        let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
+        XCTAssertNil(item, "Handoff 同步的 web URL 不应被误判为 fileURL")
+    }
+
+    /// pasteboard 上同时有 file:// 和 http:// URL → 只保留 file://
+    func testFileURLsMixedSchemes() {
+        let pb = makeTestPasteboard("fileURLsMixed")
+        pb.clearContents()
+        let fileURL = URL(fileURLWithPath: "/tmp/actual-file.pdf") as NSURL
+        let webURL = URL(string: "https://example.com/wrong")! as NSURL
+        pb.writeObjects([fileURL, webURL])
+        let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
+        XCTAssertNotNil(item)
+        XCTAssertEqual(item?.contentType, .fileURL)
+        XCTAssertEqual(item?.content, "/tmp/actual-file.pdf")
+    }
 }
