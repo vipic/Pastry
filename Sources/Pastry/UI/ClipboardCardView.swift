@@ -306,6 +306,7 @@ struct ClipboardCardView: View {
     @State private var themeColor: Color = .accentColor
     @State private var isContextHighlighted = false
     @State private var didPaste = false
+    @State private var isHovered = false
 
     @State private var linkPreviewTask: Task<Void, Never>?
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
@@ -327,6 +328,46 @@ struct ClipboardCardView: View {
     }()
 
     var body: some View {
+        cardBase
+            .onHover { isHovered = $0 }
+            .onTapGesture {
+                let flags = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
+                let cmdDown = flags.contains(.command)
+                let shiftDown = flags.contains(.shift)
+                if cmdDown {
+                    // Cmd+点击：保持 toggle 多选逻辑
+                    onTap(item)
+                } else if shiftDown {
+                    // Shift+点击：区间选择（无论是否已选中，都交给 OverlayView 处理）
+                    onTap(item)
+                } else if isSelected {
+                    // 已选中卡片：再次点击 → 粘贴
+                    pasteItem()
+                } else {
+                    // 未选中卡片：点击 → 选中
+                    onTap(item)
+                }
+            }
+            .overlay(
+                RightClickInterceptor(
+                    onWillShow: { isContextHighlighted = true },
+                    onDidDismiss: { isContextHighlighted = false },
+                    onDelete: { StoreManager.shared.deleteItem(item) },
+                    onPin: { onPin(item) }
+                )
+            )
+            .onAppear {
+                loadAppInfo()
+                fetchLinkPreviewIfNeeded()
+            }
+            .onChange(of: item.content) { old, _ in
+                Self.imageCache.removeObject(forKey: old as NSString)
+                fetchLinkPreviewIfNeeded()
+            }
+    }
+
+    /// 卡片基础渲染（样式 + 内容，不含手势和生命周期）
+    private var cardBase: some View {
         VStack(spacing: 0) {
             topBar
             contentArea
@@ -345,16 +386,11 @@ struct ClipboardCardView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(isContextHighlighted ? Color.blue : Color.clear, lineWidth: 2.5)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2.5)
-        )
+        .overlay(selectionBorder)
+        .overlay(hoverBorder)
         .animation(.easeInOut(duration: 0.12), value: isContextHighlighted)
         .animation(.easeInOut(duration: 0.12), value: isSelected)
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
         .scaleEffect(didPaste ? 0.95 : 1.0)
         .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
         .overlay(
@@ -363,27 +399,16 @@ struct ClipboardCardView: View {
         )
         .animation(.easeOut(duration: 0.5), value: didPaste)
         .contentShape(RoundedRectangle(cornerRadius: 10))
-        .onTapGesture {
-            didPaste = true
-            onTap(item)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { didPaste = false }
-        }
-        .overlay(
-            RightClickInterceptor(
-                onWillShow: { isContextHighlighted = true },
-                onDidDismiss: { isContextHighlighted = false },
-                onDelete: { StoreManager.shared.deleteItem(item) },
-                onPin: { onPin(item) }
-            )
-        )
-        .onAppear {
-            loadAppInfo()
-            fetchLinkPreviewIfNeeded()
-        }
-        .onChange(of: item.content) { old, _ in
-            Self.imageCache.removeObject(forKey: old as NSString)
-            fetchLinkPreviewIfNeeded()
-        }
+    }
+
+    private var selectionBorder: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .stroke(isSelected ? Color.blue : (isContextHighlighted ? Color.blue : Color.clear), lineWidth: 2.5)
+    }
+
+    private var hoverBorder: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .stroke(isHovered && !isSelected ? Color.white.opacity(0.15) : Color.clear, lineWidth: 2.5)
     }
 
     // MARK: - 顶部栏（始终使用主题色背景）
@@ -789,6 +814,14 @@ struct ClipboardCardView: View {
             DispatchQueue.main.async {
                 self.appIcon = icon
             }
+        }
+    }
+
+    private func pasteItem() {
+        didPaste = true
+        OverlayPanelManager.shared.hideAndPaste(item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            didPaste = false
         }
     }
 
