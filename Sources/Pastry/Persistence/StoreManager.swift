@@ -77,18 +77,6 @@ final class StoreManager: ObservableObject {
         }
     }
 
-    // MARK: 分类词 → 扩展名映射
-
-    /// 搜索词中的分类词自动扩展为文件扩展名和类型匹配
-    private static let categoryMappings: [String: [String]] = [
-        "安装包": ["dmg", "pkg"],
-        "图片":   ["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp"],
-        "文档":   ["pdf", "doc", "docx", "pages", "xls", "xlsx", "numbers", "ppt", "pptx", "key"],
-        "视频":   ["mp4", "mov", "mkv", "avi", "m4v"],
-        "音频":   ["mp3", "wav", "aac", "m4a", "flac"],
-        "压缩包": ["zip", "rar", "7z", "tar", "gz", "bz2"],
-        "代码":   ["swift", "py", "js", "ts", "go", "rs", "java", "c", "cpp"],
-    ]
 
     // MARK: 防抖
 
@@ -285,34 +273,10 @@ final class StoreManager: ObservableObject {
         refreshAvailableApps()
     }
 
-    /// 分类词映射：将搜索词中的中文分类词替换为文件扩展名 OR 子句
-    static func expandQuery(_ raw: String) -> String {
-        let terms = raw.split(separator: " ").map(String.init)
-        var expanded: [String] = []
-
-        for term in terms {
-            var found = false
-            for (keyword, extensions) in categoryMappings {
-                if term == keyword {
-                    // 保留原词 + 扩展名 OR 子句
-                    expanded.append(term)
-                    expanded.append("(" + extensions.joined(separator: " OR ") + ")")
-                    found = true
-                    break
-                }
-            }
-            if !found {
-                expanded.append(term)
-            }
-        }
-
-        return expanded.joined(separator: " ")
-    }
-
     private func performSearch() {
         searchTask?.cancel()
         searchTask = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms 防抖，仅搜索输入使用
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms 防抖
             guard !Task.isCancelled else { return }
             executeSearch()
         }
@@ -332,11 +296,10 @@ final class StoreManager: ObservableObject {
             base = items.filter { $0.isPinned }
         }
 
-        // 关键词搜索（含分类词扩展）
+        // 精确文本匹配（大小写不敏感）
         if !query.isEmpty {
-            let expanded = Self.expandQuery(query)
-            base = DatabaseManager.shared.search(query: expanded, limit: 200).filter { item in
-                pinTab == .all || item.isPinned
+            base = base.filter { item in
+                item.content.localizedCaseInsensitiveContains(query)
             }
         }
 
