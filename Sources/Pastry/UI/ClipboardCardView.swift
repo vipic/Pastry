@@ -301,6 +301,7 @@ struct ClipboardCardView: View {
 
     let item: ClipboardItem
     let isSelected: Bool
+    let cmdBadgeIndex: Int?
     let onTap: (ClipboardItem) -> Void
     let onPin: (ClipboardItem) -> Void
 
@@ -314,9 +315,9 @@ struct ClipboardCardView: View {
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
     @State private var previewLoadTrigger = 0
 
-    private static let cardSize: CGFloat = 200
-    private static let headerHeight: CGFloat = 40
-    private static let appIconSize: CGFloat = 60
+    private static let cardSize: CGFloat = 240
+    private static let headerHeight: CGFloat = 48
+    private static let appIconSize: CGFloat = 72
 
     /// 路径 → NSImage 缓存，避免重绘时重复创建实例导致闪烁
     private static let imageCache = NSCache<NSString, NSImage>()
@@ -388,6 +389,11 @@ struct ClipboardCardView: View {
         )
         .overlay(selectionBorder)
         .overlay(hoverBorder)
+        .overlay(alignment: .bottomTrailing) {
+            if let idx = cmdBadgeIndex {
+                cmdBadge(idx)
+            }
+        }
         .animation(.easeInOut(duration: 0.12), value: isContextHighlighted)
         .animation(.easeInOut(duration: 0.12), value: isSelected)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
@@ -410,6 +416,19 @@ struct ClipboardCardView: View {
     private var hoverBorder: some View {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
             .stroke(isHovered && !isSelected ? Color.white.opacity(0.15) : Color.clear, lineWidth: 2.5)
+    }
+
+    /// ⌘+数字角标 — 按住 ⌘ 时在卡片右下角显示序号
+    private func cmdBadge(_ idx: Int) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.white.opacity(0.4))
+            Text("\(idx)")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundColor(.black)
+        }
+        .frame(width: 18, height: 18)
+        .padding(6)
     }
 
     // MARK: - 顶部栏（始终使用主题色背景）
@@ -489,7 +508,7 @@ struct ClipboardCardView: View {
 
         VStack(spacing: 0) {
             linkThumbnail(imageURL: preview?.imageURL)
-                .frame(height: 56)
+                .frame(height: 115)  // 1.91:1 at 220px content width
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .padding(.bottom, 4)
 

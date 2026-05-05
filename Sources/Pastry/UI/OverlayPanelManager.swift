@@ -26,6 +26,8 @@ final class OverlayPanelManager {
 
     private var panel: ClipboardOverlayPanel?
     private var keyboardMonitor: Any?
+    private var flagsChangedMonitor: Any?
+    private var cmdWasDown = false
     private var previousFrontApp: NSRunningApplication?
     private var alertActive = false
     private var isPasting = false
@@ -276,6 +278,14 @@ final class OverlayPanelManager {
             case 36: // Enter
                 NotificationCenter.default.post(name: .overlayConfirmPaste, object: nil)
                 return nil
+            // ⌘+1~9 — 粘贴对应序号的卡片
+            case let kc where event.modifierFlags.contains(.command):
+                if let idx = Self.cmdNumberIndex(keyCode: kc) {
+                    NotificationCenter.default.post(name: .overlayCmdPaste, object: nil,
+                                                    userInfo: ["index": idx])
+                    return nil
+                }
+                fallthrough
             default:
                 // 打印字符 → 打开搜索栏并聚焦（不输入字符，让用户自行输入）
                 if Self.shouldFocusSearch(
@@ -290,6 +300,26 @@ final class OverlayPanelManager {
             }
             return event
         }
+
+        flagsChangedMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            guard let self else { return event }
+            let cmdNow = event.modifierFlags.contains(.command)
+            if cmdNow != self.cmdWasDown {
+                self.cmdWasDown = cmdNow
+                NotificationCenter.default.post(name: .overlayCmdStateChanged, object: nil,
+                                                userInfo: ["cmdDown": cmdNow])
+            }
+            return event
+        }
+    }
+
+    /// ⌘+数字键映射：keyCode → 序号 (1-9)，非数字键返回 nil
+    private static let cmdNumberMap: [UInt16: Int] = [
+        18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6, 26: 7, 28: 8, 25: 9
+    ]
+
+    static func cmdNumberIndex(keyCode: UInt16) -> Int? {
+        cmdNumberMap[keyCode]
     }
 
     /// 检查当前焦点是否在文本输入框内（搜索框等）
@@ -329,6 +359,11 @@ final class OverlayPanelManager {
             NSEvent.removeMonitor(monitor)
             keyboardMonitor = nil
         }
+        if let monitor = flagsChangedMonitor {
+            NSEvent.removeMonitor(monitor)
+            flagsChangedMonitor = nil
+        }
+        cmdWasDown = false
     }
 
     // MARK: - ⌘V 模拟
