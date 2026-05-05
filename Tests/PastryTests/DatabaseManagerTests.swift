@@ -33,12 +33,14 @@ final class DatabaseManagerTests: XCTestCase {
         content: String = "测试文本",
         type: ClipType = .text,
         app: String? = "Safari",
-        pinned: Bool = false
+        pinned: Bool = false,
+        isHandoff: Bool = false
     ) -> ClipboardItem {
         ClipboardItem(
             content: content,
             contentType: type,
             appName: app,
+            isHandoff: isHandoff,
             isPinned: pinned
         )
     }
@@ -367,6 +369,58 @@ final class DatabaseManagerTests: XCTestCase {
 
         let items = db.recent()
         XCTAssertNil(items[0].segments)
+    }
+
+    // MARK: - isHandoff 持久化
+
+    /// 插入带 isHandoff 的条目 → 读回应保留标记
+    func testIsHandoffInsertAndRetrieve() {
+        let item = makeItem(content: "来自 iPhone 的文本", app: nil, isHandoff: true)
+        XCTAssertTrue(db.insert(item))
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertTrue(items[0].isHandoff)
+        XCTAssertNil(items[0].appName, "Handoff 条目 appName 应为 nil")
+    }
+
+    /// 不带 isHandoff 的条目 → 读回 false
+    func testIsHandoffDefaultFalse() {
+        let item = makeItem(content: "本地复制")
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertFalse(items[0].isHandoff)
+    }
+
+    /// 多种类型 + isHandoff → 全部正确持久化
+    func testIsHandoffMultipleTypes() {
+        let text = makeItem(content: "text", type: .text, isHandoff: true)
+        let img = makeItem(content: "/tmp/pic.png", type: .image, isHandoff: true)
+        let file = makeItem(content: "/tmp/file.pdf", type: .fileURL, isHandoff: false)
+
+        db.insert(text)
+        Thread.sleep(forTimeInterval: 0.01)
+        db.insert(img)
+        Thread.sleep(forTimeInterval: 0.01)
+        db.insert(file)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 3)
+        XCTAssertTrue(items[0].isHandoff == false)   // file (latest, isHandoff: false)
+        XCTAssertTrue(items[1].isHandoff)             // img  (isHandoff: true)
+        XCTAssertTrue(items[2].isHandoff)             // text (isHandoff: true)
+    }
+
+    /// 搜索也应保留 isHandoff
+    func testIsHandoffSurvivesSearch() {
+        let item = makeItem(content: "Handoff 搜索测试", isHandoff: true)
+        db.insert(item)
+
+        let results = db.search(query: "Handoff")
+        XCTAssertEqual(results.count, 1)
+        XCTAssertTrue(results[0].isHandoff)
     }
 
     // MARK: - 边界条件

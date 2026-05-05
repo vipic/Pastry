@@ -46,13 +46,15 @@ final class LinkPreviewLoader {
         }
 
         var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
 
         session.dataTask(with: request) { [weak self] data, _, _ in
             guard let self, let data = data,
                   let html = String(data: data, encoding: .utf8)
             else { DispatchQueue.main.async { completion(nil) }; return }
-            let title = self.extractMeta(from: html, tag: "og:title") ?? self.extractTitleTag(from: html)
+            let title = self.extractMeta(from: html, tag: "og:title")
+                ?? self.extractTitleTag(from: html)
+                ?? self.extractMeta(from: html, tag: "og:site_name")
             let description = self.extractMeta(from: html, tag: "og:description")
             let imageURL = self.extractMeta(from: html, tag: "og:image").flatMap { src in
                 self.resolveImageURL(src: src, baseURL: url)
@@ -311,8 +313,6 @@ struct ClipboardCardView: View {
     @State private var linkPreviewTask: Task<Void, Never>?
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
     @State private var previewLoadTrigger = 0
-    /// 是否已发起过预览请求（用于骨架 → 真实内容/URL 降级的状态切换）
-    @State private var previewLoadAttempted = false
 
     private static let cardSize: CGFloat = 200
     private static let headerHeight: CGFloat = 40
@@ -440,12 +440,16 @@ struct ClipboardCardView: View {
                     .aspectRatio(contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 3)
+            } else if item.isHandoff {
+                // Handoff 来源：SF Symbol 图标
+                Image(systemName: "laptopcomputer.and.iphone")
+                    .font(.system(size: Self.appIconSize * 0.55, weight: .light))
+                    .foregroundColor(.white.opacity(0.7))
             } else {
                 Color.clear
             }
         }
         .frame(width: Self.appIconSize, height: Self.appIconSize)
-        // 垂直居中于标题栏再上移一点
         .offset(x: 12, y: (Self.headerHeight - Self.appIconSize) / 2 - 2)
         .animation(.easeInOut(duration: 0.25), value: appIcon != nil)
     }
@@ -464,64 +468,47 @@ struct ClipboardCardView: View {
         }
     }
 
-    // MARK: - 链接预览（demo 风格，缩略图 + 标题 + 描述 + 域名）
+    // MARK: - 链接预览（缩略图 + 标题 + 描述 + 域名 —— 始终用卡片框架，字段独立降级）
 
     @ViewBuilder
     private func linkContent(_ url: URL) -> some View {
         let preview = linkPreview
-        VStack(spacing: 0) {
-            if linkPreview == nil && !previewLoadAttempted {
-                VStack(spacing: 0) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.secondary.opacity(0.15))
-                        .frame(height: 56)
-                        .padding(.bottom, 4)
-                    VStack(alignment: .leading, spacing: 2) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.secondary.opacity(0.15))
-                            .frame(height: 11)
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.secondary.opacity(0.12))
-                            .frame(height: 9)
-                            .frame(maxWidth: 100, alignment: .leading)
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.secondary.opacity(0.10))
-                            .frame(height: 8)
-                            .frame(maxWidth: 70, alignment: .leading)
-                    }
-                }
-                .redacted(reason: .placeholder)
-            } else if let p = preview, !p.title.isEmpty {
-                // 缩略图
-                linkThumbnail(imageURL: p.imageURL)
-                    .frame(height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .padding(.bottom, 4)
+        let title: String = {
+            if let t = preview?.title, !t.isEmpty { return t }
+            return url.host ?? url.absoluteString
+        }()
+        let desc: String? = {
+            if let d = preview?.description, !d.isEmpty { return d }
+            return nil
+        }()
+        let host: String = {
+            if let h = preview?.host, !h.isEmpty { return h }
+            return url.host ?? ""
+        }()
 
-                // 文字
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(p.title)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if let desc = p.description, !desc.isEmpty {
-                        Text(desc)
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                    Text(p.host)
-                        .font(.system(size: 8))
-                        .foregroundColor(.secondary.opacity(0.6))
+        VStack(spacing: 0) {
+            linkThumbnail(imageURL: preview?.imageURL)
+                .frame(height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .padding(.bottom, 4)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let desc = desc {
+                    Text(desc)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
-            } else {
-                Text(url.absoluteString)
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
+                Text(host)
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary.opacity(0.6))
+                    .lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -735,7 +722,10 @@ struct ClipboardCardView: View {
     private var footerBar: some View {
         HStack(spacing: 4) {
             Text(formattedTime).font(.system(size: 9)).foregroundColor(.secondary)
-            if let app = item.appName {
+            if item.isHandoff {
+                Text("·").font(.caption2).foregroundColor(.secondary)
+                Text("来自其他设备").font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
+            } else if let app = item.appName {
                 Text("·").font(.caption2).foregroundColor(.secondary)
                 Text(app).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
             }
@@ -787,7 +777,6 @@ struct ClipboardCardView: View {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             LinkPreviewLoader.shared.load(url: url) { preview in
-                self.previewLoadAttempted = true
                 guard preview != nil else { return }
                 self.previewLoadTrigger &+= 1
             }
@@ -807,8 +796,13 @@ struct ClipboardCardView: View {
 
     private func loadAppInfo() {
         let provider = AppIconProvider.shared
-        let name = item.appName
+        let name: String? = item.isHandoff ? "📱 Handoff" : item.appName
         self.themeColor = Color(nsColor: provider.themeColor(for: name))
+        if item.isHandoff {
+            // Handoff 来源：用 SF Symbol
+            self.appIcon = nil  // 强制用 SF Symbol
+            return
+        }
         DispatchQueue.global(qos: .userInitiated).async {
             let icon = provider.icon(for: name)
             DispatchQueue.main.async {

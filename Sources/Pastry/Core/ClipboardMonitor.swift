@@ -230,8 +230,12 @@ final class ClipboardMonitor: ObservableObject {
 
         guard let types = pb.types, !types.isEmpty else { return }
 
+        // 检测 Handoff/通用剪贴板来源
+        let isRemoteClipboard = types.contains(where: { $0.rawValue == "com.apple.is-remote-clipboard" })
+        let effectiveApp = isRemoteClipboard ? nil : capturedApp  // Handoff 时不给 appName，之后 UI 层特殊处理
+
         // 文件 URL 优先：Finder 复制文件时剪贴板同时有图片数据，fileURL 更能代表用户意图
-        if let item = readFileURLs(from: pb, appName: capturedApp) {
+        if let item = readFileURLs(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
             lastDedupKey = dedup
             DispatchQueue.main.async {
                 self.latestItem = item
@@ -243,7 +247,8 @@ final class ClipboardMonitor: ObservableObject {
         // 图片处理：主线程读取数据，后台队列生成缩略图并写入磁盘
         if let (image, data) = readImageData(from: pb) {
             lastDedupKey = dedup
-            let appName = capturedApp
+            let appName = effectiveApp
+            let isHandoff = isRemoteClipboard
             let textAnnotation = readText(from: pb, appName: nil)?.content
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 guard let self else { return }
@@ -251,7 +256,7 @@ final class ClipboardMonitor: ObservableObject {
                     self.log.error("图片缓存写入失败")
                     return
                 }
-                let item = ClipboardItem(content: savedPath, contentType: .image, appName: appName, textAnnotation: textAnnotation)
+                let item = ClipboardItem(content: savedPath, contentType: .image, appName: appName, isHandoff: isHandoff, textAnnotation: textAnnotation)
                 DispatchQueue.main.async {
                     self.latestItem = item
                     self.onNewItem?(item)
@@ -260,9 +265,9 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
-        if let item = readHTML(from: pb, appName: capturedApp)
-            ?? readRTF(from: pb, appName: capturedApp)
-            ?? readText(from: pb, appName: capturedApp) {
+        if let item = readHTML(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
+            ?? readRTF(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
+            ?? readText(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
 
             lastDedupKey = dedup
 
@@ -275,14 +280,14 @@ final class ClipboardMonitor: ObservableObject {
 
     // MARK: - 各格式读取器
 
-    private func readText(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {
+    private func readText(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
         // 标准纯文本
         if let text = pb.string(forType: .string), !text.isEmpty {
-            return ClipboardItem(content: text, contentType: .text, appName: appName)
+            return ClipboardItem(content: text, contentType: .text, appName: appName, isHandoff: isHandoff)
         }
         // 微信/QQ 自定义富文本（TencentAttributeStringType plist）
         if let text = readTencentText(from: pb), !text.isEmpty {
-            return ClipboardItem(content: text, contentType: .text, appName: appName)
+            return ClipboardItem(content: text, contentType: .text, appName: appName, isHandoff: isHandoff)
         }
         return nil
     }
@@ -303,17 +308,17 @@ final class ClipboardMonitor: ObservableObject {
         return combined.isEmpty ? nil : combined
     }
 
-    private func readRTF(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {
+    private func readRTF(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
         guard let data = pb.data(forType: .rtf),
               let attr = try? NSAttributedString(
                   data: data,
                   options: [.documentType: NSAttributedString.DocumentType.rtf],
                   documentAttributes: nil)
         else { return nil }
-        return ClipboardItem(content: attr.string, contentType: .rtf, appName: appName)
+        return ClipboardItem(content: attr.string, contentType: .rtf, appName: appName, isHandoff: isHandoff)
     }
 
-    private func readHTML(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {
+    private func readHTML(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
         guard let data = pb.data(forType: .html),
               let html = String(data: data, encoding: .utf8)
         else { return nil }
@@ -337,6 +342,7 @@ final class ClipboardMonitor: ObservableObject {
             content: content,
             contentType: .html,
             appName: appName,
+            isHandoff: isHandoff,
             segments: segments.isEmpty ? nil : segments
         )
     }
@@ -455,7 +461,7 @@ final class ClipboardMonitor: ObservableObject {
         return (image, data)
     }
 
-    private func readFileURLs(from pb: NSPasteboard, appName: String?) -> ClipboardItem? {
+    private func readFileURLs(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
         guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
               !urls.isEmpty
         else { return nil }
@@ -463,7 +469,7 @@ final class ClipboardMonitor: ObservableObject {
         let fileURLs = urls.filter { $0.isFileURL }
         guard !fileURLs.isEmpty else { return nil }
         let paths = fileURLs.map(\.path).joined(separator: "\n")
-        return ClipboardItem(content: paths, contentType: .fileURL, appName: appName)
+        return ClipboardItem(content: paths, contentType: .fileURL, appName: appName, isHandoff: isHandoff)
     }
 
     // MARK: - 测试入口

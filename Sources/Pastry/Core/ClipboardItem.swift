@@ -100,6 +100,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let content: String         // 文本内容 / 图片缓存路径 / 文件URL拼接
     let contentType: ClipType
     let appName: String?        // 来源应用名
+    let isHandoff: Bool          // 是否来自 Handoff（iPhone/iPad 通用剪贴板）
     let textAnnotation: String?       // 图片附带的文字（同时复制图文时保留）
     let segments: [ContentSegment]?  // HTML 图文混排的有序段（仅 .html 类型）
     var displayCount: Int             // 被粘贴回的次数（可变，不计入 hash）
@@ -124,6 +125,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         content: String,
         contentType: ClipType,
         appName: String? = nil,
+        isHandoff: Bool = false,
         textAnnotation: String? = nil,
         segments: [ContentSegment]? = nil,
         displayCount: Int = 0,
@@ -134,6 +136,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.content = content
         self.contentType = contentType
         self.appName = appName
+        self.isHandoff = isHandoff
         self.textAnnotation = textAnnotation
         self.segments = segments
         self.displayCount = displayCount
