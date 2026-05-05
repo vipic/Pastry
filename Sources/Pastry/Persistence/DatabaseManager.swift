@@ -134,6 +134,10 @@ final class DatabaseManager {
             _ = execute("ALTER TABLE clips ADD COLUMN segments TEXT;")
             userVersion = 4
         }
+        if version < 5 {
+            _ = execute("ALTER TABLE clips ADD COLUMN is_handoff INTEGER DEFAULT 0;")
+            userVersion = 5
+        }
     }
 
     // MARK: - CRUD
@@ -146,8 +150,8 @@ final class DatabaseManager {
         if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return false }
 
         let sql = """
-        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -170,6 +174,7 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 8, (segmentsJSON as NSString?)?.utf8String ?? nil, -1, nil)
         sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0)  // is_favorite
         sqlite3_bind_int(stmt, 10, Int32(item.displayCount))
+        sqlite3_bind_int(stmt, 11, item.isHandoff ? 1 : 0)
 
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -195,7 +200,7 @@ final class DatabaseManager {
         // FTS5 搜索（带前缀通配）
         let ftsSQL = """
         SELECT c.id, c.timestamp, c.content, c.content_type, c.app_name,
-               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count
+               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff
         FROM clips c
         JOIN clips_fts f ON c.rowid = f.rowid
         WHERE clips_fts MATCH ?
@@ -228,7 +233,7 @@ final class DatabaseManager {
     /// LIKE 降级搜索
     private func fallbackSearch(query: String, limit: Int) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
         FROM clips
         WHERE content LIKE ?
         ORDER BY timestamp DESC
@@ -252,7 +257,7 @@ final class DatabaseManager {
     /// 最近历史
     func recent(limit: Int = 100) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
         FROM clips
         ORDER BY timestamp DESC
         LIMIT ?;
@@ -273,7 +278,7 @@ final class DatabaseManager {
     /// 收藏列表
     func favorites(limit: Int = 200) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
         FROM clips
         WHERE is_favorite = 1
         ORDER BY timestamp DESC
@@ -423,6 +428,7 @@ final class DatabaseManager {
             }()
             let pinned = sqlite3_column_int(stmt, 8) != 0
             let dispCount = Int(sqlite3_column_int(stmt, 9))
+            let isHandoff = sqlite3_column_int(stmt, 10) != 0
 
             let item = ClipboardItem(
                 id: UUID(uuidString: idStr) ?? UUID(),
@@ -430,6 +436,7 @@ final class DatabaseManager {
                 content: content,
                 contentType: ClipType(storageKey: typeStr),
                 appName: appName,
+                isHandoff: isHandoff,
                 textAnnotation: textAnnotation,
                 segments: segments,
                 displayCount: dispCount,

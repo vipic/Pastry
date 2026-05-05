@@ -329,6 +329,33 @@ final class LinkPreviewLoaderTests: XCTestCase {
         XCTAssertNil(result)
     }
 
+    // MARK: - og:site_name 降级（og:title 和 <title> 都缺失时——如 X.com SPA）
+
+    func testOGSiteNameFallback() {
+        // X.com 风格：只有 og:site_name，无 og:title / <title>
+        let html = "<head><meta property=\"og:site_name\" content=\"X (formerly Twitter)\"></head>"
+        // 模拟 title 提取链：og:title → <title> → og:site_name
+        let ogTitle = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:title")
+        let titleTag = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        let siteName = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:site_name")
+
+        XCTAssertNil(ogTitle, "og:title 应缺失")
+        XCTAssertNil(titleTag, "<title> 应缺失")
+        XCTAssertEqual(siteName, "X (formerly Twitter)", "og:site_name 应被提取")
+    }
+
+    /// 三个都缺失 → nil
+    func testAllTitleSourcesMissing() {
+        let html = "<html><head></head><body>无任何元数据</body></html>"
+        let ogTitle = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:title")
+        let titleTag = LinkPreviewLoader.extractTitleTagForTesting(from: html)
+        let siteName = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:site_name")
+
+        XCTAssertNil(ogTitle)
+        XCTAssertNil(titleTag)
+        XCTAssertNil(siteName)
+    }
+
     // MARK: - 缓存行为
 
     func testCachedPreviewInitiallyNil() {

@@ -13,6 +13,9 @@ final class RemoteImageLoader {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 6
         config.timeoutIntervalForResource = 10
+        config.httpAdditionalHeaders = [
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+        ]
         return URLSession(configuration: config)
     }()
 
