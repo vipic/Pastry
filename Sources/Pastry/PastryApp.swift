@@ -88,7 +88,15 @@ struct PastryApp: App {
 
         let isRegistered = SMAppService.mainApp.status == .enabled
         if launchAtLogin != isRegistered {
-            launchAtLogin = isRegistered
+            do {
+                if launchAtLogin {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+            } catch {
+                log.error("开机启动同步失败: \\(error.localizedDescription)")
+            }
         }
 
         store.start()

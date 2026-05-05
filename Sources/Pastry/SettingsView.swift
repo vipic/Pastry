@@ -1,5 +1,6 @@
 import SwiftUI
 import OSLog
+import ServiceManagement
 
 // MARK: - 设置视图
 
@@ -63,6 +64,18 @@ struct SettingsSceneView: View {
             Form {
                 Section {
                     Toggle("开机启动", isOn: $launchAtLogin)
+                        .onChange(of: launchAtLogin) { _, enabled in
+                            do {
+                                if enabled {
+                                    try SMAppService.mainApp.register()
+                                } else {
+                                    try SMAppService.mainApp.unregister()
+                                }
+                            } catch {
+                                Logger(subsystem: "com.nekutai.pastry", category: "settings")
+                                    .error("开机启动切换失败: \\(error.localizedDescription)")
+                            }
+                        }
                     Toggle("操作提示音", isOn: $soundEnabled)
                 }
                 Section("辅助功能权限") {

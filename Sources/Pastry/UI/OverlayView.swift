@@ -15,6 +15,7 @@ extension Notification.Name {
     static let overlayMoveLeft       = Notification.Name("overlayMoveLeft")
     static let overlayMoveRight      = Notification.Name("overlayMoveRight")
     static let overlayConfirmPaste   = Notification.Name("overlayConfirmPaste")
+    static let overlayAlertConfirm   = Notification.Name("overlayAlertConfirm")
 }
 
 // MARK: - 覆盖层主视图
@@ -115,6 +116,10 @@ struct OverlayView: View {
                                             object: nil,
                                             userInfo: ["active": showDeleteConfirm])
         }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayAlertConfirm)) { _ in
+            deleteSelected()
+            showDeleteConfirm = false
+        }
         .onChange(of: showSearch) {
             OverlayPanelManager.shared.isSearchActive = showSearch
             if showSearch {
@@ -179,7 +184,7 @@ struct OverlayView: View {
 
     private func deleteSelected() {
         store.deleteSelected(selection.selectedIds)
-        selection.selectedIds = []
+        selection.reset()
     }
 
     // MARK: - 搜索框（内联在 header 中）

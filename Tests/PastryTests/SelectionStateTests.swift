@@ -221,6 +221,48 @@ final class SelectionStateTests: XCTestCase {
         XCTAssertNil(s.lastClickId)
     }
 
+    // MARK: - 重置后导航从首位开始
+
+    func testResetThenArrowStartsFromBeginning() {
+        var s = SelectionState()
+        let items = makeItems(5)
+
+        // 模拟键盘操作：移动到第 2 项
+        s.moveCursor(delta: 1, extend: false, visibleItems: items)  // → 0
+        s.moveCursor(delta: 1, extend: false, visibleItems: items)  // → 1
+        XCTAssertEqual(s.cursorIndex, 1)
+        XCTAssertEqual(s.selectedIds, [items[1].id])
+
+        // 模拟删除后 reset（修复前只清 selectedIds，cursorIndex 残留）
+        s.reset()
+
+        // 重置后按右箭头 → 应从 0 开始，而非跳到 2
+        s.moveCursor(delta: 1, extend: false, visibleItems: items)
+        XCTAssertEqual(s.cursorIndex, 0)
+        XCTAssertEqual(s.selectedIds, [items[0].id])
+    }
+
+    func testResetThenShiftArrowWorksCleanly() {
+        var s = SelectionState()
+        let items = makeItems(5)
+
+        // 建立区间选择 1-3
+        s.moveCursor(delta: 1, extend: false, visibleItems: items)  // → 0
+        s.moveCursor(delta: 1, extend: true, visibleItems: items)   // → 0-1
+        s.moveCursor(delta: 1, extend: true, visibleItems: items)   // → 0-2
+        XCTAssertEqual(s.shiftAnchorIdx, 0)
+        XCTAssertEqual(s.selectedIds.count, 3)
+
+        // 模拟删除后 reset
+        s.reset()
+
+        // 重置后 Shift+↓ 应退化为普通移动（无光标无历史锚点）
+        s.moveCursor(delta: 1, extend: true, visibleItems: items)
+        XCTAssertEqual(s.cursorIndex, 0)
+        XCTAssertEqual(s.selectedIds, [items[0].id])
+        XCTAssertNil(s.shiftAnchorIdx)
+    }
+
     // MARK: - 边界
 
     func testEmptyItemsDoesNothing() {

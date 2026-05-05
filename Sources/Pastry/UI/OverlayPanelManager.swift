@@ -182,7 +182,7 @@ final class OverlayPanelManager {
         panelResignKeyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: newPanel, queue: .main
         ) { [weak self] _ in
-            guard let self, !self.isPasting else { return }
+            guard let self, !self.isPasting, !self.alertActive else { return }
             DispatchQueue.main.async { self.hide() }
         }
 
@@ -219,6 +219,14 @@ final class OverlayPanelManager {
                 }
                 NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
                 return nil
+            }
+            // 弹窗活跃：Enter 确认删除 / 其他按键放行（Esc 已在上方处理）
+            if self.alertActive {
+                if event.keyCode == 36 {
+                    NotificationCenter.default.post(name: .overlayAlertConfirm, object: nil)
+                    return nil
+                }
+                return event
             }
             // Tab — 搜索栏↔卡片焦点互相切换（无 Shift/⌘/⌥/⌃ 修饰）
             if event.keyCode == 48,
