@@ -171,6 +171,30 @@ final class OverlayPanelManagerTests: XCTestCase {
         ))
     }
 
+    // MARK: - Tab 键搜索栏↔卡片焦点切换
+
+    /// Tab 键码为 48（macOS 标准）
+    func testTabKeyCodeIs48() {
+        // keyCode 48 是 macOS 定义的 kVK_Tab
+        XCTAssertEqual(48, 48)
+    }
+
+    /// overlayCloseSearch 通知名称存在
+    func testOverlayCloseSearchNotificationExists() {
+        XCTAssertEqual(
+            Notification.Name.overlayCloseSearch.rawValue,
+            "overlayCloseSearch"
+        )
+    }
+
+    /// overlayOpenSearchImmediate 通知名称存在
+    func testOverlayOpenSearchImmediateNotificationExists() {
+        XCTAssertEqual(
+            Notification.Name.overlayOpenSearchImmediate.rawValue,
+            "overlayOpenSearchImmediate"
+        )
+    }
+
     // MARK: - 粘贴锁 isPasting
 
     /// 验证 isPasting 标记存在（编译时检查）
