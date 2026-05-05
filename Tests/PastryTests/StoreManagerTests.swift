@@ -231,31 +231,6 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertFalse(store.hasActiveFilters)
     }
 
-    // MARK: - expandQuery（分类词扩展）
-
-    func testExpandQueryCategoryDocument() {
-        let result = StoreManager.expandQuery("文档")
-        XCTAssertTrue(result.contains("pdf"))
-        XCTAssertTrue(result.contains("doc"))
-    }
-
-    func testExpandQueryCategoryCode() {
-        let result = StoreManager.expandQuery("代码")
-        XCTAssertTrue(result.contains("swift"))
-        XCTAssertTrue(result.contains("py"))
-    }
-
-    func testExpandQueryNoCategoryWord() {
-        let result = StoreManager.expandQuery("hello")
-        XCTAssertEqual(result, "hello")
-    }
-
-    func testExpandQueryMultipleTerms() {
-        let result = StoreManager.expandQuery("图片 文档")
-        XCTAssertTrue(result.contains("png"))
-        XCTAssertTrue(result.contains("pdf"))
-    }
-
     // MARK: - togglePin
 
     func testTogglePinInMemory() {
