@@ -16,6 +16,8 @@ extension Notification.Name {
     static let overlayMoveRight      = Notification.Name("overlayMoveRight")
     static let overlayConfirmPaste   = Notification.Name("overlayConfirmPaste")
     static let overlayAlertConfirm   = Notification.Name("overlayAlertConfirm")
+    static let overlayCmdPaste       = Notification.Name("overlayCmdPaste")
+    static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
 }
 
 // MARK: - 覆盖层主视图
@@ -32,16 +34,21 @@ struct OverlayView: View {
     @State private var hoverSearch = false
     @State private var hoverGear = false
     @State private var hoverTab: StoreManager.PinTab? = nil
+    @State private var cmdDown = false
     @FocusState private var isSearchFocused: Bool
     @StateObject private var keyHandler = KeyboardEventHandler()
 
     private let cardSpacing: CGFloat = 10
-    private let bottomInset: CGFloat = 20
+    private let bottomInset: CGFloat = 12
     private let animationDuration = 0.20
 
     // MARK: - Body
 
     var body: some View {
+        applyModifiers(overlayContent)
+    }
+
+    private var overlayContent: some View {
         ZStack {
             Color.clear
                 .ignoresSafeArea()
@@ -60,77 +67,100 @@ struct OverlayView: View {
             .animation(.easeInOut(duration: 0.2), value: showSearch)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            resetAllState()
-            keyHandler.installMouseMonitor()
-            withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
-                cardVisible = true
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
-            dismiss()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayCloseSearch)) { _ in
-            closeSearch()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
-            withAnimation { showSearch = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearchImmediate)) { _ in
-            withAnimation { showSearch = true }
-            isSearchFocused = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
-            let ids = Set(visibleItems.map { $0.id })
-            withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveUp)) { note in
-            handleArrowNotify(delta: -1, note: note)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveDown)) { note in
-            handleArrowNotify(delta: 1, note: note)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveLeft)) { note in
-            handleArrowNotify(delta: -1, note: note)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayMoveRight)) { note in
-            handleArrowNotify(delta: 1, note: note)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
-            guard let sel = selection.selectedIds.first,
-                  let item = visibleItems.first(where: { $0.id == sel }) else { return }
-            OverlayPanelManager.shared.hideAndPaste(item)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
-            guard !selection.selectedIds.isEmpty else { return }
-            showDeleteConfirm = true
-        }
-        .alert("确认删除", isPresented: $showDeleteConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("确认", role: .destructive) { deleteSelected() }
-        } message: {
-            Text("确定要删除 \(selection.selectedIds.count) 条选中的记录吗？Pinned 项将被保留。")
-        }
-        .onChange(of: showDeleteConfirm) {
-            NotificationCenter.default.post(name: .overlayAlertActive,
-                                            object: nil,
-                                            userInfo: ["active": showDeleteConfirm])
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .overlayAlertConfirm)) { _ in
-            deleteSelected()
-            showDeleteConfirm = false
-        }
-        .onChange(of: showSearch) {
-            OverlayPanelManager.shared.isSearchActive = showSearch
-            if showSearch {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+    }
+
+    private func applyModifiers<Content: View>(_ content: Content) -> AnyView {
+        let step1 = AnyView(
+            content
+                .onAppear {
+                    resetAllState()
+                    keyHandler.installMouseMonitor()
+                    withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
+                        cardVisible = true
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
+                    dismiss()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayCloseSearch)) { _ in
+                    closeSearch()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
+                    withAnimation { showSearch = true }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearchImmediate)) { _ in
+                    withAnimation { showSearch = true }
                     isSearchFocused = true
                 }
-            } else {
-                isSearchFocused = false
-                showFilterPanel = false
-                store.clearFilters()
+                .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
+                    let ids = Set(visibleItems.map { $0.id })
+                    withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveUp)) { note in
+                    handleArrowNotify(delta: -1, note: note)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveDown)) { note in
+                    handleArrowNotify(delta: 1, note: note)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveLeft)) { note in
+                    handleArrowNotify(delta: -1, note: note)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveRight)) { note in
+                    handleArrowNotify(delta: 1, note: note)
+                }
+        )
+        let step2 = AnyView(
+            step1
+                .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
+                    guard let sel = selection.selectedIds.first,
+                          let item = visibleItems.first(where: { $0.id == sel }) else { return }
+                    OverlayPanelManager.shared.hideAndPaste(item)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
+                    guard !selection.selectedIds.isEmpty else { return }
+                    showDeleteConfirm = true
+                }
+                .alert("确认删除", isPresented: $showDeleteConfirm) {
+                    Button("取消", role: .cancel) {}
+                    Button("确认", role: .destructive) { deleteSelected() }
+                } message: {
+                    Text("确定要删除 \(selection.selectedIds.count) 条选中的记录吗？Pinned 项将被保留。")
+                }
+                .onChange(of: showDeleteConfirm) {
+                    NotificationCenter.default.post(name: .overlayAlertActive,
+                                                    object: nil,
+                                                    userInfo: ["active": showDeleteConfirm])
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayAlertConfirm)) { _ in
+                    deleteSelected()
+                    showDeleteConfirm = false
+                }
+        )
+        return AnyView(
+            step2
+                .onReceive(NotificationCenter.default.publisher(for: .overlayCmdStateChanged)) { note in
+                    cmdDown = (note.userInfo?["cmdDown"] as? Bool) ?? false
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayCmdPaste)) { note in
+                    guard let idx = note.userInfo?["index"] as? Int,
+                          idx > 0, idx <= visibleItems.count else { return }
+                    let item = visibleItems[idx - 1]
+                    OverlayPanelManager.shared.hideAndPaste(item)
+                }
+                .onChange(of: showSearch) { onShowSearchChanged() }
+        )
+    }
+
+    private func onShowSearchChanged() {
+        OverlayPanelManager.shared.isSearchActive = showSearch
+        if showSearch {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isSearchFocused = true
             }
+        } else {
+            isSearchFocused = false
+            showFilterPanel = false
+            store.clearFilters()
         }
     }
 
@@ -337,7 +367,7 @@ struct OverlayView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            Group {
+            VStack(spacing: 0) {
                 if displayItems.isEmpty {
                     emptyState
                 } else {
@@ -345,13 +375,13 @@ struct OverlayView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
+            .padding(.top, 10)
             .frame(minHeight: 208)
         }
-        .frame(maxHeight: 248)
-        .clipped()
-        .padding(.top, 8)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.top, 10)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
         .background(
             GlassBackground(cornerRadius: 20)
         )
@@ -417,8 +447,6 @@ struct OverlayView: View {
             .onHover { hoverGear = $0 }
         }
         .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
     }
 
     private func tabButton(tab: StoreManager.PinTab, icon: String, label: String, isSelected: Bool) -> some View {
@@ -463,12 +491,11 @@ struct OverlayView: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: cardSpacing) {
-                        ForEach(items) { item in
-                            cardView(item)
+                        ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                            cardView(item, index: idx)
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.trailing, 8)
                 }
                 .animation(nil, value: items.count)
                 .onChange(of: selection.cursorIndex) { oldIdx, newIdx in
@@ -493,13 +520,12 @@ struct OverlayView: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: cardSpacing) {
-                        ForEach(items) { item in
-                            cardView(item)
+                        ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                            cardView(item, index: idx)
                                 .frame(maxWidth: 400)
                         }
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
                 }
                 .frame(maxWidth: 520)
                 .animation(nil, value: items.count)
@@ -524,10 +550,11 @@ struct OverlayView: View {
     }
 
     @ViewBuilder
-    private func cardView(_ item: ClipboardItem) -> some View {
+    private func cardView(_ item: ClipboardItem, index: Int) -> some View {
         ClipboardCardView(
             item: item,
             isSelected: selection.selectedIds.contains(item.id),
+            cmdBadgeIndex: cmdDown && index < 9 ? index + 1 : nil,
             onTap: { tapped in
                 handleCardTap(tapped)
             },

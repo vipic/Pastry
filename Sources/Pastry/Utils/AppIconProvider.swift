@@ -129,15 +129,19 @@ final class AppIconProvider {
         ]
 
         for path in paths {
-            if FileManager.default.fileExists(atPath: path) {
-                return ws.icon(forFile: path)
+            let resolved = (path as NSString).resolvingSymlinksInPath
+            if let icon = iconFromBundle(at: resolved) ?? iconFromWorkspace(at: resolved) {
+                return icon
             }
         }
 
         // 2. 通过 Bundle ID 查找
         if let bundleID = bundleID(for: name),
            let appURL = ws.urlForApplication(withBundleIdentifier: bundleID) {
-            return ws.icon(forFile: appURL.path)
+            let p = (appURL.path as NSString).resolvingSymlinksInPath
+            if let icon = iconFromBundle(at: p) ?? iconFromWorkspace(at: p) {
+                return icon
+            }
         }
 
         // 3. 模糊搜索（双向匹配，处理 iTerm2↔iTerm 这种差异）
@@ -155,12 +159,36 @@ final class AppIconProvider {
                     ($0.localizedCaseInsensitiveContains(name) || name.localizedCaseInsensitiveContains($0))
                 }
                 if let match = matched {
-                    return ws.icon(forFile: "\(dir)/\(match)")
+                    let resolved = ("\(dir)/\(match)" as NSString).resolvingSymlinksInPath
+                    if let icon = iconFromBundle(at: resolved) ?? iconFromWorkspace(at: resolved) {
+                        return icon
+                    }
                 }
             }
         }
 
         return defaultIcon
+    }
+
+    /// 直接从 .app bundle 读取 icns 图标（避免 NSWorkspace 的快捷方式角标）
+    private func iconFromBundle(at path: String) -> NSImage? {
+        guard let bundle = Bundle(path: path),
+              let iconName = (bundle.infoDictionary?["CFBundleIconFile"] as? String)
+                ?? (bundle.infoDictionary?["CFBundleIconName"] as? String)
+        else { return nil }
+
+        // 先尝试 .icns，再尝试通用 resource
+        let iconPath = bundle.path(forResource: iconName, ofType: "icns")
+            ?? bundle.path(forResource: iconName, ofType: nil)
+        guard let iconPath else { return nil }
+
+        return NSImage(contentsOfFile: iconPath)
+    }
+
+    /// 通过 NSWorkspace 获取图标（fallback）
+    private func iconFromWorkspace(at path: String) -> NSImage? {
+        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        return NSWorkspace.shared.icon(forFile: path)
     }
 
     /// 从应用图标提取主色
