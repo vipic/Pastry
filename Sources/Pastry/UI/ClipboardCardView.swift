@@ -391,7 +391,7 @@ struct ClipboardCardView: View {
         .animation(.easeInOut(duration: 0.12), value: isContextHighlighted)
         .animation(.easeInOut(duration: 0.12), value: isSelected)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
-        .scaleEffect(isHovered ? 1.03 : 1.0)
+        .scaleEffect(isHovered ? 1.01 : 1.0)
         .scaleEffect(didPaste ? 0.95 : 1.0)
         .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
         .overlay(

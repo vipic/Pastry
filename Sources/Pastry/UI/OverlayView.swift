@@ -202,16 +202,16 @@ struct OverlayView: View {
                 .focused($isSearchFocused)
                 .frame(maxWidth: 400)
 
-            if !store.searchQuery.isEmpty {
-                Button {
-                    store.searchQuery = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.4))
-                }
-                .buttonStyle(.plain)
+            Button {
+                store.searchQuery = ""
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.4))
             }
+            .buttonStyle(.plain)
+            .opacity(store.searchQuery.isEmpty ? 0 : 1)
+            .allowsHitTesting(!store.searchQuery.isEmpty)
 
             Button {
                 withAnimation { showFilterPanel.toggle() }
