@@ -9,6 +9,7 @@ extension Notification.Name {
     static let overlayAlertActive    = Notification.Name("overlayAlertActive")
     static let overlayCloseSearch    = Notification.Name("overlayCloseSearch")
     static let overlayOpenSearch     = Notification.Name("overlayOpenSearch")
+    static let overlayOpenSearchImmediate = Notification.Name("overlayOpenSearchImmediate")
     static let overlayMoveUp         = Notification.Name("overlayMoveUp")
     static let overlayMoveDown       = Notification.Name("overlayMoveDown")
     static let overlayMoveLeft       = Notification.Name("overlayMoveLeft")
@@ -73,6 +74,10 @@ struct OverlayView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
             withAnimation { showSearch = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearchImmediate)) { _ in
+            withAnimation { showSearch = true }
+            isSearchFocused = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
             let ids = Set(visibleItems.map { $0.id })
