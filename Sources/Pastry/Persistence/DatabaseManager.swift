@@ -17,10 +17,13 @@ final class DatabaseManager {
     private var lastKeyTime: Date = .distantPast
 
     private init() {
-        let appSupport = FileManager.default.urls(
+        guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
-        ).first!
+        ).first else {
+            log.error("无法获取 Application Support 目录")
+            fatalError("Application Support directory is unavailable")
+        }
         let dir = appSupport.appendingPathComponent(Constants.appName)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
