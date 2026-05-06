@@ -181,4 +181,77 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertEqual(stats.words, 0, "纯空白无单词")
         XCTAssertEqual(stats.lines, 1)
     }
+
+    // MARK: - 多选文本拼接
+
+    private func makeItem(_ content: String, _ type: ClipType) -> ClipboardItem {
+        ClipboardItem(timestamp: Date(), content: content, contentType: type)
+    }
+
+    func testMultiSelectTextOnlyTextTypes() {
+        let items = [
+            makeItem("Hello", .text),
+            makeItem("World", .text),
+            makeItem("Test", .rtf),
+        ]
+        let result = ClipboardCardView.multiSelectTextForTesting(items)
+        XCTAssertEqual(result, "Hello\nWorld\nTest", "纯文本类应按换行拼接")
+    }
+
+    func testMultiSelectTextSkipsImages() {
+        let items = [
+            makeItem("Line 1", .text),
+            makeItem("/path/to/img.png", .image),
+            makeItem("Line 2", .html),
+        ]
+        let result = ClipboardCardView.multiSelectTextForTesting(items)
+        XCTAssertEqual(result, "Line 1\nLine 2", "图片应被跳过")
+    }
+
+    func testMultiSelectTextEmptyArray() {
+        let result = ClipboardCardView.multiSelectTextForTesting([])
+        XCTAssertEqual(result, "", "空数组应返回空字符串")
+    }
+
+    func testMultiSelectTextAllImagesReturnsEmpty() {
+        let items = [
+            makeItem("/a.png", .image),
+            makeItem("/b.jpg", .image),
+        ]
+        let result = ClipboardCardView.multiSelectTextForTesting(items)
+        XCTAssertEqual(result, "", "全是图片应返回空")
+    }
+
+    // MARK: - 单选拖拽内容分发
+
+    func testDragPayloadImageIsFile() {
+        let item = makeItem("/path/to/screenshot.png", .image)
+        let payload = ClipboardCardView.dragPayloadForTesting(item)
+        XCTAssertTrue(payload.isFile, "图片应为文件拖拽")
+        XCTAssertEqual(payload.content, "/path/to/screenshot.png")
+    }
+
+    func testDragPayloadFileURLIsFile() {
+        let item = makeItem("/Users/mason/Desktop/doc.pdf", .fileURL)
+        let payload = ClipboardCardView.dragPayloadForTesting(item)
+        XCTAssertTrue(payload.isFile, "fileURL 应为文件拖拽")
+    }
+
+    func testDragPayloadTextIsNotFile() {
+        let item = makeItem("some text", .text)
+        let payload = ClipboardCardView.dragPayloadForTesting(item)
+        XCTAssertFalse(payload.isFile, "纯文本不应为文件拖拽")
+    }
+
+    func testDragPayloadRTFIsNotFile() {
+        let item = makeItem("{\\rtf1...}", .rtf)
+        let payload = ClipboardCardView.dragPayloadForTesting(item)
+        XCTAssertFalse(payload.isFile, "RTF 不应为文件拖拽")
+    }
+
+    func testDragPayloadHTMLIsNotFile() {
+        let item = makeItem("<p>Hi</p>", .html)
+        let payload = ClipboardCardView.dragPayloadForTesting(item)
+        XCTAssertFalse(payload.isFile, "HTML 不应为文件拖拽")
+    }
 }

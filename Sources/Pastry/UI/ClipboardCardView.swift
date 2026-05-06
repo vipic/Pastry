@@ -1038,6 +1038,26 @@ struct ClipboardCardView: View {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).count
         return (chars, words, lines)
     }
+
+    /// 供单元测试：多选条目 → 拼接文本（hideAndPasteMultiple 的核心逻辑）
+    static func multiSelectTextForTesting(_ items: [ClipboardItem]) -> String {
+        items.compactMap { item -> String? in
+            switch item.contentType {
+            case .text, .rtf, .html, .fileURL: return item.content
+            default: return nil
+            }
+        }.joined(separator: "\n")
+    }
+
+    /// 供单元测试：单选拖拽 → 按类型返回 (isFile: Bool, content: String)
+    static func dragPayloadForTesting(_ item: ClipboardItem) -> (isFile: Bool, content: String) {
+        switch item.contentType {
+        case .image, .fileURL:
+            return (true, item.content)
+        default:
+            return (false, item.content)
+        }
+    }
 }
 
 // MARK: - 远程图片缩略图（异步加载，NSCache 缓存）
