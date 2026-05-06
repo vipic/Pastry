@@ -22,7 +22,7 @@ final class ClipboardMonitor: ObservableObject {
     private let pollInterval: TimeInterval = 0.2
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
 
-    /// CGEvent tap：监听 ⌘C 按键，立即触发轮询（不等 timer）
+    /// CGEvent tap：监听 ⌘C/⌘X/截图 按键，立即触发轮询（不等 timer，降低延迟）
     private var eventTap: CFMachPort?
 
     // 防止同一内容重复触发
@@ -36,16 +36,6 @@ final class ClipboardMonitor: ObservableObject {
         }
         return NSSound(contentsOfFile: path, byReference: true)
     }()
-
-    // MARK: - 来源识别：用户主动切换 App = 上下文
-    /// 最近 10 秒内用户主动切换到的 App（didActivateApplicationNotification）。
-    /// 来源应该反映用户的工作上下文，而非剪贴板写入瞬间碰巧在前台的进程。
-    private let contextWindow: TimeInterval = 10.0
-    private var recentApps: [(name: String, time: Date)] = []
-    private var appObserver: NSObjectProtocol?
-
-    /// 上一轮轮询时的前台 App — 捕获截图软件等不激活自身的工具
-    private var previousFrontApp: String?
 
     /// 暂停/恢复监听（仅主线程调用）
     private var suspendCount = 0
@@ -82,24 +72,6 @@ final class ClipboardMonitor: ObservableObject {
         lastChangeCount = NSPasteboard.general.changeCount
         lastDedupKey = currentDedupKey
 
-        // 追踪用户主动切换 App 的行为（真正的上下文）
-        appObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
-                      as? NSRunningApplication,
-                  let name = app.localizedName
-            else { return }
-            let now = Date()
-            self.recentApps.append((name, now))
-            self.recentApps = self.recentApps.filter {
-                now.timeIntervalSince($0.time) < self.contextWindow
-            }
-        }
-
         let t = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
         }
@@ -123,7 +95,12 @@ final class ClipboardMonitor: ObservableObject {
                 if type == .keyUp {
                     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
                     let flags = event.flags
-                    if keyCode == 8 && flags.contains(.maskCommand) {
+                    let isCopy       = keyCode == 8  && flags.contains(.maskCommand)                           // C
+                    let isCut        = keyCode == 7  && flags.contains(.maskCommand)                           // X
+                    let isScreenshot = (keyCode == 20 || keyCode == 21 || keyCode == 23)                       // 3/4/5
+                                        && flags.contains(.maskCommand) && flags.contains(.maskShift)
+                    let isCtrlCmdA   = keyCode == 0 && flags.contains(.maskCommand) && flags.contains(.maskControl)  // A
+                    if isCopy || isCut || isScreenshot || isCtrlCmdA {
                         let monitor = Unmanaged<ClipboardMonitor>
                             .fromOpaque(refcon!).takeUnretainedValue()
                         DispatchQueue.main.async {
@@ -159,10 +136,6 @@ final class ClipboardMonitor: ObservableObject {
             CFMachPortInvalidate(tap)
             eventTap = nil
         }
-        if let obs = appObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(obs)
-            appObserver = nil
-        }
         isRunning = false
         log.info("剪贴板监听已停止")
     }
@@ -175,13 +148,7 @@ final class ClipboardMonitor: ObservableObject {
         let pb = NSPasteboard.general
         let currentChange = pb.changeCount
 
-        // 每轮记录当前前台 App，供截图软件等不激活自身的工具使用
-        let currentFront = NSWorkspace.shared.frontmostApplication?.localizedName
-
-        guard currentChange != lastChangeCount else {
-            previousFrontApp = currentFront
-            return
-        }
+        guard currentChange != lastChangeCount else { return }
         lastChangeCount = currentChange
 
         // 检测到剪贴板变化 → 立即播提示音
@@ -189,35 +156,13 @@ final class ClipboardMonitor: ObservableObject {
             Self.copySound?.play()
         }
 
-        // 来源 = 用户上下文（激活历史） > 上一轮前台 > 当前前台
-        let capturedApp = bestGuessAppName(currentFront: currentFront)
-        previousFrontApp = currentFront
+        // 来源 = 当前前台 App
+        let capturedApp = NSWorkspace.shared.frontmostApplication?.localizedName
 
         DispatchQueue.main.async {
             [weak self] in
             self?.processChange(capturedApp: capturedApp)
         }
-    }
-
-    /// 来源优先级：用户切换到的 App（上下文）> 上轮前台 App > 当前前台 App
-    private func bestGuessAppName(currentFront: String?) -> String? {
-        let now = Date()
-        recentApps = recentApps.filter { now.timeIntervalSince($0.time) < contextWindow }
-
-        // Tier 1: 用户主动切换到的最近 App（真正的上下文）
-        for entry in recentApps.reversed() {
-            let name = entry.name
-            if name == "Finder" || name == "loginwindow" { continue }
-            return name
-        }
-
-        // Tier 2: 上轮前台 App（捕获不激活自身的截图工具等）
-        if let prev = previousFrontApp, prev != "Finder", prev != "loginwindow" {
-            return prev
-        }
-
-        // Tier 3: 当前前台
-        return currentFront
     }
 
     // MARK: - 处理剪贴板变化
@@ -479,29 +424,46 @@ final class ClipboardMonitor: ObservableObject {
         shared.readTencentText(from: pb)
     }
 
-    /// 供单元测试使用的 HTML segments 解析入口
     static func extractOrderedSegmentsForTesting(from html: String, sourceURL: URL?) -> [ContentSegment] {
         shared.extractOrderedSegments(from: html, sourceURL: sourceURL)
     }
 
-    /// 供单元测试使用的文件 URL 读取入口（验证优先级）
     static func readFileURLsForTesting(from pb: NSPasteboard) -> ClipboardItem? {
         shared.readFileURLs(from: pb, appName: "TestApp")
     }
 
-    /// 供单元测试使用的图片数据读取入口
     static func readImageDataForTesting(from pb: NSPasteboard) -> (NSImage, Data)? {
         shared.readImageData(from: pb)
     }
 
-    // MARK: - 辅助
+    // MARK: - 去重
 
-    private var currentDedupKey: String {
+    /// 用于去重的 key：内容 + 内容类型
+    var currentDedupKey: String {
         let pb = NSPasteboard.general
-        let change = pb.changeCount
-        let types = pb.types?.map(\.rawValue).joined() ?? ""
-        // 加入内容摘要，防止同格式连续复制去重失效
-        let snapshot = pb.string(forType: pb.types?.first ?? .string)?.prefix(100) ?? ""
-        return "\(change):\(types):\(snapshot)"
+        guard let types = pb.types, !types.isEmpty else { return "" }
+
+        var key = ""
+
+        // 文件 URL
+        if let paths = pb.string(forType: .fileURL) ?? pb.propertyList(forType: .fileURL) as? String,
+           !paths.isEmpty {
+            key += "f:\(paths.hashValue)"
+        }
+
+        // 图片
+        if let tiff = pb.data(forType: .tiff) {
+            key += "i:\(tiff.hashValue)"
+        }
+
+        // 文本（包括 RTF 转换后的纯文本）
+        if let text = pb.string(forType: .string) {
+            key += "t:\(text.hashValue)"
+        }
+
+        if key.isEmpty, let first = types.first {
+            key += "o:\(first.rawValue)"
+        }
+        return key
     }
 }
