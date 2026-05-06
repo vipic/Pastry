@@ -72,51 +72,30 @@ final class AppIconProvider {
     // MARK: - 内部方法
 
     private var defaultIcon: NSImage {
-        NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+        if let path = Bundle.main.path(forResource: "placeholder-icon", ofType: "png"),
+           let img = NSImage(contentsOfFile: path) {
+            return img
+        }
+        return NSImage(systemSymbolName: "app.fill", accessibilityDescription: nil)
             ?? NSImage()
     }
 
-    /// 通过应用名查找实际图标
+    /// 通过应用名查找实际图标（纯 NSWorkspace，零 FileManager）
     private func findAppIcon(named name: String) -> NSImage {
-        // 1. 常见路径精确匹配
+        // 1. 已知系统路径 — NSWorkspace.icon 对不存在的 .app 返回 GenericApplicationIcon
+        //    通过检查图标尺寸区分：真实应用图标 ≥64pt，占位图标通常 32pt
         let paths = [
             "/Applications/\(name).app",
             "/Applications/Utilities/\(name).app",
             "/System/Applications/\(name).app",
-            "\(NSHomeDirectory())/Applications/\(name).app",
         ]
-
         for path in paths {
-            let resolved = (path as NSString).resolvingSymlinksInPath
-            if let icon = iconFromBundle(at: resolved) ?? iconFromWorkspace(at: resolved) {
-                return icon
-            }
+            let icon = NSWorkspace.shared.icon(forFile: path)
+            // 实际应用图标尺寸通常 ≥256（Retina），占位图标最大 32
+            if icon.size.width >= 64 { return icon }
         }
 
-        // 2. 模糊搜索（双向匹配，处理 iTerm2↔iTerm 这种差异）
-        let appDirs = [
-            "/Applications",
-            "/System/Applications",
-            "/System/Library/CoreServices",
-            NSHomeDirectory() + "/Applications",
-        ]
-
-        for dir in appDirs {
-            if let apps = try? FileManager.default.contentsOfDirectory(atPath: dir) {
-                let matched = apps.first {
-                    $0.hasSuffix(".app") &&
-                    ($0.localizedCaseInsensitiveContains(name) || name.localizedCaseInsensitiveContains($0))
-                }
-                if let match = matched {
-                    let resolved = ("\(dir)/\(match)" as NSString).resolvingSymlinksInPath
-                    if let icon = iconFromBundle(at: resolved) ?? iconFromWorkspace(at: resolved) {
-                        return icon
-                    }
-                }
-            }
-        }
-
-        // 3. 通用降级：从正在运行的进程中按名称匹配（覆盖 AppTranslocation 等非常规安装路径）
+        // 2. 运行中的应用（不依赖文件系统）
         if let runningApp = NSWorkspace.shared.runningApplications.first(where: {
             $0.localizedName == name
         }), let icon = runningApp.icon {
@@ -124,27 +103,6 @@ final class AppIconProvider {
         }
 
         return defaultIcon
-    }
-
-    /// 直接从 .app bundle 读取 icns 图标（避免 NSWorkspace 的快捷方式角标）
-    private func iconFromBundle(at path: String) -> NSImage? {
-        guard let bundle = Bundle(path: path),
-              let iconName = (bundle.infoDictionary?["CFBundleIconFile"] as? String)
-                ?? (bundle.infoDictionary?["CFBundleIconName"] as? String)
-        else { return nil }
-
-        // 先尝试 .icns，再尝试通用 resource
-        let iconPath = bundle.path(forResource: iconName, ofType: "icns")
-            ?? bundle.path(forResource: iconName, ofType: nil)
-        guard let iconPath else { return nil }
-
-        return NSImage(contentsOfFile: iconPath)
-    }
-
-    /// 通过 NSWorkspace 获取图标（fallback）
-    private func iconFromWorkspace(at path: String) -> NSImage? {
-        guard FileManager.default.fileExists(atPath: path) else { return nil }
-        return NSWorkspace.shared.icon(forFile: path)
     }
 
     /// 从应用图标提取主色

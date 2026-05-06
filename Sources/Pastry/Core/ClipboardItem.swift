@@ -6,6 +6,7 @@ enum ClipType: Codable, CaseIterable {
     case rtf
     case image
     case fileURL
+    case url
     case html
 
     var iconName: String {
@@ -14,6 +15,7 @@ enum ClipType: Codable, CaseIterable {
         case .rtf:     return "doc.richtext"
         case .image:   return "photo"
         case .fileURL: return "folder"
+        case .url:     return "link"
         case .html:    return "chevron.left.forwardslash.chevron.right"
         }
     }
@@ -24,6 +26,7 @@ enum ClipType: Codable, CaseIterable {
         case .rtf:     return "富文本"
         case .image:   return "图片"
         case .fileURL: return "文件"
+        case .url:     return "链接"
         case .html:    return "HTML"
         }
     }
@@ -35,6 +38,7 @@ enum ClipType: Codable, CaseIterable {
         case .rtf:     return "rtf"
         case .image:   return "image"
         case .fileURL: return "fileURL"
+        case .url:     return "url"
         case .html:    return "html"
         }
     }
@@ -44,6 +48,7 @@ enum ClipType: Codable, CaseIterable {
         case "rtf":     self = .rtf
         case "image":   self = .image
         case "fileURL": self = .fileURL
+        case "url":     self = .url
         case "html":    self = .html
         default:        self = .text
         }
