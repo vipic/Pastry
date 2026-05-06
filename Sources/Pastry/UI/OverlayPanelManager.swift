@@ -337,6 +337,64 @@ final class OverlayPanelManager {
         isPasting = false
     }
 
+    /// 多选粘贴：将所有选中条目的文本拼接后一次性 ⌘V
+    @MainActor
+    func hideAndPasteMultiple(_ items: [ClipboardItem]) {
+        guard panel != nil, !items.isEmpty else { return }
+
+        isPasting = true
+        let targetApp = previousFrontApp
+        previousFrontApp = nil
+
+        ClipboardMonitor.shared.suspend()
+
+        // 收集所有文本内容（文本类 + 文件路径），用换行拼接
+        let lines = items.compactMap { item -> String? in
+            switch item.contentType {
+            case .text, .rtf, .html:
+                return item.content
+            case .fileURL:
+                return item.content  // 文件路径也是文本
+            case .image:
+                return nil  // 跳过多选的图片
+            }
+        }
+        let combined = lines.joined(separator: "\n")
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(combined, forType: .string)
+
+        // 音效
+        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
+            DispatchQueue.main.async { Self.pasteSound?.play() }
+        }
+
+        // 激活目标 App + 隐藏面板
+        targetApp?.activate()
+        panel?.orderOut(nil)
+        panel = nil
+        removeKeyboardMonitor()
+        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+
+        // ⌘V
+        Self.simulatePaste()
+
+        // 后台收尾：每个条目更新 DB
+        for item in items {
+            DatabaseManager.shared.bumpTimestamp(id: item.id.uuidString)
+            DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
+        }
+        ClipboardMonitor.shared.resume()
+        StoreManager.shared.refresh()
+        isPasting = false
+    }
+
+    /// 拖拽开始时临时透传鼠标事件，让拖拽能到达目标应用
+    @MainActor
+    func beginDragThrough() {
+        panel?.ignoresMouseEvents = true
+    }
+
     var isVisible: Bool { panel != nil }
 
     /// 搜索栏是否展开 — ESC 优先级判断
@@ -346,6 +404,8 @@ final class OverlayPanelManager {
 
     @MainActor
     private func showPanel() {
+        let t0 = CFAbsoluteTimeGetCurrent()
+
         let mouseLocation = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) ?? NSScreen.main ?? NSScreen.screens.first else {
             log.error("无法获取屏幕")
@@ -374,16 +434,43 @@ final class OverlayPanelManager {
         newPanel.hidesOnDeactivate = false
         newPanel.animationBehavior = .none
 
+        let t1 = CFAbsoluteTimeGetCurrent()
+
         let overlayView = OverlayView()
             .environmentObject(StoreManager.shared)
+
+        let t2 = CFAbsoluteTimeGetCurrent()
 
         let hostingView = NSHostingView(rootView: overlayView)
         hostingView.frame = screenFrame
         hostingView.autoresizingMask = [.width, .height]
         newPanel.contentView = hostingView
 
+        let t3 = CFAbsoluteTimeGetCurrent()
+
         newPanel.orderFrontRegardless()
         newPanel.makeKey()
+
+        let t4 = CFAbsoluteTimeGetCurrent()
+
+        // 性能日志（OSLog + 文件持久化）
+        let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
+        let itemCount = StoreManager.shared.items.count
+        let perfLine = "\(Date()) | items: \(itemCount) | panel: \(ms(t1-t0))ms | overlayView: \(ms(t2-t1))ms | hostingView: \(ms(t3-t2))ms | orderFront: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+        log.info("⏱ \(perfLine, privacy: .public)")
+
+        // 追加写入文件（~/Library/Logs/Pastry/perf.log）
+        let logDir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Logs/Pastry")
+        try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
+        let logFile = logDir.appendingPathComponent("perf.log")
+        if let handle = try? FileHandle(forWritingTo: logFile) {
+            handle.seekToEndOfFile()
+            handle.write(Data((perfLine + "\n").utf8))
+            try? handle.close()
+        } else {
+            try? (perfLine + "\n").write(to: logFile, atomically: true, encoding: .utf8)
+        }
 
         // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起
         panelResignKeyObserver = NotificationCenter.default.addObserver(
@@ -443,7 +530,8 @@ final class OverlayPanelManager {
             if event.keyCode == 48,
                event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
                 if self.isSearchActive {
-                    NotificationCenter.default.post(name: .overlayCloseSearch, object: nil)
+                    NotificationCenter.default.post(name: .overlayCloseSearch, object: nil,
+                                                    userInfo: ["clearFilter": false])
                 } else {
                     NotificationCenter.default.post(name: .overlayOpenSearchImmediate, object: nil)
                 }

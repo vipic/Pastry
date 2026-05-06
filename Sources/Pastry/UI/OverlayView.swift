@@ -82,8 +82,9 @@ struct OverlayView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
                     dismiss()
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayCloseSearch)) { _ in
-                    closeSearch()
+                .onReceive(NotificationCenter.default.publisher(for: .overlayCloseSearch)) { note in
+                    let clear = (note.userInfo?["clearFilter"] as? Bool) ?? true
+                    closeSearch(clearFilter: clear)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
                     withAnimation { showSearch = true }
@@ -117,9 +118,14 @@ struct OverlayView: View {
         let step2 = AnyView(
             step1
                 .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
-                    guard let sel = selection.selectedIds.first,
-                          let item = visibleItems.first(where: { $0.id == sel }) else { return }
-                    OverlayPanelManager.shared.hideAndPaste(item)
+                    let ids = selection.selectedIds
+                    guard !ids.isEmpty else { return }
+                    let selected = visibleItems.filter { ids.contains($0.id) }
+                    if selected.count == 1 {
+                        OverlayPanelManager.shared.hideAndPaste(selected[0])
+                    } else {
+                        OverlayPanelManager.shared.hideAndPasteMultiple(selected)
+                    }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
                     guard !selection.selectedIds.isEmpty else { return }
@@ -165,7 +171,7 @@ struct OverlayView: View {
         } else {
             isSearchFocused = false
             showFilterPanel = false
-            store.clearFilters()
+            // clearFilters 由 closeSearch(clearFilter:) 控制，不在这里自动清
         }
     }
 
@@ -198,8 +204,9 @@ struct OverlayView: View {
         }
     }
 
-    private func closeSearch() {
+    private func closeSearch(clearFilter: Bool) {
         guard showSearch else { return }
+        if clearFilter { store.clearFilters() }
         withAnimation {
             showSearch = false
         }
@@ -573,6 +580,43 @@ struct OverlayView: View {
         .id(item.id)
         .onAppear { renderedIds.insert(item.id) }
         .onDisappear { renderedIds.remove(item.id) }
+        .onDrag {
+            OverlayPanelManager.shared.beginDragThrough()
+            let ids = selection.selectedIds
+            if ids.count > 1, ids.contains(item.id) {
+                // 多选拖拽：拼接所有选中条目的文本
+                let selected = visibleItems.filter { ids.contains($0.id) }
+                let text = selected.compactMap { it -> String? in
+                    switch it.contentType {
+                    case .text, .rtf, .html, .fileURL: return it.content
+                    default: return nil
+                    }
+                }.joined(separator: "\n")
+                guard !text.isEmpty else { return NSItemProvider(object: "" as NSString) }
+                return NSItemProvider(object: text as NSString)
+            } else {
+                // 单选拖拽：按类型提供原生数据
+                let url = URL(fileURLWithPath: item.content)
+                switch item.contentType {
+                case .image:
+                    if FileManager.default.fileExists(atPath: item.content),
+                       let provider = NSItemProvider(contentsOf: url) {
+                        return provider
+                    }
+                    return NSItemProvider(object: item.content as NSString)
+                case .fileURL:
+                    let firstPath = item.content.split(separator: "\n").first.map(String.init) ?? item.content
+                    let fileURL = URL(fileURLWithPath: firstPath)
+                    if FileManager.default.fileExists(atPath: firstPath),
+                       let provider = NSItemProvider(contentsOf: fileURL) {
+                        return provider
+                    }
+                    return NSItemProvider(object: item.content as NSString)
+                default:
+                    return NSItemProvider(object: item.content as NSString)
+                }
+            }
+        }
     }
 
     // MARK: - 选择交互
