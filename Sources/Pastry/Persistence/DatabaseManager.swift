@@ -8,6 +8,7 @@ final class DatabaseManager {
 
     static let shared = DatabaseManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "database")
+    private let lock = NSRecursiveLock()
 
     private var db: OpaquePointer?
     private let dbPath: String
@@ -152,6 +153,8 @@ final class DatabaseManager {
     /// 插入新项（去重）
     @discardableResult
     func insert(_ item: ClipboardItem) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
         let key = item.dedupKey
         let now = Date()
         if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return false }
@@ -200,6 +203,8 @@ final class DatabaseManager {
 
     /// 搜索（优先 FTS，fallback LIKE）
     func search(query: String, limit: Int = 100) -> [ClipboardItem] {
+        lock.lock()
+        defer { lock.unlock() }
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
             return recent(limit: limit)
         }
@@ -263,6 +268,8 @@ final class DatabaseManager {
 
     /// 最近历史
     func recent(limit: Int = 100) -> [ClipboardItem] {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = """
         SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
         FROM clips
@@ -284,6 +291,8 @@ final class DatabaseManager {
 
     /// 收藏列表
     func favorites(limit: Int = 200) -> [ClipboardItem] {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = """
         SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
         FROM clips
@@ -307,6 +316,8 @@ final class DatabaseManager {
     /// 切换 pin 状态
     @discardableResult
     func togglePin(id: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "UPDATE clips SET is_favorite = CASE WHEN is_favorite THEN 0 ELSE 1 END WHERE id = ?;"
 
         var stmt: OpaquePointer?
@@ -324,6 +335,8 @@ final class DatabaseManager {
 
     /// 增加粘贴次数
     func incrementDisplayCount(id: String) {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "UPDATE clips SET display_count = display_count + 1 WHERE id = ?;"
 
         var stmt: OpaquePointer?
@@ -336,6 +349,8 @@ final class DatabaseManager {
 
     /// 将条目时间戳更新为现在（移动到列表最前）
     func bumpTimestamp(id: String) {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "UPDATE clips SET timestamp = ? WHERE id = ?;"
 
         var stmt: OpaquePointer?
@@ -350,6 +365,8 @@ final class DatabaseManager {
     /// 删除单项
     @discardableResult
     func delete(id: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "DELETE FROM clips WHERE id = ?;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -366,12 +383,16 @@ final class DatabaseManager {
 
     /// 清空所有（保留 pinned）
     func clearNonPinned() {
+        lock.lock()
+        defer { lock.unlock() }
         execute("DELETE FROM clips WHERE is_favorite = 0;")
         lastKey = nil
     }
 
     /// 清空全部
     func clearAll() {
+        lock.lock()
+        defer { lock.unlock() }
         execute("DELETE FROM clips;")
         lastKey = nil
     }
@@ -379,6 +400,8 @@ final class DatabaseManager {
     // MARK: - 统计
 
     func stats() -> ClipboardStats {
+        lock.lock()
+        defer { lock.unlock() }
         let total = scalarInt("SELECT COUNT(*) FROM clips;")
         let today = scalarInt("SELECT COUNT(*) FROM clips WHERE timestamp > strftime('%s', 'now', 'start of day') * 1.0;")
         let favs = scalarInt("SELECT COUNT(*) FROM clips WHERE is_favorite = 1;")
