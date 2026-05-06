@@ -1,5 +1,7 @@
 import SwiftUI
 import Cocoa
+import UniformTypeIdentifiers
+import Quartz
 
 // MARK: - 链接预览加载器
 final class LinkPreviewLoader {
@@ -307,7 +309,6 @@ struct ClipboardCardView: View {
 
     @State private var appIcon: NSImage?
     @State private var themeColor: Color = .accentColor
-    @State private var isContextHighlighted = false
     @State private var didPaste = false
     @State private var isHovered = false
 
@@ -336,26 +337,19 @@ struct ClipboardCardView: View {
                 let cmdDown = flags.contains(.command)
                 let shiftDown = flags.contains(.shift)
                 if cmdDown {
-                    // Cmd+点击：保持 toggle 多选逻辑
                     onTap(item)
                 } else if shiftDown {
-                    // Shift+点击：区间选择（无论是否已选中，都交给 OverlayView 处理）
                     onTap(item)
                 } else if isSelected {
-                    // 已选中卡片：再次点击 → 粘贴
                     pasteItem()
                 } else {
-                    // 未选中卡片：点击 → 选中
                     onTap(item)
                 }
             }
             .overlay(
-                RightClickInterceptor(
-                    onWillShow: { isContextHighlighted = true },
-                    onDidDismiss: { isContextHighlighted = false },
-                    onDelete: { StoreManager.shared.deleteItem(item) },
-                    onPin: { onPin(item) }
-                )
+                RightClickDetector { view, event in
+                    showContextMenu(with: event, for: view)
+                }
             )
             .onAppear {
                 loadAppInfo()
@@ -387,17 +381,20 @@ struct ClipboardCardView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
         )
-        .overlay(selectionBorder)
-        .overlay(hoverBorder)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(lineWidth: 2.5)
+                .foregroundStyle(cardBorderColor)
+                .animation(.easeInOut(duration: 0.12), value: isSelected)
+                .animation(.easeInOut(duration: 0.12), value: isHovered)
+        )
         .overlay(alignment: .bottomTrailing) {
             if let idx = cmdBadgeIndex {
                 cmdBadge(idx)
             }
         }
-        .animation(.easeInOut(duration: 0.12), value: isContextHighlighted)
         .animation(.easeInOut(duration: 0.12), value: isSelected)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
-        .scaleEffect(isHovered ? 1.01 : 1.0)
         .scaleEffect(didPaste ? 0.95 : 1.0)
         .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
         .overlay(
@@ -408,14 +405,60 @@ struct ClipboardCardView: View {
         .contentShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    private var selectionBorder: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .stroke(isSelected ? Color.blue : (isContextHighlighted ? Color.blue : Color.clear), lineWidth: 2.5)
+    // MARK: - 打开文件
+
+    /// 可打开的 URL（文件路径或文本中的 URL）
+    private var openableURL: URL? {
+        switch item.contentType {
+        case .fileURL, .image:
+            return URL(fileURLWithPath: item.content)
+        case .text:
+            if let url = URL(string: item.content),
+               url.scheme == "http" || url.scheme == "https" {
+                return url
+            }
+            return nil
+        default:
+            return nil
+        }
     }
 
-    private var hoverBorder: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .stroke(isHovered && !isSelected ? Color.white.opacity(0.15) : Color.clear, lineWidth: 2.5)
+    /// 是否为文本类（text / rtf / html）—— 可预览、可分享
+    private var isTextType: Bool {
+        item.contentType == .text || item.contentType == .rtf || item.contentType == .html
+    }
+
+    /// 用默认应用打开
+    private func openItem() {
+        guard let url = openableURL else { return }
+        OverlayPanelManager.shared.hide()
+        NSWorkspace.shared.open(url)
+    }
+
+    /// 选择应用打开
+    private func openWith() {
+        guard let url = openableURL else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = "打开"
+        panel.message = "选择用于打开此文件的应用"
+        OverlayPanelManager.shared.hide()
+        panel.begin { response in
+            guard response == .OK, let appURL = panel.url else { return }
+            NSWorkspace.shared.open([url], withApplicationAt: appURL,
+                                    configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+
+    /// 卡片状态边框颜色
+    private var cardBorderColor: Color {
+        if isSelected { return .blue }
+        if isHovered { return .white.opacity(0.15) }
+        return .clear
     }
 
     /// ⌘+数字角标 — 按住 ⌘ 时在卡片右下角显示序号
@@ -839,6 +882,140 @@ struct ClipboardCardView: View {
         }
     }
 
+    /// 右键菜单（使用系统 NSMenu.popUpContextMenu）
+    private func showContextMenu(with event: NSEvent, for view: NSView) {
+        let menu = NSMenu()
+        let handler = _MenuHandler { title in
+            switch title {
+            case "钉选", "取消钉选": onPin(item)
+            case "打开":         openItem()
+            case "选择应用打开":     openWith()
+            case "预览":         previewItem(from: view)
+            case "分享":         shareItem(from: view)
+            case "删除":         StoreManager.shared.deleteItem(item)
+            default: break
+            }
+        }
+
+        let pinTitle = item.isPinned ? "取消钉选" : "钉选"
+        let pinItem = NSMenuItem(title: pinTitle, action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        pinItem.target = handler
+        pinItem.representedObject = handler
+        menu.addItem(pinItem)
+
+        let canOpen = item.contentType == .fileURL || item.contentType == .image
+            || (item.contentType == .text && openableURL != nil)
+        let canPreview = canOpen || isTextType
+
+        if canOpen {
+            menu.addItem(.separator())
+            let openItem = NSMenuItem(title: "打开", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            openItem.target = handler
+            openItem.representedObject = handler
+            menu.addItem(openItem)
+            let openWithItem = NSMenuItem(title: "选择应用打开", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            openWithItem.target = handler
+            openWithItem.representedObject = handler
+            menu.addItem(openWithItem)
+        }
+
+        if canPreview {
+            menu.addItem(.separator())
+            let previewItem = NSMenuItem(title: "预览", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            previewItem.target = handler
+            previewItem.representedObject = handler
+            menu.addItem(previewItem)
+            let shareItem = NSMenuItem(title: "分享", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            shareItem.target = handler
+            shareItem.representedObject = handler
+            menu.addItem(shareItem)
+        }
+
+        menu.addItem(.separator())
+        let deleteItem = NSMenuItem(title: "删除", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        deleteItem.target = handler
+        deleteItem.representedObject = handler
+        menu.addItem(deleteItem)
+
+        NSMenu.popUpContextMenu(menu, with: event, for: view)
+    }
+
+    /// Quick Look 预览（popover 浮动预览，三角指向卡片，面板保持可见）
+    private func previewItem(from sourceView: NSView) {
+        let metadata: QLPreviewHelper.PreviewMetadata
+
+        if let url = openableURL {
+            switch item.contentType {
+            case .fileURL:
+                let fileName = (item.content as NSString).lastPathComponent
+                let ext = (fileName as NSString).pathExtension.uppercased()
+                metadata = QLPreviewHelper.PreviewMetadata(
+                    url: url, displayName: fileName,
+                    fileType: ext.isEmpty ? "文件" : ext,
+                    infoText: fileName, isLocalFile: true
+                )
+            case .image:
+                let fileName = (item.content as NSString).lastPathComponent
+                let ext = (fileName as NSString).pathExtension.uppercased()
+                metadata = QLPreviewHelper.PreviewMetadata(
+                    url: url, displayName: fileName,
+                    fileType: ext.isEmpty ? "图片" : ext,
+                    infoText: fileName, isLocalFile: true
+                )
+            case .text:
+                let host = url.host ?? ""
+                metadata = QLPreviewHelper.PreviewMetadata(
+                    url: url, displayName: host,
+                    fileType: "链接",
+                    infoText: url.absoluteString, isLocalFile: false
+                )
+            default:
+                return
+            }
+        } else if isTextType {
+            // 纯文本 / RTF / HTML：写临时文件供 QLPreviewView 预览
+            let ext: String
+            let typeLabel: String
+            switch item.contentType {
+            case .rtf:  ext = "rtf";  typeLabel = "RTF"
+            case .html: ext = "html"; typeLabel = "HTML"
+            default:    ext = "txt";  typeLabel = "文本"
+            }
+            let tmpDir = FileManager.default.temporaryDirectory
+            let tmpFile = tmpDir.appendingPathComponent("pastry_preview_\(UUID().uuidString.prefix(8)).\(ext)")
+            try? item.content.write(to: tmpFile, atomically: true, encoding: .utf8)
+
+            let charCount = item.content.count
+            let wordCount = item.content.split { $0.isWhitespace || $0.isNewline }.count
+            let lineCount = item.content.split(separator: "\n", omittingEmptySubsequences: false).count
+
+            metadata = QLPreviewHelper.PreviewMetadata(
+                url: tmpFile, displayName: "\(typeLabel)预览",
+                fileType: typeLabel,
+                infoText: "\(charCount) 字符  \(wordCount) 单词  \(lineCount) 行",
+                isLocalFile: true
+            )
+        } else {
+            return
+        }
+
+        QLPreviewHelper.shared.showPreview(metadata: metadata, from: sourceView)
+    }
+
+    /// 系统分享面板
+    private func shareItem(from view: NSView) {
+        let items: [Any]
+        if let url = openableURL {
+            items = [url]
+        } else if isTextType {
+            items = [item.content]
+        } else {
+            return
+        }
+        let picker = NSSharingServicePicker(items: items)
+        picker.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+    }
+
     // MARK: - 测试入口
 
     /// 供单元测试：扩展名 → 预览策略映射
@@ -848,6 +1025,19 @@ struct ClipboardCardView: View {
 
     /// 供单元测试：图片扩展名集合
     static var imageExtensionsForTesting: Set<String> { imageExtensions }
+
+    /// 供单元测试：contentType → 是否为文本类（.text / .rtf / .html）
+    static func isTextTypeForTesting(contentType: ClipType) -> Bool {
+        contentType == .text || contentType == .rtf || contentType == .html
+    }
+
+    /// 供单元测试：文本统计（字符数 / 单词数 / 行数）
+    static func textStatisticsForTesting(_ text: String) -> (chars: Int, words: Int, lines: Int) {
+        let chars = text.count
+        let words = text.split { $0.isWhitespace || $0.isNewline }.count
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false).count
+        return (chars, words, lines)
+    }
 }
 
 // MARK: - 远程图片缩略图（异步加载，NSCache 缓存）
@@ -903,60 +1093,43 @@ private struct RemoteThumbnail: View {
     }
 }
 
-// MARK: - 右键拦截器 —— 同步 popUpContextMenu，Esc 只按一次
-private struct RightClickInterceptor: NSViewRepresentable {
-    let onWillShow: () -> Void
-    let onDidDismiss: () -> Void
-    let onDelete: () -> Void
-    let onPin: () -> Void
+// MARK: - NSMenu target-action 桥接
+private final class _MenuHandler: NSObject {
+    private let action: (String) -> Void
+    init(_ action: @escaping (String) -> Void) { self.action = action }
+    @objc func invoke(_ sender: NSMenuItem) { action(sender.title) }
+}
 
-    func makeNSView(context: Context) -> _InterceptorView {
-        let v = _InterceptorView()
-        v.coord = context.coordinator
+// MARK: - 右键检测器（hitTest 拦截 → NSMenu.popUp）
+private struct RightClickDetector: NSViewRepresentable {
+    let onRightClick: (NSView, NSEvent) -> Void
+
+    func makeNSView(context: Context) -> _DetectorView {
+        let v = _DetectorView()
+        v.onRightClick = onRightClick
+        context.coordinator.view = v
         return v
     }
 
-    func updateNSView(_ nsView: _InterceptorView, context: Context) {
-        nsView.coord = context.coordinator
+    func updateNSView(_ nsView: _DetectorView, context: Context) {
+        nsView.onRightClick = onRightClick
+        context.coordinator.view = nsView
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onWillShow: onWillShow, onDidDismiss: onDidDismiss, onDelete: onDelete, onPin: onPin)
+        Coordinator()
     }
 
-    final class Coordinator: NSObject {
-        let onWillShow: () -> Void
-        let onDidDismiss: () -> Void
-        let onDelete: () -> Void
-        let onPin: () -> Void
-        init(onWillShow: @escaping () -> Void, onDidDismiss: @escaping () -> Void, onDelete: @escaping () -> Void, onPin: @escaping () -> Void) {
-            self.onWillShow = onWillShow; self.onDidDismiss = onDidDismiss; self.onDelete = onDelete; self.onPin = onPin
-        }
-        @objc func deleteAction() { onDelete() }
-        @objc func pinAction() { onPin() }
+    final class Coordinator {
+        weak var view: _DetectorView?
     }
 }
 
-private final class _InterceptorView: NSView {
-    var coord: RightClickInterceptor.Coordinator?
+private final class _DetectorView: NSView {
+    var onRightClick: ((NSView, NSEvent) -> Void)?
 
     override func rightMouseDown(with event: NSEvent) {
-        guard let coord else { super.rightMouseDown(with: event); return }
-
-        coord.onWillShow()
-
-        let menu = NSMenu()
-        let pinItem = NSMenuItem(title: "钉选", action: #selector(RightClickInterceptor.Coordinator.pinAction), keyEquivalent: "")
-        pinItem.target = coord
-        menu.addItem(pinItem)
-        menu.addItem(.separator())
-        let deleteItem = NSMenuItem(title: "删除", action: #selector(RightClickInterceptor.Coordinator.deleteAction), keyEquivalent: "")
-        deleteItem.target = coord
-        menu.addItem(deleteItem)
-
-        NSMenu.popUpContextMenu(menu, with: event, for: self)
-
-        coord.onDidDismiss()
+        onRightClick?(self, event)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -964,4 +1137,5 @@ private final class _InterceptorView: NSView {
         return nil
     }
 }
+
 

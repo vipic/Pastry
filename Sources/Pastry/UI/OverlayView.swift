@@ -96,6 +96,11 @@ struct OverlayView: View {
                     let ids = Set(visibleItems.map { $0.id })
                     withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
                 }
+                .onReceive(store.$items) { items in
+                    // 删除后自动清掉已不存在的选中 ID
+                    let existing = Set(items.map { $0.id })
+                    selection.selectedIds = selection.selectedIds.intersection(existing)
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayMoveUp)) { note in
                     handleArrowNotify(delta: -1, note: note)
                 }
@@ -372,6 +377,7 @@ struct OverlayView: View {
                     emptyState
                 } else {
                     cardList(displayItems)
+                        .padding(3)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
@@ -495,6 +501,7 @@ struct OverlayView: View {
                             cardView(item, index: idx)
                         }
                     }
+                    .padding(.vertical, 3)
                     .padding(.trailing, 8)
                 }
                 .animation(nil, value: items.count)
@@ -525,6 +532,7 @@ struct OverlayView: View {
                                 .frame(maxWidth: 400)
                         }
                     }
+                    .padding(.vertical, 3)
                     .padding(.horizontal, 8)
                 }
                 .frame(maxWidth: 520)

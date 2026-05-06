@@ -2,7 +2,7 @@ import XCTest
 @testable import Pastry
 
 // MARK: - 文件预览测试套件
-// 验证类型判断优先级、预览策略映射、扩展名集合
+// 验证类型判断优先级、预览策略映射、扩展名集合、文本类型判断、文本统计
 // 所有剪贴板操作使用独立 pasteboard，不触及系统剪贴板
 
 final class FilePreviewTests: XCTestCase {
@@ -118,5 +118,67 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertNotNil(fileItem, "fileURL reader 应能读取")
         let imgItem = ClipboardMonitor.readImageDataForTesting(from: pb)
         XCTAssertNotNil(imgItem, "image reader 应能读取")
+    }
+
+    // MARK: - 文本类型判断（isTextType）
+
+    func testTextTypesReturnTrue() {
+        let textTypes: [ClipType] = [.text, .rtf, .html]
+        for ct in textTypes {
+            XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: ct),
+                          "\(ct) 应为文本类")
+        }
+    }
+
+    func testNonTextTypesReturnFalse() {
+        let nonTextTypes: [ClipType] = [.fileURL, .image]
+        for ct in nonTextTypes {
+            XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(contentType: ct),
+                           "\(ct) 不应为文本类")
+        }
+    }
+
+    // MARK: - 文本统计
+
+    func testTextStatisticsEmptyString() {
+        let stats = ClipboardCardView.textStatisticsForTesting("")
+        XCTAssertEqual(stats.chars, 0)
+        XCTAssertEqual(stats.words, 0)
+        XCTAssertEqual(stats.lines, 1, "空字符串视为 1 行")
+    }
+
+    func testTextStatisticsSingleLine() {
+        let stats = ClipboardCardView.textStatisticsForTesting("Hello world")
+        XCTAssertEqual(stats.chars, 11)
+        XCTAssertEqual(stats.words, 2)
+        XCTAssertEqual(stats.lines, 1)
+    }
+
+    func testTextStatisticsMultiLine() {
+        let stats = ClipboardCardView.textStatisticsForTesting("Line 1\nLine 2\nLine 3")
+        XCTAssertEqual(stats.chars, 20)
+        XCTAssertEqual(stats.words, 6)
+        XCTAssertEqual(stats.lines, 3)
+    }
+
+    func testTextStatisticsTrailingNewline() {
+        let stats = ClipboardCardView.textStatisticsForTesting("Hello\n")
+        XCTAssertEqual(stats.chars, 6)
+        XCTAssertEqual(stats.words, 1)
+        XCTAssertEqual(stats.lines, 2, "末尾换行符视为额外空行")
+    }
+
+    func testTextStatisticsChineseCharacters() {
+        let stats = ClipboardCardView.textStatisticsForTesting("你好世界 测试文本")
+        XCTAssertEqual(stats.chars, 9)
+        XCTAssertEqual(stats.words, 2, "中文空格分词")
+        XCTAssertEqual(stats.lines, 1)
+    }
+
+    func testTextStatisticsOnlyWhitespace() {
+        let stats = ClipboardCardView.textStatisticsForTesting("   \t  ")
+        XCTAssertEqual(stats.chars, 6)
+        XCTAssertEqual(stats.words, 0, "纯空白无单词")
+        XCTAssertEqual(stats.lines, 1)
     }
 }
