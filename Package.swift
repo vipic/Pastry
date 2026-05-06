@@ -19,7 +19,7 @@ let package = Package(
             name: "Pastry",
             dependencies: [],
             path: "Sources/Pastry",
-            resources: []
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "PastryTests",

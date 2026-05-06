@@ -182,13 +182,13 @@ final class HotkeyRecorderField: NSControl {
 
         switch state {
         case .unset:
-            drawText("未设置", color: .disabledControlTextColor, centered: true)
+            drawText(L10n["hotkey.not_set"], color: .disabledControlTextColor, centered: true)
         case .set:
             let text = shortcutDisplayString(keyCode: displayKeyCode, modifiers: displayModifiers)
             drawText(text, color: .secondaryLabelColor, centered: true)
             drawClearButton()
         case .recording:
-            drawText("录制中…", color: .tertiaryLabelColor, centered: true)
+            drawText(L10n["hotkey.recording"], color: .tertiaryLabelColor, centered: true)
         }
     }
 

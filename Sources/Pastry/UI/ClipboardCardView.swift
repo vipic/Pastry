@@ -157,8 +157,8 @@ struct ClipboardCardView: View {
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [.applicationBundle]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.prompt = "打开"
-        panel.message = "选择用于打开此文件的应用"
+        panel.prompt = L10n["panel.open_prompt"]
+        panel.message = L10n["panel.open_message"]
         OverlayPanelManager.shared.hide()
         panel.begin { response in
             guard response == .OK, let appURL = panel.url else { return }
@@ -189,7 +189,7 @@ struct ClipboardCardView: View {
         }
 
         if addedApp { submenu.addItem(.separator()) }
-        let otherItem = NSMenuItem(title: "其他…", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        let otherItem = NSMenuItem(title: L10n["context.open_with_other"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         otherItem.target = handler
         otherItem.representedObject = "openWithOther" as NSString
         submenu.addItem(otherItem)
@@ -453,7 +453,7 @@ struct ClipboardCardView: View {
                 }
             }
             if urls.count > 4 {
-                Text("+\(urls.count - 4) 个文件").font(.system(size: 9)).foregroundColor(.secondary)
+                Text(String(format: L10n["card.extra_files"], urls.count - 4)).font(.system(size: 9)).foregroundColor(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -529,7 +529,7 @@ struct ClipboardCardView: View {
             Text(formattedTime).font(.system(size: 9)).foregroundColor(.secondary)
             if item.isHandoff {
                 Text("·").font(.caption2).foregroundColor(.secondary)
-                Text("来自其他设备").font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
+                Text(L10n["card.handoff_label"]).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
             } else if let app = item.appName {
                 Text("·").font(.caption2).foregroundColor(.secondary)
                 Text(app).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
@@ -543,11 +543,13 @@ struct ClipboardCardView: View {
     private var formattedTime: String {
         let now = Date()
         let diff = now.timeIntervalSince(item.timestamp)
-        if diff < 60 { return "刚刚" }
-        else if diff < 3600 { return "\(Int(diff / 60)) 分钟前" }
-        else if diff < 86400 { return "\(Int(diff / 3600)) 小时前" }
-        else if diff < 604800 { return "\(Int(diff / 86400)) 天前" }
-        Self.timeFormatter.dateFormat = "M月d日"
+        if diff < 60 { return L10n["time.just_now"] }
+        else if diff < 3600 { return String(format: L10n["time.minutes_ago"], Int(diff / 60)) }
+        else if diff < 86400 { return String(format: L10n["time.hours_ago"], Int(diff / 3600)) }
+        else if diff < 604800 { return String(format: L10n["time.days_ago"], Int(diff / 86400)) }
+        if Self.timeFormatter.dateFormat != L10n["time.date_format"] {
+            Self.timeFormatter.dateFormat = L10n["time.date_format"]
+        }
         return Self.timeFormatter.string(from: item.timestamp)
     }
 
@@ -628,29 +630,32 @@ struct ClipboardCardView: View {
     private func showContextMenu(with event: NSEvent, for view: NSView) {
         let menu = NSMenu()
         let handler = _MenuHandler { title, object in
-            // 子菜单传递的代表对象优先处理
+            // representedObject 传递的动作标识优先
             if let appURL = object as? URL {
                 self.openWithApp(appURL)
                 return
             }
-            if let tag = object as? NSString, tag == "openWithOther" {
-                self.openWithOther()
+            if let tag = object as? NSString {
+                switch tag {
+                case "pin":        onPin(item)
+                case "open":       openItem()
+                case "preview":    previewItem(from: view)
+                case "share":      shareItem(from: view)
+                case "delete":     StoreManager.shared.deleteItem(item)
+                default: break
+                }
                 return
             }
-            switch title {
-            case "钉选", "取消钉选": onPin(item)
-            case "打开":         openItem()
-            case "预览":         previewItem(from: view)
-            case "分享":         shareItem(from: view)
-            case "删除":         StoreManager.shared.deleteItem(item)
-            default: break
+            // fallback: title-based (用于"打开方式"子菜单项等)
+            if title == L10n["context.open_with_other"] {
+                self.openWithOther()
             }
         }
 
-        let pinTitle = item.isPinned ? "取消钉选" : "钉选"
+        let pinTitle = item.isPinned ? L10n["context.unpin"] : L10n["context.pin"]
         let pinItem = NSMenuItem(title: pinTitle, action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         pinItem.target = handler
-        pinItem.representedObject = handler
+        pinItem.representedObject = "pin" as NSString
         menu.addItem(pinItem)
 
         let canOpen = item.contentType == .fileURL || item.contentType == .image
@@ -659,11 +664,11 @@ struct ClipboardCardView: View {
 
         if canOpen {
             menu.addItem(.separator())
-            let openItem = NSMenuItem(title: "打开", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            let openItem = NSMenuItem(title: L10n["context.open"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
             openItem.target = handler
-            openItem.representedObject = handler
+            openItem.representedObject = "open" as NSString
             menu.addItem(openItem)
-            let openWithItem = NSMenuItem(title: "打开方式", action: nil, keyEquivalent: "")
+            let openWithItem = NSMenuItem(title: L10n["context.open_with"], action: nil, keyEquivalent: "")
             if let submenu = buildOpenWithSubmenu(for: handler) {
                 menu.setSubmenu(submenu, for: openWithItem)
             }
@@ -672,20 +677,21 @@ struct ClipboardCardView: View {
 
         if canPreview {
             menu.addItem(.separator())
-            let previewItem = NSMenuItem(title: "预览", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            let previewItem = NSMenuItem(title: L10n["context.preview"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
             previewItem.target = handler
-            previewItem.representedObject = handler
+            previewItem.representedObject = "preview" as NSString
             menu.addItem(previewItem)
-            let shareItem = NSMenuItem(title: "分享", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+
+            let shareItem = NSMenuItem(title: L10n["context.share"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
             shareItem.target = handler
-            shareItem.representedObject = handler
+            shareItem.representedObject = "share" as NSString
             menu.addItem(shareItem)
         }
 
         menu.addItem(.separator())
-        let deleteItem = NSMenuItem(title: "删除", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        let deleteItem = NSMenuItem(title: L10n["context.delete"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         deleteItem.target = handler
-        deleteItem.representedObject = handler
+        deleteItem.representedObject = "delete" as NSString
         menu.addItem(deleteItem)
 
         NSMenu.popUpContextMenu(menu, with: event, for: view)
@@ -702,7 +708,7 @@ struct ClipboardCardView: View {
                 let ext = (fileName as NSString).pathExtension.uppercased()
                 metadata = QLPreviewHelper.PreviewMetadata(
                     url: url, displayName: fileName,
-                    fileType: ext.isEmpty ? "文件" : ext,
+                    fileType: ext.isEmpty ? L10n["filetype.file"] : ext,
                     infoText: fileName, isLocalFile: true
                 )
             case .image:
@@ -710,14 +716,14 @@ struct ClipboardCardView: View {
                 let ext = (fileName as NSString).pathExtension.uppercased()
                 metadata = QLPreviewHelper.PreviewMetadata(
                     url: url, displayName: fileName,
-                    fileType: ext.isEmpty ? "图片" : ext,
+                    fileType: ext.isEmpty ? L10n["filetype.image"] : ext,
                     infoText: fileName, isLocalFile: true
                 )
             case .text:
                 let host = url.host ?? ""
                 metadata = QLPreviewHelper.PreviewMetadata(
                     url: url, displayName: host,
-                    fileType: "链接",
+                    fileType: L10n["filetype.link"],
                     infoText: url.absoluteString, isLocalFile: false
                 )
             default:
@@ -730,7 +736,7 @@ struct ClipboardCardView: View {
             switch item.contentType {
             case .rtf:  ext = "rtf";  typeLabel = "RTF"
             case .html: ext = "html"; typeLabel = "HTML"
-            default:    ext = "txt";  typeLabel = "文本"
+            default:    ext = "txt";  typeLabel = L10n["filetype.text"]
             }
             let tmpDir = FileManager.default.temporaryDirectory
             let tmpFile = tmpDir.appendingPathComponent("pastry_preview_\(UUID().uuidString.prefix(8)).\(ext)")
@@ -741,9 +747,9 @@ struct ClipboardCardView: View {
             let lineCount = item.content.split(separator: "\n", omittingEmptySubsequences: false).count
 
             metadata = QLPreviewHelper.PreviewMetadata(
-                url: tmpFile, displayName: "\(typeLabel)预览",
+                url: tmpFile, displayName: String(format: L10n["preview.title"], typeLabel),
                 fileType: typeLabel,
-                infoText: "\(charCount) 字符  \(wordCount) 单词  \(lineCount) 行",
+                infoText: String(format: L10n["preview.info"], charCount, wordCount, lineCount),
                 isLocalFile: true
             )
         } else {
