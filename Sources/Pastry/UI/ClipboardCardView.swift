@@ -140,8 +140,16 @@ struct ClipboardCardView: View {
         NSWorkspace.shared.open(url)
     }
 
-    /// 选择应用打开
-    private func openWith() {
+    /// 用指定应用打开
+    private func openWithApp(_ appURL: URL) {
+        guard let url = openableURL else { return }
+        OverlayPanelManager.shared.hide()
+        NSWorkspace.shared.open([url], withApplicationAt: appURL,
+                                configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    /// 手动选择应用打开（"其他…" fallback）
+    private func openWithOther() {
         guard let url = openableURL else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
@@ -157,6 +165,35 @@ struct ClipboardCardView: View {
             NSWorkspace.shared.open([url], withApplicationAt: appURL,
                                     configuration: NSWorkspace.OpenConfiguration())
         }
+    }
+
+    /// 构建系统的"打开方式"子菜单（仅本地文件）
+    private func buildOpenWithSubmenu(for handler: _MenuHandler) -> NSMenu? {
+        guard let url = openableURL, url.isFileURL else { return nil }
+        let submenu = NSMenu()
+        var addedApp = false
+
+        if #available(macOS 12.0, *) {
+            let appURLs = NSWorkspace.shared.urlsForApplications(toOpen: url)
+            for appURL in appURLs {
+                let name = FileManager.default.displayName(atPath: appURL.path)
+                    .replacingOccurrences(of: ".app", with: "")
+                let item = NSMenuItem(title: name, action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+                item.target = handler
+                item.representedObject = appURL
+                item.image = NSWorkspace.shared.icon(forFile: appURL.path)
+                item.image?.size = NSSize(width: 16, height: 16)
+                submenu.addItem(item)
+                addedApp = true
+            }
+        }
+
+        if addedApp { submenu.addItem(.separator()) }
+        let otherItem = NSMenuItem(title: "其他…", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        otherItem.target = handler
+        otherItem.representedObject = "openWithOther" as NSString
+        submenu.addItem(otherItem)
+        return submenu
     }
 
     /// 卡片状态边框颜色
@@ -590,11 +627,19 @@ struct ClipboardCardView: View {
     /// 右键菜单（使用系统 NSMenu.popUpContextMenu）
     private func showContextMenu(with event: NSEvent, for view: NSView) {
         let menu = NSMenu()
-        let handler = _MenuHandler { title in
+        let handler = _MenuHandler { title, object in
+            // 子菜单传递的代表对象优先处理
+            if let appURL = object as? URL {
+                self.openWithApp(appURL)
+                return
+            }
+            if let tag = object as? NSString, tag == "openWithOther" {
+                self.openWithOther()
+                return
+            }
             switch title {
             case "钉选", "取消钉选": onPin(item)
             case "打开":         openItem()
-            case "选择应用打开":     openWith()
             case "预览":         previewItem(from: view)
             case "分享":         shareItem(from: view)
             case "删除":         StoreManager.shared.deleteItem(item)
@@ -618,9 +663,10 @@ struct ClipboardCardView: View {
             openItem.target = handler
             openItem.representedObject = handler
             menu.addItem(openItem)
-            let openWithItem = NSMenuItem(title: "选择应用打开", action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
-            openWithItem.target = handler
-            openWithItem.representedObject = handler
+            let openWithItem = NSMenuItem(title: "打开方式", action: nil, keyEquivalent: "")
+            if let submenu = buildOpenWithSubmenu(for: handler) {
+                menu.setSubmenu(submenu, for: openWithItem)
+            }
             menu.addItem(openWithItem)
         }
 
