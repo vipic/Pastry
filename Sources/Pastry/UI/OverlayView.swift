@@ -18,6 +18,8 @@ extension Notification.Name {
     static let overlayAlertConfirm   = Notification.Name("overlayAlertConfirm")
     static let overlayCmdPaste       = Notification.Name("overlayCmdPaste")
     static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
+    static let overlayToggleFilterPopover = Notification.Name("overlayToggleFilterPopover")
+    static let filterPopoverStateChanged  = Notification.Name("filterPopoverStateChanged")
 }
 
 // MARK: - 覆盖层主视图
@@ -31,6 +33,7 @@ struct OverlayView: View {
     @State private var showDeleteConfirm = false
     @State private var showSearch = false
     @State private var showFilterPanel = false
+    @State private var showFilterPopover = false
     @State private var hoverSearch = false
     @State private var hoverGear = false
     @State private var hoverTab: StoreManager.PinTab? = nil
@@ -165,12 +168,14 @@ struct OverlayView: View {
     private func onShowSearchChanged() {
         OverlayPanelManager.shared.isSearchActive = showSearch
         if showSearch {
+            selection.reset()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isSearchFocused = true
             }
         } else {
             isSearchFocused = false
             showFilterPanel = false
+            showFilterPopover = false
             // clearFilters 由 closeSearch(clearFilter:) 控制，不在这里自动清
         }
     }
@@ -180,6 +185,7 @@ struct OverlayView: View {
     private func resetAllState() {
         showSearch = false
         showFilterPanel = false
+        showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
         store.clearFilters()
@@ -194,6 +200,7 @@ struct OverlayView: View {
         keyHandler.uninstall()
         showSearch = false
         showFilterPanel = false
+        showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
         withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
@@ -254,15 +261,24 @@ struct OverlayView: View {
             .buttonStyle(.plain)
             .opacity(store.searchQuery.isEmpty ? 0 : 1)
             .allowsHitTesting(!store.searchQuery.isEmpty)
+            .onHover { hovering in
+                if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
+            }
 
             Button {
-                withAnimation { showFilterPanel.toggle() }
+                showFilterPopover.toggle()
             } label: {
                 Image(systemName: "line.3.horizontal.decrease")
                     .font(.system(size: 12))
-                    .foregroundColor(showFilterPanel || hasActiveTimeOrTypeFilter ? .white : .white.opacity(0.4))
+                    .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(0.4))
             }
             .buttonStyle(.plain)
+            .onHover { hovering in
+                if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
+            }
+            .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
+                FilterPopoverContent(store: store)
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
@@ -323,10 +339,11 @@ struct OverlayView: View {
                     Button(L10n["filter.clear"]) {
                         store.typeFilter = nil
                         store.appFilter = nil
+                        store.handoffFilter = false
                         store.timeFilter = .any
                     }
                     .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.secondary)
                     .buttonStyle(.plain)
                 }
             }
@@ -343,7 +360,7 @@ struct OverlayView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.secondary)
                 .textCase(.uppercase)
             content()
         }
@@ -353,12 +370,12 @@ struct OverlayView: View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 11))
-                .foregroundColor(isSelected ? .black : .white.opacity(0.7))
+                .foregroundColor(isSelected ? .black : .primary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(isSelected ? Color.white : Color.white.opacity(0.1))
+                        .fill(isSelected ? Color.white : Color.primary.opacity(0.08))
                 )
         }
         .buttonStyle(.plain)
@@ -372,12 +389,6 @@ struct OverlayView: View {
 
         VStack(spacing: 0) {
             headerRow
-
-            // 筛选面板
-            if showSearch && showFilterPanel {
-                filterPanel
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
 
             VStack(spacing: 0) {
                 if displayItems.isEmpty {
@@ -635,9 +646,9 @@ struct OverlayView: View {
 
     // MARK: - 键盘事件
 
-    /// 获取当前显示中的 items（filtered 或全部）
+    /// 获取当前显示中的 items
     private var visibleItems: [ClipboardItem] {
-        store.filteredItems.isEmpty ? store.items : store.filteredItems
+        store.filteredItems
     }
 
     /// 处理通知发来的方向键事件
@@ -702,5 +713,163 @@ private final class KeyboardEventHandler: ObservableObject {
 
     func uninstall() {
         if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
+    }
+}
+
+// MARK: - 筛选气泡内容（NSPopover 内嵌 SwiftUI）
+struct FilterPopoverContent: View {
+    @ObservedObject var store: StoreManager
+
+    private var hasActiveFilter: Bool {
+        store.typeFilter != nil || store.timeFilter != .any || store.appFilter != nil || store.handoffFilter
+    }
+
+    /// 是否有来自其他设备(Handoff)的卡片
+    private var hasHandoffItems: Bool {
+        store.items.contains { $0.isHandoff }
+    }
+
+    /// 三列网格配置
+    private let gridColumns: [GridItem] = [
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // 标题栏
+            HStack {
+                Text(L10n["filter.title"])
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.primary)
+                Spacer()
+                if hasActiveFilter {
+                    Button(L10n["filter.clear"]) {
+                        store.typeFilter = nil
+                        store.appFilter = nil
+                        store.handoffFilter = false
+                        store.timeFilter = .any
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if !store.availableApps.isEmpty || hasHandoffItems {
+                filterSection(title: L10n["filter.source_app"]) {
+                    LazyVGrid(columns: gridColumns, spacing: 6) {
+                        filterChip(L10n["filter.all"], isSelected: store.appFilter == nil && !store.handoffFilter) {
+                            store.appFilter = nil
+                            store.handoffFilter = false
+                        }
+                        ForEach(store.availableApps, id: \.self) { app in
+                            AppFilterChip(app: app, isSelected: store.appFilter == app) {
+                                store.appFilter = (store.appFilter == app) ? nil : app
+                                store.handoffFilter = false
+                            }
+                        }
+                        if hasHandoffItems {
+                            filterChip(L10n["filter.handoff"], iconName: "laptopcomputer.and.iphone", isSelected: store.handoffFilter) {
+                                store.appFilter = nil
+                                store.handoffFilter.toggle()
+                            }
+                        }
+                    }
+                }
+            }
+
+            filterSection(title: L10n["filter.type"]) {
+                LazyVGrid(columns: gridColumns, spacing: 6) {
+                    ForEach(ClipType.allCases, id: \.storageKey) { type in
+                        filterChip(type.label, iconName: type.iconName, isSelected: store.typeFilter == type) {
+                            store.typeFilter = (store.typeFilter == type) ? nil : type
+                        }
+                    }
+                }
+            }
+
+            filterSection(title: L10n["filter.time"]) {
+                LazyVGrid(columns: gridColumns, spacing: 6) {
+                    ForEach(StoreManager.TimeFilter.allCases, id: \.rawValue) { tf in
+                        filterChip(tf.rawValue, isSelected: store.timeFilter == tf) {
+                            store.timeFilter = tf
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 360)
+    }
+
+    private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+            content()
+        }
+    }
+
+    private func filterChip(_ label: String, iconName: String? = nil, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let iconName {
+                    Image(systemName: iconName)
+                        .font(.system(size: 10))
+                }
+                Text(label)
+                    .font(.system(size: 11))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .foregroundColor(isSelected ? .black : .primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .background(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(isSelected ? Color.white : Color.primary.opacity(0.08))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 带应用图标的筛选芯片
+    private struct AppFilterChip: View {
+        let app: String
+        let isSelected: Bool
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                let icon = AppIconProvider.shared.icon(for: app)
+                HStack(spacing: 5) {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 14, height: 14)
+                    Text(app)
+                        .font(.system(size: 11))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .foregroundColor(isSelected ? .black : .primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(isSelected ? Color.white : Color.primary.opacity(0.08))
+                )
+            }
+            .buttonStyle(.plain)
+        }
     }
 }

@@ -37,6 +37,11 @@ final class StoreManager: ObservableObject {
         didSet { performSearchImmediate() }
     }
 
+    /// 来自其他设备的 Handoff 筛选
+    @Published var handoffFilter: Bool = false {
+        didSet { performSearchImmediate() }
+    }
+
     /// 时间筛选
     @Published var timeFilter: TimeFilter = .any {
         didSet { performSearchImmediate() }
@@ -63,16 +68,31 @@ final class StoreManager: ObservableObject {
         case lastWeek   = "上周"
         case last30Days = "过去 30 天"
 
-        var startDate: Date? {
+        /// 时间区间（闭开：start ≤ t < end），any 返回 nil
+        var dateRange: Range<Date>? {
             let cal = Calendar.current
             let now = Date()
             switch self {
             case .any:        return nil
-            case .today:      return cal.startOfDay(for: now)
-            case .yesterday:  return cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: now))
-            case .thisWeek:   return cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))
-            case .lastWeek:   return cal.date(byAdding: .weekOfYear, value: -1, to: cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!)
-            case .last30Days: return cal.date(byAdding: .day, value: -30, to: now)
+            case .today:
+                let start = cal.startOfDay(for: now)
+                let end   = cal.date(byAdding: .day, value: 1, to: start)!
+                return start ..< end
+            case .yesterday:
+                let start = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: now))!
+                let end   = cal.startOfDay(for: now)
+                return start ..< end
+            case .thisWeek:
+                let start = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
+                let end   = cal.date(byAdding: .weekOfYear, value: 1, to: start)!
+                return start ..< end
+            case .lastWeek:
+                let thisWeekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
+                let start = cal.date(byAdding: .weekOfYear, value: -1, to: thisWeekStart)!
+                return start ..< thisWeekStart
+            case .last30Days:
+                let start = cal.date(byAdding: .day, value: -30, to: now)!
+                return start ..< cal.date(byAdding: .second, value: 1, to: now)!
             }
         }
     }
@@ -121,7 +141,7 @@ final class StoreManager: ObservableObject {
         pb.clearContents()
 
         switch item.contentType {
-        case .text, .rtf, .html:
+        case .text, .rtf, .html, .url:
             pb.setString(item.content, forType: .string)
         case .fileURL:
             let urls = item.content
@@ -313,9 +333,14 @@ final class StoreManager: ObservableObject {
             base = base.filter { $0.appName == app }
         }
 
+        // 其他设备（Handoff）筛选
+        if handoffFilter {
+            base = base.filter { $0.isHandoff }
+        }
+
         // 时间筛选
-        if let start = timeFilter.startDate {
-            base = base.filter { $0.timestamp >= start }
+        if let range = timeFilter.dateRange {
+            base = base.filter { range.contains($0.timestamp) }
         }
 
         guard !Task.isCancelled else { return }

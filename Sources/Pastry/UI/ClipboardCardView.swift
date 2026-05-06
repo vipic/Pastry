@@ -117,7 +117,7 @@ struct ClipboardCardView: View {
         switch item.contentType {
         case .fileURL, .image:
             return URL(fileURLWithPath: item.content)
-        case .text:
+        case .text, .url:
             if let url = URL(string: item.content),
                url.scheme == "http" || url.scheme == "https" {
                 return url
@@ -130,7 +130,7 @@ struct ClipboardCardView: View {
 
     /// 是否为文本类（text / rtf / html）—— 可预览、可分享
     private var isTextType: Bool {
-        item.contentType == .text || item.contentType == .rtf || item.contentType == .html
+        item.contentType == .text || item.contentType == .rtf || item.contentType == .html || item.contentType == .url
     }
 
     /// 用默认应用打开
@@ -665,7 +665,7 @@ struct ClipboardCardView: View {
         pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: nil)
         menu.addItem(pinItem)
 
-        let canOpen = item.contentType == .fileURL || item.contentType == .image
+        let canOpen = item.contentType == .fileURL || item.contentType == .image || item.contentType == .url
             || (item.contentType == .text && openableURL != nil)
         let canPreview = canOpen || isTextType
 

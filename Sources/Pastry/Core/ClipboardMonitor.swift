@@ -189,6 +189,16 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
+        // URL 链接：在图片之前检测，避免 http 字符串被当作纯文本
+        if let item = readURL(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
+            lastDedupKey = dedup
+            DispatchQueue.main.async {
+                self.latestItem = item
+                self.onNewItem?(item)
+            }
+            return
+        }
+
         // 图片处理：主线程读取数据，后台队列生成缩略图并写入磁盘
         if let (image, data) = readImageData(from: pb) {
             lastDedupKey = dedup
@@ -415,6 +425,18 @@ final class ClipboardMonitor: ObservableObject {
         guard !fileURLs.isEmpty else { return nil }
         let paths = fileURLs.map(\.path).joined(separator: "\n")
         return ClipboardItem(content: paths, contentType: .fileURL, appName: appName, isHandoff: isHandoff)
+    }
+
+    /// 检测剪贴板中的 URL 链接（http/https），优于纯文本捕获
+    private func readURL(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
+        // 先用 NSURL 类读取，只保留 http/https 的远程 URL
+        guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+              !urls.isEmpty
+        else { return nil }
+        let webURLs = urls.filter { $0.scheme == "http" || $0.scheme == "https" }
+        guard !webURLs.isEmpty else { return nil }
+        let urlStrings = webURLs.map(\.absoluteString).joined(separator: "\n")
+        return ClipboardItem(content: urlStrings, contentType: .url, appName: appName, isHandoff: isHandoff)
     }
 
     // MARK: - 测试入口

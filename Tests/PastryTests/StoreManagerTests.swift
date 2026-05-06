@@ -387,4 +387,81 @@ final class StoreManagerTests: XCTestCase {
 
         XCTAssertEqual(store.availableApps, ["Safari"])
     }
+
+    // MARK: - 时间区间筛选（双向范围）
+
+    func testYesterdayExcludesToday() {
+        // yesterday: 1 天前；today: 0 天前 → yesterday 不应包含 today
+        store = makeStoreWithItems([
+            ("A", .text, nil, false, 1),
+            ("B", .text, nil, false, 0),
+        ])
+        store.timeFilter = .yesterday
+        XCTAssertEqual(store.filteredItems.count, 1)
+        XCTAssertEqual(store.filteredItems[0].content, "A")
+    }
+
+    func testYesterdayExcludesTwoDaysAgo() {
+        store = makeStoreWithItems([
+            ("A", .text, nil, false, 2),
+            ("B", .text, nil, false, 1),
+        ])
+        store.timeFilter = .yesterday
+        XCTAssertEqual(store.filteredItems.count, 1)
+        XCTAssertEqual(store.filteredItems[0].content, "B")
+    }
+
+    func testThisWeekRange() {
+        let cal = Calendar.current
+        let todayWeekday = cal.component(.weekday, from: Date())
+        // 本周一 = daysAgo = todayWeekday - 2 (假设周一=2)
+        let daysSinceMonday = (todayWeekday - cal.firstWeekday + 7) % 7
+        let lastMondayOffset = daysSinceMonday + 7
+
+        store = makeStoreWithItems([
+            ("A", .text, nil, false, daysSinceMonday),          // 本周一
+            ("B", .text, nil, false, lastMondayOffset + 3),     // 上周
+        ])
+        store.timeFilter = .thisWeek
+        XCTAssertTrue(store.filteredItems.contains { $0.content == "A" })
+        XCTAssertFalse(store.filteredItems.contains { $0.content == "B" })
+    }
+
+    func testLastWeekExcludesThisWeek() {
+        let cal = Calendar.current
+        let todayWeekday = cal.component(.weekday, from: Date())
+        let daysSinceMonday = (todayWeekday - cal.firstWeekday + 7) % 7
+        let lastMondayOffset = daysSinceMonday + 7
+
+        store = makeStoreWithItems([
+            ("A", .text, nil, false, lastMondayOffset),         // 上周一
+            ("B", .text, nil, false, daysSinceMonday),          // 本周一
+        ])
+        store.timeFilter = .lastWeek
+        XCTAssertTrue(store.filteredItems.contains { $0.content == "A" })
+        XCTAssertFalse(store.filteredItems.contains { $0.content == "B" })
+    }
+
+    func testTodayExcludesYesterday() {
+        store = makeStoreWithItems([
+            ("A", .text, nil, false, 1),
+            ("B", .text, nil, false, 0),
+        ])
+        store.timeFilter = .today
+        XCTAssertEqual(store.filteredItems.count, 1)
+        XCTAssertEqual(store.filteredItems[0].content, "B")
+    }
+
+    func testLast30DaysIncludesNow() {
+        store = makeStoreWithItems([
+            ("A", .text, nil, false, 0),    // now
+            ("B", .text, nil, false, 10),   // 10 天前
+            ("C", .text, nil, false, 35),   // 35 天前
+        ])
+        store.timeFilter = .last30Days
+        XCTAssertEqual(store.filteredItems.count, 2)
+        XCTAssertTrue(store.filteredItems.contains { $0.content == "A" })
+        XCTAssertTrue(store.filteredItems.contains { $0.content == "B" })
+        XCTAssertFalse(store.filteredItems.contains { $0.content == "C" })
+    }
 }
