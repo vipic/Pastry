@@ -300,11 +300,14 @@ final class OverlayPanelManager {
                     attachment.image = image
                     attr.append(NSAttributedString(attachment: attachment))
                     attr.append(NSAttributedString(string: "\n\(annotation)"))
-                    if let rtfd = try? attr.data(
-                        from: NSRange(location: 0, length: attr.length),
-                        documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]
-                    ) {
+                    do {
+                        let rtfd = try attr.data(
+                            from: NSRange(location: 0, length: attr.length),
+                            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]
+                        )
                         pb.setData(rtfd, forType: .rtfd)
+                    } catch {
+                        log.error("RTFD 写入失败: \(error.localizedDescription)")
                     }
                     pb.setData(image.tiffRepresentation, forType: .tiff)
                     pb.setString(annotation, forType: .string)

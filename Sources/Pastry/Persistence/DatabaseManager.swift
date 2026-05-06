@@ -22,7 +22,11 @@ final class DatabaseManager {
             in: .userDomainMask
         ).first!
         let dir = appSupport.appendingPathComponent(Constants.appName)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            log.error("无法创建数据库目录: \(dir.path, privacy: .public), error: \(error.localizedDescription)")
+        }
 
         dbPath = dir.appendingPathComponent("clips.db").path
         openDatabase()

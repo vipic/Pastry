@@ -510,6 +510,8 @@ final class ClipboardMonitor: ObservableObject {
 final class ImageCacheManager {
     static let shared = ImageCacheManager()
 
+    private let log = Logger(subsystem: "com.nekutai.pastry", category: "image-cache")
+
     /// 缓存磁盘用量上限（超过触发淘汰）
     private static let maxCacheSize: Int64 = 200 * 1024 * 1024  // 200 MB
     /// 淘汰后目标磁盘用量
@@ -524,7 +526,11 @@ final class ImageCacheManager {
         cacheDir = appSupport
             .appendingPathComponent(Constants.appName)
             .appendingPathComponent("ImageCache")
-        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        } catch {
+            log.error("无法创建图片缓存目录: \(self.cacheDir.path, privacy: .public), error: \(error.localizedDescription)")
+        }
     }
 
     func save(image: NSImage, data: Data) -> String? {
