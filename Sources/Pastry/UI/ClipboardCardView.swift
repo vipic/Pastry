@@ -207,10 +207,10 @@ struct ClipboardCardView: View {
     private func cmdBadge(_ idx: Int) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color.white.opacity(0.4))
+                .fill(Color.black.opacity(0.45))
             Text("\(idx)")
                 .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundColor(.black)
+                .foregroundColor(.white)
         }
         .frame(width: 18, height: 18)
         .padding(6)
