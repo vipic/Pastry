@@ -246,6 +246,7 @@ struct OverlayView: View {
 
             TextField(L10n["search.placeholder"], text: $store.searchQuery)
                 .textFieldStyle(.plain)
+                .disableAutocorrection(true)
                 .font(.system(size: 13))
                 .foregroundColor(.white)
                 .focused($isSearchFocused)
@@ -276,9 +277,11 @@ struct OverlayView: View {
             .onHover { hovering in
                 if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
             }
-            .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
-                FilterPopoverContent(store: store)
-            }
+            .overlay(
+                FilterPopoverBridge(isPresented: $showFilterPopover) {
+                    FilterPopoverContent(store: store)
+                }
+            )
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
@@ -581,11 +584,26 @@ struct OverlayView: View {
             item: item,
             isSelected: selection.selectedIds.contains(item.id),
             cmdBadgeIndex: cmdDown && index < 9 ? index + 1 : nil,
+            selectedIds: Binding(
+                get: { selection.selectedIds },
+                set: { selection.selectedIds = $0 }
+            ),
             onTap: { tapped in
                 handleCardTap(tapped)
             },
-            onPin: { _ in
-                store.togglePin(item)
+            onPin: { tapped, ids in
+                if ids.contains(tapped.id), ids.count > 1 {
+                    store.setPinForSelected(ids, pinned: !tapped.isPinned)
+                } else {
+                    store.togglePin(tapped)
+                }
+            },
+            onDelete: { deleted in
+                if selection.selectedIds.contains(deleted.id), selection.selectedIds.count > 1 {
+                    deleteSelected()
+                } else {
+                    store.deleteItem(deleted)
+                }
             }
         )
         .id(item.id)
