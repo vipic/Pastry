@@ -7,7 +7,7 @@ struct FilterPopoverBridge: NSViewRepresentable {
     let content: () -> FilterPopoverContent
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+        let view = PassthroughView()
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }
@@ -51,5 +51,12 @@ struct FilterPopoverBridge: NSViewRepresentable {
         func popoverShouldClose(_ popover: NSPopover) -> Bool {
             true
         }
+    }
+}
+
+// MARK: - 鼠标穿透视图
+private final class PassthroughView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 }
