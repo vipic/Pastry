@@ -9,8 +9,10 @@ struct ClipboardCardView: View {
     let item: ClipboardItem
     let isSelected: Bool
     let cmdBadgeIndex: Int?
+    @Binding var selectedIds: Set<UUID>
     let onTap: (ClipboardItem) -> Void
-    let onPin: (ClipboardItem) -> Void
+    let onPin: (ClipboardItem, Set<UUID>) -> Void
+    let onDelete: (ClipboardItem) -> Void
 
     @State private var appIcon: NSImage?
     @State private var themeColor: Color = .accentColor
@@ -643,11 +645,12 @@ struct ClipboardCardView: View {
             }
             if let tag = object as? NSString {
                 switch tag {
-                case "pin":        onPin(item)
+                case "pin":
+                    onPin(item, selectedIds)
                 case "open":       openItem()
                 case "preview":    previewItem(from: view)
                 case "share":      shareItem(from: view)
-                case "delete":     StoreManager.shared.deleteItem(item)
+                case "delete":     onDelete(item)
                 default: break
                 }
                 return

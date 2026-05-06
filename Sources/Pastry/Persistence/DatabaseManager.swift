@@ -333,6 +333,27 @@ final class DatabaseManager {
         return rc == SQLITE_DONE && changed > 0
     }
 
+    /// 直接设置 pin 状态（不 toggle）
+    @discardableResult
+    func setPin(id: String, pinned: Bool) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = "UPDATE clips SET is_favorite = ? WHERE id = ?;"
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            return false
+        }
+
+        sqlite3_bind_int(stmt, 1, pinned ? 1 : 0)
+        sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
+
+        let rc = sqlite3_step(stmt)
+        let changed = sqlite3_changes(db)
+        sqlite3_finalize(stmt)
+        return rc == SQLITE_DONE && changed > 0
+    }
+
     /// 增加粘贴次数
     func incrementDisplayCount(id: String) {
         lock.lock()

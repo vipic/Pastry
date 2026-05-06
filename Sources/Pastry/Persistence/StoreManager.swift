@@ -192,6 +192,17 @@ final class StoreManager: ObservableObject {
         performSearchImmediate()
     }
 
+    /// 批量设置选中项的 pin 状态
+    func setPinForSelected(_ ids: Set<UUID>, pinned: Bool) {
+        for id in ids {
+            guard let idx = items.firstIndex(where: { $0.id == id }),
+                  items[idx].isPinned != pinned else { continue }
+            DatabaseManager.shared.setPin(id: id.uuidString, pinned: pinned)
+            items[idx].isPinned = pinned
+        }
+        performSearchImmediate()
+    }
+
     func deleteItem(_ item: ClipboardItem) {
         DatabaseManager.shared.delete(id: item.id.uuidString)
         items.removeAll { $0.id == item.id }
