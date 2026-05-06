@@ -601,6 +601,7 @@ struct OverlayView: View {
                 case .image:
                     if FileManager.default.fileExists(atPath: item.content),
                        let provider = NSItemProvider(contentsOf: url) {
+                        provider.suggestedName = url.lastPathComponent
                         return provider
                     }
                     return NSItemProvider(object: item.content as NSString)
@@ -609,6 +610,7 @@ struct OverlayView: View {
                     let fileURL = URL(fileURLWithPath: firstPath)
                     if FileManager.default.fileExists(atPath: firstPath),
                        let provider = NSItemProvider(contentsOf: fileURL) {
+                        provider.suggestedName = fileURL.lastPathComponent
                         return provider
                     }
                     return NSItemProvider(object: item.content as NSString)
