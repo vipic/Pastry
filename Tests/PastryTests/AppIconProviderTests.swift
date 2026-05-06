@@ -3,7 +3,7 @@ import XCTest
 import Cocoa
 
 // MARK: - AppIconProvider 测试套件
-// 测试主题色映射、哈希确定性、默认值、缓存
+// 测试主题色提取、哈希确定性、默认值、缓存
 
 final class AppIconProviderTests: XCTestCase {
 
@@ -19,36 +19,31 @@ final class AppIconProviderTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - themeColor: 已知应用固定色
+    // MARK: - themeColor: 已知应用（从图标提取主色）
 
     func testThemeColorKnownAppSafari() {
         let color = provider.themeColor(for: "Safari")
-        let expected = NSColor(red: 0.10, green: 0.47, blue: 0.82, alpha: 1)
-        assertColorsEqual(color, expected, accuracy: 0.01)
+        assertValidColor(color)
     }
 
     func testThemeColorKnownAppXcode() {
         let color = provider.themeColor(for: "Xcode")
-        let expected = NSColor(red: 0.23, green: 0.48, blue: 0.82, alpha: 1)
-        assertColorsEqual(color, expected, accuracy: 0.01)
+        assertValidColor(color)
     }
 
     func testThemeColorKnownAppFinder() {
         let color = provider.themeColor(for: "Finder")
-        let expected = NSColor(red: 0.20, green: 0.60, blue: 0.86, alpha: 1)
-        assertColorsEqual(color, expected, accuracy: 0.01)
+        assertValidColor(color)
     }
 
     func testThemeColorKnownAppChrome() {
         let color = provider.themeColor(for: "Google Chrome")
-        let expected = NSColor(red: 0.96, green: 0.78, blue: 0.16, alpha: 1)
-        assertColorsEqual(color, expected, accuracy: 0.01)
+        assertValidColor(color)
     }
 
     func testThemeColorKnownAppChineseName() {
         let color = provider.themeColor(for: "备忘录")
-        let expected = NSColor(red: 0.86, green: 0.73, blue: 0.16, alpha: 1)
-        assertColorsEqual(color, expected, accuracy: 0.01)
+        assertValidColor(color)
     }
 
     // MARK: - themeColor: nil / 空
@@ -63,7 +58,7 @@ final class AppIconProviderTests: XCTestCase {
         XCTAssertEqual(color, NSColor.controlAccentColor)
     }
 
-    // MARK: - themeColor: 未知应用哈希色
+    // MARK: - themeColor: 未知应用哈希色（确定性）
 
     func testThemeColorUnknownAppDeterministic() {
         let color1 = provider.themeColor(for: "MyCustomApp")
@@ -101,19 +96,12 @@ final class AppIconProviderTests: XCTestCase {
 
     // MARK: - 辅助
 
-    private func assertColorsEqual(
-        _ lhs: NSColor, _ rhs: NSColor,
-        accuracy: CGFloat,
+    private func assertValidColor(
+        _ color: NSColor,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        guard let l = lhs.usingColorSpace(.sRGB),
-              let r = rhs.usingColorSpace(.sRGB) else {
-            XCTFail("无法转换颜色空间", file: file, line: line)
-            return
-        }
-        XCTAssertEqual(l.redComponent, r.redComponent, accuracy: accuracy, "红色分量不匹配", file: file, line: line)
-        XCTAssertEqual(l.greenComponent, r.greenComponent, accuracy: accuracy, "绿色分量不匹配", file: file, line: line)
-        XCTAssertEqual(l.blueComponent, r.blueComponent, accuracy: accuracy, "蓝色分量不匹配", file: file, line: line)
+        // 不应返回默认的 accent color（说明走了图标提取或哈希分支）
+        XCTAssertNotEqual(color, NSColor.controlAccentColor, "应返回派生色而非默认 accent 色", file: file, line: line)
     }
 }

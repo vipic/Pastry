@@ -8,39 +8,6 @@ final class AppIconProvider {
     static let shared = AppIconProvider()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "appicon")
 
-    // 常用应用固定颜色映射（美观、稳定）
-    private static let appColorMap: [String: NSColor] = [
-        "Finder":             NSColor(red: 0.20, green: 0.60, blue: 0.86, alpha: 1),  // 蓝
-        "Safari":             NSColor(red: 0.10, green: 0.47, blue: 0.82, alpha: 1),  // 蓝
-        "Google Chrome":      NSColor(red: 0.96, green: 0.78, blue: 0.16, alpha: 1),  // 黄
-        "Arc":                NSColor(red: 0.60, green: 0.38, blue: 0.88, alpha: 1),  // 紫
-        "Brave Browser":      NSColor(red: 0.96, green: 0.47, blue: 0.18, alpha: 1),  // 橙
-        "Firefox":            NSColor(red: 0.91, green: 0.33, blue: 0.14, alpha: 1),  // 红橙
-        "Microsoft Edge":     NSColor(red: 0.10, green: 0.67, blue: 0.36, alpha: 1),  // 绿
-        "Terminal":           NSColor(red: 0.25, green: 0.25, blue: 0.25, alpha: 1),  // 深灰
-        "iTerm2":             NSColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 1),  // 黑
-        "Warp":               NSColor(red: 0.00, green: 0.68, blue: 0.58, alpha: 1),  // 青
-        "Visual Studio Code": NSColor(red: 0.13, green: 0.37, blue: 0.66, alpha: 1),  // 藏蓝
-        "Code":               NSColor(red: 0.13, green: 0.37, blue: 0.66, alpha: 1),  // vs code
-        "Xcode":              NSColor(red: 0.23, green: 0.48, blue: 0.82, alpha: 1),  // 蓝
-        "Slack":              NSColor(red: 0.55, green: 0.13, blue: 0.47, alpha: 1),  // 紫红
-        "Discord":            NSColor(red: 0.35, green: 0.42, blue: 0.80, alpha: 1),  // 靛蓝
-        "Telegram":           NSColor(red: 0.16, green: 0.62, blue: 0.89, alpha: 1),  // 蓝
-        "Notes":              NSColor(red: 0.86, green: 0.73, blue: 0.16, alpha: 1),  // 黄
-        "备忘录":             NSColor(red: 0.86, green: 0.73, blue: 0.16, alpha: 1),  // 黄
-        "Pages":              NSColor(red: 0.92, green: 0.61, blue: 0.06, alpha: 1),  // 橙
-        "Numbers":            NSColor(red: 0.45, green: 0.69, blue: 0.17, alpha: 1),  // 草绿
-        "Keynote":            NSColor(red: 0.00, green: 0.48, blue: 0.77, alpha: 1),  // 蓝
-        "Preview":            NSColor(red: 0.33, green: 0.67, blue: 0.83, alpha: 1),  // 浅蓝
-        "预览程序":           NSColor(red: 0.33, green: 0.67, blue: 0.83, alpha: 1),  // 浅蓝
-        "Photos":             NSColor(red: 0.58, green: 0.15, blue: 0.47, alpha: 1),  // 紫
-        "照片":               NSColor(red: 0.58, green: 0.15, blue: 0.47, alpha: 1),  // 紫
-        "Music":              NSColor(red: 0.94, green: 0.32, blue: 0.22, alpha: 1),  // 红
-        "音乐":               NSColor(red: 0.94, green: 0.32, blue: 0.22, alpha: 1),  // 红
-        "Console":            NSColor(red: 0.45, green: 0.45, blue: 0.50, alpha: 1),  // 灰
-        "控制台":             NSColor(red: 0.45, green: 0.45, blue: 0.50, alpha: 1),  // 灰
-    ]
-
     private let iconCache = NSCache<NSString, NSImage>()
     private let colorCache = NSCache<NSString, NSColor>()
     private let lock = NSLock()
@@ -81,16 +48,9 @@ final class AppIconProvider {
         let nsName = name as NSString
         lock.lock()
         if let cached = colorCache.object(forKey: nsName) { lock.unlock(); return cached }
-
-        // 1. 查固定映射表
-        if let mapped = Self.appColorMap[name] {
-            colorCache.setObject(mapped, forKey: nsName)
-            lock.unlock()
-            return mapped
-        }
         lock.unlock()
 
-        // 2. 从应用图标提取主色
+        // 1. 从应用图标提取主色
         let appIcon = self.icon(for: appName)
         if let extracted = extractDominantColor(from: appIcon) {
             lock.lock()
@@ -99,7 +59,7 @@ final class AppIconProvider {
             return extracted
         }
 
-        // 3. 基于名称哈希生成稳定色
+        // 2. 基于名称哈希生成稳定色
         let hash = name.hash
         let hue = abs(CGFloat(hash % 360)) / 360.0
         let color = NSColor(hue: hue, saturation: 0.6, brightness: 0.7, alpha: 1)
@@ -118,8 +78,6 @@ final class AppIconProvider {
 
     /// 通过应用名查找实际图标
     private func findAppIcon(named name: String) -> NSImage {
-        let ws = NSWorkspace.shared
-
         // 1. 常见路径精确匹配
         let paths = [
             "/Applications/\(name).app",
@@ -135,16 +93,7 @@ final class AppIconProvider {
             }
         }
 
-        // 2. 通过 Bundle ID 查找
-        if let bundleID = bundleID(for: name),
-           let appURL = ws.urlForApplication(withBundleIdentifier: bundleID) {
-            let p = (appURL.path as NSString).resolvingSymlinksInPath
-            if let icon = iconFromBundle(at: p) ?? iconFromWorkspace(at: p) {
-                return icon
-            }
-        }
-
-        // 3. 模糊搜索（双向匹配，处理 iTerm2↔iTerm 这种差异）
+        // 2. 模糊搜索（双向匹配，处理 iTerm2↔iTerm 这种差异）
         let appDirs = [
             "/Applications",
             "/System/Applications",
@@ -165,6 +114,13 @@ final class AppIconProvider {
                     }
                 }
             }
+        }
+
+        // 3. 通用降级：从正在运行的进程中按名称匹配（覆盖 AppTranslocation 等非常规安装路径）
+        if let runningApp = NSWorkspace.shared.runningApplications.first(where: {
+            $0.localizedName == name
+        }), let icon = runningApp.icon {
+            return icon
         }
 
         return defaultIcon
@@ -242,34 +198,6 @@ final class AppIconProvider {
         )
     }
 
-    /// 应用名 → Bundle ID 映射
-    private func bundleID(for name: String) -> String? {
-        let map: [String: String] = [
-            "Finder":           "com.apple.finder",
-            "Safari":           "com.apple.Safari",
-            "Google Chrome":    "com.google.Chrome",
-            "Firefox":          "org.mozilla.firefox",
-            "Terminal":         "com.apple.Terminal",
-            "iTerm2":           "com.googlecode.iterm2",
-            "Xcode":            "com.apple.dt.Xcode",
-            "Code":             "com.microsoft.VSCode",
-            "Visual Studio Code": "com.microsoft.VSCode",
-            "Slack":            "com.tinyspeck.slackmacgap",
-            "Discord":          "com.hnc.Discord",
-            "Telegram":         "ru.keepcoder.Telegram",
-            "Notes":            "com.apple.Notes",
-            "备忘录":           "com.apple.Notes",
-            "Music":            "com.apple.Music",
-            "音乐":             "com.apple.Music",
-            "Photos":           "com.apple.Photos",
-            "照片":             "com.apple.Photos",
-            "Preview":          "com.apple.Preview",
-            "预览程序":         "com.apple.Preview",
-            "Console":          "com.apple.Console",
-            "控制台":           "com.apple.Console",
-        ]
-        return map[name]
-    }
 }
 
 // MARK: - NSString convenience

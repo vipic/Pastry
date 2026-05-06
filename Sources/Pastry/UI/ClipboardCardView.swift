@@ -526,6 +526,12 @@ struct ClipboardCardView: View {
 
     private var footerBar: some View {
         HStack(spacing: 4) {
+            if item.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundColor(themeColor)
+                Text("·").font(.caption2).foregroundColor(.secondary)
+            }
             Text(formattedTime).font(.system(size: 9)).foregroundColor(.secondary)
             if item.isHandoff {
                 Text("·").font(.caption2).foregroundColor(.secondary)
