@@ -656,6 +656,7 @@ struct ClipboardCardView: View {
         let pinItem = NSMenuItem(title: pinTitle, action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         pinItem.target = handler
         pinItem.representedObject = "pin" as NSString
+        pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: nil)
         menu.addItem(pinItem)
 
         let canOpen = item.contentType == .fileURL || item.contentType == .image
@@ -667,8 +668,10 @@ struct ClipboardCardView: View {
             let openItem = NSMenuItem(title: L10n["context.open"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
             openItem.target = handler
             openItem.representedObject = "open" as NSString
+            openItem.image = NSImage(systemSymbolName: "arrow.up.forward.app", accessibilityDescription: nil)
             menu.addItem(openItem)
             let openWithItem = NSMenuItem(title: L10n["context.open_with"], action: nil, keyEquivalent: "")
+            openWithItem.image = NSImage(systemSymbolName: "square.on.square", accessibilityDescription: nil)
             if let submenu = buildOpenWithSubmenu(for: handler) {
                 menu.setSubmenu(submenu, for: openWithItem)
             }
@@ -680,11 +683,13 @@ struct ClipboardCardView: View {
             let previewItem = NSMenuItem(title: L10n["context.preview"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
             previewItem.target = handler
             previewItem.representedObject = "preview" as NSString
+            previewItem.image = NSImage(systemSymbolName: "eye", accessibilityDescription: nil)
             menu.addItem(previewItem)
 
             let shareItem = NSMenuItem(title: L10n["context.share"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
             shareItem.target = handler
             shareItem.representedObject = "share" as NSString
+            shareItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
             menu.addItem(shareItem)
         }
 
@@ -692,6 +697,7 @@ struct ClipboardCardView: View {
         let deleteItem = NSMenuItem(title: L10n["context.delete"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         deleteItem.target = handler
         deleteItem.representedObject = "delete" as NSString
+        deleteItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
         menu.addItem(deleteItem)
 
         NSMenu.popUpContextMenu(menu, with: event, for: view)
