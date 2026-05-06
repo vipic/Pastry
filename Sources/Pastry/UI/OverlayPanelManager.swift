@@ -463,8 +463,11 @@ final class OverlayPanelManager {
         log.info("⏱ \(perfLine, privacy: .public)")
 
         // 追加写入文件（~/Library/Logs/Pastry/perf.log）
-        let logDir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Logs/Pastry")
+        guard let logDirBase = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+            log.error("无法获取 Library 目录，性能日志写入跳过")
+            return
+        }
+        let logDir = logDirBase.appendingPathComponent("Logs/Pastry")
         try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
         let logFile = logDir.appendingPathComponent("perf.log")
         if let handle = try? FileHandle(forWritingTo: logFile) {

@@ -520,9 +520,12 @@ final class ImageCacheManager {
     private let cacheDir: URL
 
     private init() {
-        let appSupport = FileManager.default.urls(
+        guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
+        ).first else {
+            log.error("无法获取 Application Support 目录")
+            fatalError("Application Support directory is unavailable")
+        }
         cacheDir = appSupport
             .appendingPathComponent(Constants.appName)
             .appendingPathComponent("ImageCache")
