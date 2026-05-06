@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Pastry 设置"
+        window.title = "Pastry"
         window.titlebarAppearsTransparent = true
         window.center()
         window.isReleasedWhenClosed = false

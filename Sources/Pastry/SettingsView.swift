@@ -21,12 +21,43 @@ struct SettingsSceneView: View {
     @State private var showingClearConfirm = false
     @State private var accessibilityTrusted = false
     @State private var selectedTab: SettingsTab? = .general
+    @State private var selectedLanguage: Language
 
-    enum SettingsTab: String, CaseIterable, Identifiable {
-        case general  = "通用"
-        case shortcut = "快捷键"
+    enum Language: String, CaseIterable, Identifiable {
+        case system
+        case zhHans = "zh-Hans"
+        case en
 
         var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .system: return L10n["lang.system"]
+            case .zhHans: return L10n["lang.zh_hans"]
+            case .en:     return L10n["lang.en"]
+            }
+        }
+    }
+
+    init() {
+        // Clean up stale AppleLanguages from previous version (would pollute Locale.preferredLanguages)
+        UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        let pref = UserDefaults.standard.string(forKey: "PastryLanguage") ?? ""
+        _selectedLanguage = State(initialValue: Language(rawValue: pref) ?? .system)
+    }
+
+    enum SettingsTab: String, CaseIterable, Identifiable {
+        case general
+        case shortcut
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .general:  return L10n["settings.tab.general"]
+            case .shortcut: return L10n["settings.tab.shortcut"]
+            }
+        }
 
         var icon: String {
             switch self {
@@ -39,7 +70,7 @@ struct SettingsSceneView: View {
     var body: some View {
         NavigationSplitView {
             List(SettingsTab.allCases, selection: $selectedTab) { tab in
-                Label(tab.rawValue, systemImage: tab.icon)
+                Label(tab.label, systemImage: tab.icon)
                     .tag(tab)
             }
         } detail: {
@@ -49,6 +80,7 @@ struct SettingsSceneView: View {
         }
         .toolbar(removing: .sidebarToggle)
         .frame(minWidth: 520, minHeight: 380)
+        .id(selectedLanguage.rawValue) // force full re-render on language change
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
@@ -63,7 +95,23 @@ struct SettingsSceneView: View {
         case .general:
             Form {
                 Section {
-                    Toggle("开机启动", isOn: $launchAtLogin)
+                    Picker(L10n["lang.label"], selection: Binding<Language>(
+                        get: { selectedLanguage },
+                        set: { lang in
+                            selectedLanguage = lang
+                            switch lang {
+                            case .system:
+                                UserDefaults.standard.removeObject(forKey: "PastryLanguage")
+                            default:
+                                UserDefaults.standard.set(lang.rawValue, forKey: "PastryLanguage")
+                            }
+                        }
+                    )) {
+                        ForEach(Language.allCases) { lang in
+                            Text(lang.label).tag(lang)
+                        }
+                    }
+                    Toggle(L10n["settings.launch_at_login"], isOn: $launchAtLogin)
                         .onChange(of: launchAtLogin) { _, enabled in
                             do {
                                 if enabled {
@@ -76,25 +124,25 @@ struct SettingsSceneView: View {
                                     .error("开机启动切换失败: \\(error.localizedDescription)")
                             }
                         }
-                    Toggle("操作提示音", isOn: $soundEnabled)
+                    Toggle(L10n["settings.sound_enabled"], isOn: $soundEnabled)
                 }
-                Section("辅助功能权限") {
+                Section(L10n["settings.accessibility_section"]) {
                     HStack {
                         Image(systemName: accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
                             .foregroundColor(accessibilityTrusted ? .green : .orange)
                             .font(.title3)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(accessibilityTrusted ? "已授权" : "未授权")
+                            Text(accessibilityTrusted ? L10n["settings.accessibility_granted"] : L10n["settings.accessibility_denied"])
                                 .font(.body)
                             Text(accessibilityTrusted
-                                 ? "模拟 ⌘V 粘贴功能可用"
-                                 : "粘贴功能需要此权限")
+                                 ? L10n["settings.accessibility_paste_ok"]
+                                 : L10n["settings.accessibility_paste_need"])
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
                         if !accessibilityTrusted {
-                            Button("去授权") {
+                            Button(L10n["settings.accessibility_grant_btn"]) {
                                 guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
                                     Logger(subsystem: "com.nekutai.pastry", category: "settings").error("无法构造系统偏好设置 URL")
                                     return
@@ -109,15 +157,15 @@ struct SettingsSceneView: View {
                     Button(role: .destructive) {
                         showingClearConfirm = true
                     } label: {
-                        Label("清空全部记录", systemImage: "trash")
+                        Label(L10n["settings.clear_all"], systemImage: "trash")
                     }
-                    .alert("确认清空？", isPresented: $showingClearConfirm) {
-                        Button("取消", role: .cancel) {}
-                        Button("清空", role: .destructive) {
+                    .alert(L10n["settings.clear_confirm_title"], isPresented: $showingClearConfirm) {
+                        Button(L10n["settings.clear_cancel"], role: .cancel) {}
+                        Button(L10n["settings.clear_btn"], role: .destructive) {
                             StoreManager.shared.clearAll()
                         }
                     } message: {
-                        Text("此操作不可撤销，所有剪贴板历史将被删除。")
+                        Text(L10n["settings.clear_warning"])
                     }
                 }
             }
@@ -136,7 +184,7 @@ struct SettingsSceneView: View {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("唤醒快捷键")
+                        Text(L10n["shortcut.label"])
                             .font(.body)
                         Spacer()
 
@@ -157,8 +205,8 @@ struct SettingsSceneView: View {
                     }
 
                     Text(hotkeyKeyCode >= 0
-                         ? "按下此快捷键可随时唤起 Pastry 面板"
-                         : "点击方框录制新快捷键")
+                         ? L10n["shortcut.hint_set"]
+                         : L10n["shortcut.hint_empty"])
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -168,14 +216,14 @@ struct SettingsSceneView: View {
                         Image(systemName: "info.circle")
                             .foregroundColor(.secondary)
                             .font(.caption)
-                        Text("修改后立即生效，无需重启")
+                        Text(L10n["shortcut.effective_immediately"])
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
                 .padding(.vertical, 4)
             } header: {
-                Text("全局快捷键")
+                Text(L10n["shortcut.section_title"])
             }
         }
         .formStyle(.grouped)

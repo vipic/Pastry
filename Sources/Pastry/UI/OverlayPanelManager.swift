@@ -140,7 +140,7 @@ private final class PreviewContainerView: NSView {
         closeBtn.bezelStyle = .regularSquare
         closeBtn.isBordered = false
         closeBtn.title = ""
-        closeBtn.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "关闭")
+        closeBtn.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: L10n["a11y.close"])
         closeBtn.imagePosition = .imageOnly
         closeBtn.contentTintColor = .secondaryLabelColor
         closeBtn.target = self
@@ -159,7 +159,7 @@ private final class PreviewContainerView: NSView {
         shareBtn.bezelStyle = .regularSquare
         shareBtn.isBordered = false
         shareBtn.title = ""
-        shareBtn.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "分享")
+        shareBtn.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: L10n["a11y.share"])
         shareBtn.imagePosition = .imageOnly
         shareBtn.contentTintColor = .secondaryLabelColor
         shareBtn.target = self

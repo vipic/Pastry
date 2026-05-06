@@ -59,7 +59,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
 
         let openItem = NSMenuItem(
-            title: "打开剪贴板",
+            title: L10n["menu.open_clipboard"],
             action: #selector(openOverlay),
             keyEquivalent: ""
         )
@@ -75,7 +75,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         let clearItem = NSMenuItem(
-            title: "清空历史",
+            title: L10n["menu.clear_history"],
             action: #selector(clearHistoryAction),
             keyEquivalent: ""
         )
@@ -85,7 +85,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         let settingsItem = NSMenuItem(
-            title: "设置…",
+            title: L10n["menu.settings"],
             action: #selector(openSettingsAction),
             keyEquivalent: ","
         )
@@ -96,7 +96,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
-            title: "退出",
+            title: L10n["menu.quit"],
             action: #selector(quitApp),
             keyEquivalent: "q"
         )
@@ -109,9 +109,9 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     @MainActor
     private func refreshStats() {
         let stats = StoreManager.shared.stats
-        statsItem.title = "共 \(stats.totalItems) 项 · 今日 \(stats.todayItems) 项"
+        statsItem.title = String(format: L10n["menu.stats"], stats.totalItems, stats.todayItems)
         if stats.storageSizeKB > 0 {
-            storageItem.title = "占用 \(stats.storageSizeKB) KB"
+            storageItem.title = String(format: L10n["menu.storage"], stats.storageSizeKB)
             storageItem.isHidden = false
         } else {
             storageItem.isHidden = true

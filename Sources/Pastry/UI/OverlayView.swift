@@ -131,11 +131,11 @@ struct OverlayView: View {
                     guard !selection.selectedIds.isEmpty else { return }
                     showDeleteConfirm = true
                 }
-                .alert("确认删除", isPresented: $showDeleteConfirm) {
-                    Button("取消", role: .cancel) {}
-                    Button("确认", role: .destructive) { deleteSelected() }
+                .alert(L10n["delete.confirm_title"], isPresented: $showDeleteConfirm) {
+                    Button(L10n["delete.confirm_cancel"], role: .cancel) {}
+                    Button(L10n["delete.confirm_ok"], role: .destructive) { deleteSelected() }
                 } message: {
-                    Text("确定要删除 \(selection.selectedIds.count) 条选中的记录吗？Pinned 项将被保留。")
+                    Text(String(format: L10n["delete.confirm_msg"], selection.selectedIds.count))
                 }
                 .onChange(of: showDeleteConfirm) {
                     NotificationCenter.default.post(name: .overlayAlertActive,
@@ -237,7 +237,7 @@ struct OverlayView: View {
                 .foregroundColor(.white.opacity(0.4))
                 .font(.system(size: 12))
 
-            TextField("搜索...", text: $store.searchQuery)
+            TextField(L10n["search.placeholder"], text: $store.searchQuery)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundColor(.white)
@@ -283,9 +283,9 @@ struct OverlayView: View {
     private var filterPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !store.availableApps.isEmpty {
-                filterSection(title: "来源应用") {
+                filterSection(title: L10n["filter.source_app"]) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], spacing: 6) {
-                        filterChip("全部", isSelected: store.appFilter == nil) {
+                        filterChip(L10n["filter.all"], isSelected: store.appFilter == nil) {
                             store.appFilter = nil
                         }
                         ForEach(store.availableApps, id: \.self) { app in
@@ -297,7 +297,7 @@ struct OverlayView: View {
                 }
             }
 
-            filterSection(title: "类型") {
+            filterSection(title: L10n["filter.type"]) {
                 HStack(spacing: 6) {
                     ForEach(ClipType.allCases, id: \.storageKey) { type in
                         filterChip(type.label, isSelected: store.typeFilter == type) {
@@ -307,7 +307,7 @@ struct OverlayView: View {
                 }
             }
 
-            filterSection(title: "时间") {
+            filterSection(title: L10n["filter.time"]) {
                 HStack(spacing: 6) {
                     ForEach(StoreManager.TimeFilter.allCases, id: \.rawValue) { tf in
                         filterChip(tf.rawValue, isSelected: store.timeFilter == tf) {
@@ -320,7 +320,7 @@ struct OverlayView: View {
             if hasActiveTimeOrTypeFilter {
                 HStack {
                     Spacer()
-                    Button("清除筛选") {
+                    Button(L10n["filter.clear"]) {
                         store.typeFilter = nil
                         store.appFilter = nil
                         store.timeFilter = .any
@@ -389,7 +389,7 @@ struct OverlayView: View {
                 }
             }
             .padding(.top, 10)
-            .frame(minHeight: 208)
+            .frame(minHeight: 262)  // 240 card + 6 LazyStack padding + 6 outer padding + 10 top
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 10)
@@ -415,9 +415,9 @@ struct OverlayView: View {
                 // 搜索框展开 — 占用空间，tab 被挤到右侧
                 inlineSearchField
 
-                tabButton(tab: .all, icon: "tray.full", label: "全部", isSelected: store.pinTab == .all)
+                tabButton(tab: .all, icon: "tray.full", label: L10n["tab.all"], isSelected: store.pinTab == .all)
                     .padding(.trailing, 6)
-                tabButton(tab: .pinned, icon: "pin.fill", label: "已钉选", isSelected: store.pinTab == .pinned)
+                tabButton(tab: .pinned, icon: "pin.fill", label: L10n["tab.pinned"], isSelected: store.pinTab == .pinned)
             } else {
                 // 搜索按钮 — 原位紧凑
                 Button {
@@ -436,9 +436,9 @@ struct OverlayView: View {
                 .onHover { hoverSearch = $0 }
                 .padding(.trailing, 6)
 
-                tabButton(tab: .all, icon: "tray.full", label: "全部", isSelected: store.pinTab == .all)
+                tabButton(tab: .all, icon: "tray.full", label: L10n["tab.all"], isSelected: store.pinTab == .all)
                     .padding(.trailing, 6)
-                tabButton(tab: .pinned, icon: "pin.fill", label: "已钉选", isSelected: store.pinTab == .pinned)
+                tabButton(tab: .pinned, icon: "pin.fill", label: L10n["tab.pinned"], isSelected: store.pinTab == .pinned)
             }
 
             Spacer()
@@ -666,13 +666,13 @@ struct OverlayView: View {
 
         if isPinnedTab && !isFiltered {
             icon = "pin.slash"
-            message = "还没有钉选的内容"
+            message = L10n["empty.no_pins"]
         } else if isFiltered {
             icon = "magnifyingglass"
-            message = "没有匹配的结果"
+            message = L10n["empty.no_results"]
         } else {
             icon = "clipboard"
-            message = "还没有剪贴板历史"
+            message = L10n["empty.no_history"]
         }
 
         return VStack(spacing: 14) {
@@ -683,7 +683,7 @@ struct OverlayView: View {
                 .font(.body)
                 .foregroundColor(.white.opacity(0.65))
         }
-        .frame(maxWidth: .infinity, minHeight: 208)
+        .frame(maxWidth: .infinity, minHeight: 252)  // 240 card + 6 Lazy + 6 outer = 252
     }
 }
 
