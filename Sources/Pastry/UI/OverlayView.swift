@@ -277,11 +277,9 @@ struct OverlayView: View {
             .onHover { hovering in
                 if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
             }
-            .overlay(
-                FilterPopoverBridge(isPresented: $showFilterPopover) {
-                    FilterPopoverContent(store: store)
-                }
-            )
+            .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
+                FilterPopoverContent(store: store)
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
