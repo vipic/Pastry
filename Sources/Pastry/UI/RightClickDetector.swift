@@ -3,9 +3,9 @@ import SwiftUI
 
 // MARK: - NSMenu target-action 桥接
 final class _MenuHandler: NSObject {
-    private let action: (String) -> Void
-    init(_ action: @escaping (String) -> Void) { self.action = action }
-    @objc func invoke(_ sender: NSMenuItem) { action(sender.title) }
+    private let action: (String, Any?) -> Void
+    init(_ action: @escaping (String, Any?) -> Void) { self.action = action }
+    @objc func invoke(_ sender: NSMenuItem) { action(sender.title, sender.representedObject) }
 }
 
 // MARK: - 右键检测器（hitTest 拦截 → NSMenu.popUp）
