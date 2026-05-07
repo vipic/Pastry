@@ -11,7 +11,7 @@ APP_BIN="$HOME/Applications/Pastry.app/Contents/MacOS/Pastry"
 BUILD_BIN=".build/release/Pastry"
 
 # macOS 毫秒时间戳
-now_ms() { perl -MTime::HiRes -e 'printf("%d", time*1000)'; }
+now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
 
 # ── 1. 编译时间 ──
 echo "═══ 编译时间 ═══"
@@ -28,15 +28,27 @@ BIN_SIZE=$(stat -f%z "$BUILD_BIN" 2>/dev/null || echo 0)
 BIN_KB=$((BIN_SIZE / 1024))
 echo "大小: ${BIN_KB} KB (${BIN_SIZE} bytes)"
 
-# ── 部署（--bench 需要从 app bundle 运行以获取 Info.plist 等资源）──
+# ── 3. 测试耗时（先于部署，避免签名替换中断测试）──
+echo ""
+echo "═══ 测试耗时 ═══"
+TEST_START=$(now_ms)
+TEST_OUTPUT=$(swift test 2>&1)
+TEST_END=$(now_ms)
+TEST_MS=$((TEST_END - TEST_START))
+TEST_PASSED=$(echo "$TEST_OUTPUT" | grep -oE '[[:space:]]*Executed [0-9]+ tests' | tail -1 | sed 's/^[[:space:]]*//')
+echo "${TEST_PASSED:-测试结果解析失败}"
+echo "测试耗时: ${TEST_MS}ms"
+
+# ── 4. 部署（--bench 需要从 app bundle 运行以获取 Info.plist 等资源）──
 if [[ -f "$BUILD_BIN" ]]; then
+    pkill -x Pastry 2>/dev/null || true
+    sleep 0.3
     cp "$BUILD_BIN" "$APP_BIN" 2>/dev/null || true
-    # 清除旧签名 + ad-hoc 重签（二进制替换后签名会失效）
     rm -rf "${APP_BIN%/Contents/MacOS/Pastry}/_CodeSignature" 2>/dev/null || true
     codesign --force --sign - "${APP_BIN%/Contents/MacOS/Pastry}" 2>/dev/null || true
 fi
 
-# ── 3. 启动耗时 ──
+# ── 5. 启动耗时 ──
 echo ""
 echo "═══ 启动耗时 ═══"
 if [[ -x "$APP_BIN" ]]; then
@@ -47,17 +59,6 @@ else
     LAUNCH_MS=0
     echo "⚠  未找到 app bundle，跳过启动测试"
 fi
-
-# ── 4. 测试耗时 ──
-echo ""
-echo "═══ 测试耗时 ═══"
-TEST_START=$(now_ms)
-TEST_OUTPUT=$(swift test 2>&1)
-TEST_END=$(now_ms)
-TEST_MS=$((TEST_END - TEST_START))
-TEST_PASSED=$(echo "$TEST_OUTPUT" | grep -o "Executed [0-9]* tests, with 0 failures" | tail -1)
-echo "${TEST_PASSED:-测试结果解析失败}"
-echo "测试耗时: ${TEST_MS}ms"
 
 # ── 汇总 ──
 echo ""
