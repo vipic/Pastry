@@ -40,8 +40,39 @@ cp "$PROJECT_DIR/Resources/Copy.aiff"    "$RESOURCES_DIR/Copy.aiff"    2>/dev/nu
 cp "$PROJECT_DIR/Resources/Paste.aiff"   "$RESOURCES_DIR/Paste.aiff"   2>/dev/null || true
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns" 2>/dev/null || true
 
-# 6. 清除残留签名（二进制替换后签名失效）
+# 5. Info.plist（首次部署时创建，后续保留）
+if [ ! -f "$CONTENTS/Info.plist" ]; then
+    cat > "$CONTENTS/Info.plist" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleExecutable</key>
+    <string>Pastry</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.nekutai.pastry</string>
+    <key>CFBundleName</key>
+    <string>Pastry</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+PLIST
+fi
+
+# 6. 清除残留签名（二进制替换后签名失效）并 ad-hoc 重签
 rm -rf "$APP_DIR/_CodeSignature" 2>/dev/null || true
+codesign --force --sign - "$APP_DIR" 2>/dev/null || true
 
 # 7. 启动
 echo "🚀 启动 $APP_NAME..."
