@@ -31,7 +31,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
-        buildMenu()
+        // 菜单延迟到首次右键时构建（确保 L10n 和系统 locale 已就绪）
         log.info("菜单栏已配置（左键面板 / 右键菜单）")
     }
 
@@ -42,6 +42,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         guard let event = NSApp.currentEvent else { return }
 
         if event.type == .rightMouseUp {
+            if menu == nil { buildMenu() }
             refreshStats()
             statusItem.menu = menu
             statusItem.button?.performClick(nil)
