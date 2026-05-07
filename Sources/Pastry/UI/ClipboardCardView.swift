@@ -741,6 +741,13 @@ struct ClipboardCardView: View {
                     fileType: L10n["filetype.link"],
                     infoText: url.absoluteString, isLocalFile: false
                 )
+            case .url:
+                let host = url.host ?? ""
+                metadata = QLPreviewHelper.PreviewMetadata(
+                    url: url, displayName: host,
+                    fileType: L10n["filetype.link"],
+                    infoText: url.absoluteString, isLocalFile: false
+                )
             default:
                 return
             }
