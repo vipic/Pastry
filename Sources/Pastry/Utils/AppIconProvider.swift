@@ -80,10 +80,9 @@ final class AppIconProvider {
             ?? NSImage()
     }
 
-    /// 通过应用名查找实际图标（纯 NSWorkspace，零 FileManager）
+    /// 通过应用名查找实际图标（先检查路径存在性，再取图标）
     private func findAppIcon(named name: String) -> NSImage {
-        // 1. 已知系统路径 — NSWorkspace.icon 对不存在的 .app 返回 GenericApplicationIcon
-        //    通过检查图标尺寸区分：真实应用图标 ≥64pt，占位图标通常 32pt
+        // 1. 已知系统路径 — 先确认 .app 存在再取图标，避免 NSWorkspace 返回 GenericApplicationIcon
         let paths = [
             "/Applications/\(name).app",
             "/Applications/Utilities/\(name).app",
@@ -91,9 +90,9 @@ final class AppIconProvider {
             NSHomeDirectory() + "/Applications/\(name).app",
         ]
         for path in paths {
+            guard FileManager.default.fileExists(atPath: path) else { continue }
             let icon = NSWorkspace.shared.icon(forFile: path)
-            // 实际应用图标尺寸通常 ≥256（Retina），占位图标最大 32
-            if icon.size.width >= 64 { return icon }
+            return icon
         }
 
         // 2. 运行中的应用（不依赖文件系统）
