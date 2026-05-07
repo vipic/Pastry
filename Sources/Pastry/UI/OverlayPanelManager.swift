@@ -11,7 +11,7 @@ final class ClipboardOverlayPanel: NSPanel {
 
 // MARK: - Quick Look 预览辅助（NSPopover + QLPreviewView，带自定义控件）
 final class QLPreviewHelper: NSObject {
-    static let shared = QLPreviewHelper()
+    nonisolated(unsafe) static let shared = QLPreviewHelper()
 
     struct PreviewMetadata {
         let url: URL

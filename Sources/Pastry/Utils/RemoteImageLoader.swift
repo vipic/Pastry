@@ -4,7 +4,7 @@ import OSLog
 // MARK: - 远程图片加载器
 // 异步拉取 HTML 中引用的远程图片，NSCache 内存缓存
 final class RemoteImageLoader {
-    static let shared = RemoteImageLoader()
+    nonisolated(unsafe) static let shared = RemoteImageLoader()
 
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "remote-image")
 

@@ -6,7 +6,7 @@ import ServiceManagement
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 静态引用 — 避免依赖 NSApp.delegate 的时机不确定性
-    static private(set) weak var shared: AppDelegate?
+    nonisolated(unsafe) static private(set) weak var shared: AppDelegate?
 
     private var settingsWindow: NSWindow?
 

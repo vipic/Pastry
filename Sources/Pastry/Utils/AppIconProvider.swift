@@ -5,7 +5,7 @@ import OSLog
 // 缓存已查询的应用图标和颜色，避免重复 I/O
 final class AppIconProvider {
 
-    static let shared = AppIconProvider()
+    nonisolated(unsafe) static let shared = AppIconProvider()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "appicon")
 
     private let iconCache = NSCache<NSString, NSImage>()

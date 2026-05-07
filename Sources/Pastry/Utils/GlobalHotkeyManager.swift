@@ -7,7 +7,7 @@ import OSLog
 // 即使 App 在后台也能响应
 final class GlobalHotkeyManager {
 
-    static let shared = GlobalHotkeyManager()
+    nonisolated(unsafe) static let shared = GlobalHotkeyManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "hotkey")
 
     private var hotKeyRef: EventHotKeyRef?

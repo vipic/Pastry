@@ -6,7 +6,7 @@ import OSLog
 // 使用原生 sqlite3 API，零外部依赖
 final class DatabaseManager {
 
-    static let shared = DatabaseManager()
+    nonisolated(unsafe) static let shared = DatabaseManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "database")
     private let lock = NSRecursiveLock()
 
