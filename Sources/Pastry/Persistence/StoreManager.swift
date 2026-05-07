@@ -152,8 +152,14 @@ final class StoreManager: ObservableObject {
         pb.clearContents()
 
         switch item.contentType {
-        case .text, .rtf, .html, .url:
+        case .text, .url:
             pb.setString(item.content, forType: .string)
+        case .rtf, .html:
+            // 写回原始格式 + 纯文本 fallback
+            pb.setString(item.content, forType: .string)
+            if let raw = item.rawFormatData, let typeStr = item.rawFormatType {
+                pb.setData(raw, forType: NSPasteboard.PasteboardType(typeStr))
+            }
         case .fileURL:
             let urls = item.content
                 .split(separator: "\n")
