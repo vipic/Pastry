@@ -192,17 +192,22 @@ private final class PreviewContainerView: NSView {
 
         // Reveal in Finder（右下角，仅本地文件显示）
         if metadata.isLocalFile {
-            let revealBtn = NSButton(frame: NSRect(x: bounds.width - 140, y: 2, width: 130, height: 24))
+            let revealBtn = NSButton(frame: NSRect(x: bounds.width - 130, y: 2, width: 120, height: 24))
             revealBtn.bezelStyle = .regularSquare
             revealBtn.isBordered = false
             revealBtn.font = .systemFont(ofSize: 11)
-            revealBtn.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
-            revealBtn.imagePosition = .imageLeading
-            revealBtn.contentTintColor = .secondaryLabelColor
-            revealBtn.attributedTitle = NSAttributedString(
-                string: L10n["preview.reveal"],
+            // 图标嵌入标题，间距可控
+            let icon = NSTextAttachment()
+            icon.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+            let iconStr = NSAttributedString(attachment: icon)
+            let label = NSAttributedString(
+                string: " \(L10n["preview.reveal"])",
                 attributes: [.foregroundColor: NSColor.secondaryLabelColor, .font: NSFont.systemFont(ofSize: 11)]
             )
+            let title = NSMutableAttributedString()
+            title.append(iconStr)
+            title.append(label)
+            revealBtn.attributedTitle = title
             revealBtn.target = self
             revealBtn.action = #selector(revealTapped)
             revealBtn.autoresizingMask = .minXMargin
