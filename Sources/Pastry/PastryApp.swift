@@ -53,13 +53,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Pastry"
+        window.styleMask.insert(.fullSizeContentView)
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
         window.center()
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: SettingsSceneView())
@@ -92,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = "\(L10n["menu.about"]) Pastry"
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
         window.center()
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: AboutView())
@@ -123,7 +126,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = L10n["menu.help"]
+        window.styleMask.insert(.fullSizeContentView)
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
         window.center()
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: HelpView())

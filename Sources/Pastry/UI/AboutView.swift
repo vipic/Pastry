@@ -53,7 +53,7 @@ struct AboutView: View {
 
 // MARK: - 帮助窗口
 struct HelpView: View {
-    @State private var selectedTopic: HelpTopic = .shortcuts
+    @State private var selectedTopic: HelpTopic? = .shortcuts
 
     enum HelpTopic: String, CaseIterable, Identifiable {
         case shortcuts = "快捷键"
@@ -72,76 +72,60 @@ struct HelpView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // 侧边栏
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(HelpTopic.allCases) { topic in
-                    Button {
-                        selectedTopic = topic
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: topic.icon)
-                                .frame(width: 16)
-                            Text(topic.rawValue)
-                                .font(.system(size: 12))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .background(
-                        selectedTopic == topic
-                            ? Color.accentColor.opacity(0.15)
-                            : Color.clear
-                    )
-                    .cornerRadius(4)
-                }
-                Spacer()
+        NavigationSplitView {
+            List(HelpTopic.allCases, selection: $selectedTopic) { topic in
+                Label(topic.rawValue, systemImage: topic.icon)
+                    .tag(topic)
             }
-            .padding(12)
-            .frame(width: 140)
-            .background(Color.primary.opacity(0.04))
-
-            Divider()
-
-            // 内容
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    switch selectedTopic {
-                    case .shortcuts: shortcutsContent
-                    case .usage: usageContent
-                    case .tips: tipsContent
-                    }
-                }
-                .padding(20)
+            .navigationSplitViewColumnWidth(min: 140, ideal: 140)
+        } detail: {
+            if let topic = selectedTopic {
+                detailView(for: topic)
             }
-            .frame(maxWidth: .infinity)
         }
-        .frame(width: 520, height: 380)
+    }
+
+    @ViewBuilder
+    private func detailView(for topic: HelpTopic) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                switch topic {
+                case .shortcuts: shortcutsContent
+                case .usage: usageContent
+                case .tips: tipsContent
+                }
+            }
+            .padding(20)
+        }
     }
 
     // MARK: - 快捷键
 
     private var shortcutsContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("全局快捷键")
-            shortcutRow("⌘ ⇧ V", "打开 / 关闭剪贴板面板")
-            shortcutRow("⏎", "粘贴选中的条目")
-            shortcutRow("⌫", "删除选中的条目")
-            shortcutRow("⌘ A", "全选")
-            shortcutRow("⌘ F", "搜索")
-            shortcutRow("⎋", "关闭面板 / 取消搜索")
+        HStack(alignment: .top, spacing: 0) {
+            // 左列：全局快捷键
+            VStack(alignment: .leading, spacing: 16) {
+                sectionHeader("全局快捷键")
+                shortcutRow("⌘ ⇧ V", "打开 / 关闭剪贴板面板")
+                shortcutRow("⏎", "粘贴选中的条目")
+                shortcutRow("⌫", "删除选中的条目")
+                shortcutRow("⌘ A", "全选")
+                shortcutRow("⌘ F", "搜索")
+                shortcutRow("⎋", "关闭面板 / 取消搜索")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            sectionHeader("面板内快捷键")
-                .padding(.top, 12)
-            shortcutRow("↑ ↓", "方向键导航")
-            shortcutRow("⇧ ↑ ↓", "扩展选中范围")
-            shortcutRow("⌘ ← →", "横向滚动卡片")
-            shortcutRow("⌘ 单击", "切换卡片选中")
-            shortcutRow("⇧ 单击", "区间选中")
-            shortcutRow("⌘ 1-9", "快速粘贴第 1-9 条")
+            // 右列：面板内快捷键
+            VStack(alignment: .leading, spacing: 16) {
+                sectionHeader("面板内快捷键")
+                shortcutRow("↑ ↓", "方向键导航")
+                shortcutRow("⇧ ↑ ↓", "扩展选中范围")
+                shortcutRow("⌘ ← →", "横向滚动卡片")
+                shortcutRow("⌘ 单击", "切换卡片选中")
+                shortcutRow("⇧ 单击", "区间选中")
+                shortcutRow("⌘ 1-9", "快速粘贴第 1-9 条")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
