@@ -4,14 +4,12 @@ import SwiftUI
 struct AboutView: View {
     var body: some View {
         VStack(spacing: 0) {
-            // 应用图标
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 96, height: 96)
                 .padding(.top, 28)
                 .padding(.bottom, 16)
 
-            // 名称 + 版本
             Text("Pastry")
                 .font(.system(size: 18, weight: .semibold))
             Text("Version \(appVersion) (Build \(appBuild))")
@@ -23,7 +21,6 @@ struct AboutView: View {
                 .padding(.vertical, 16)
                 .padding(.horizontal, 40)
 
-            // 描述
             Text(L10n["about.description"])
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
@@ -33,7 +30,6 @@ struct AboutView: View {
 
             Spacer(minLength: 12)
 
-            // 版权
             Text(L10n["about.copyright"])
                 .font(.system(size: 10))
                 .foregroundColor(.secondary.opacity(0.6))
@@ -56,9 +52,9 @@ struct HelpView: View {
     @State private var selectedTopic: HelpTopic? = .shortcuts
 
     enum HelpTopic: String, CaseIterable, Identifiable {
-        case shortcuts = "快捷键"
-        case usage = "基本用法"
-        case tips = "小技巧"
+        case shortcuts = "help.tab.shortcuts"
+        case usage = "help.tab.usage"
+        case tips = "help.tab.tips"
 
         var id: String { rawValue }
 
@@ -74,7 +70,7 @@ struct HelpView: View {
     var body: some View {
         NavigationSplitView {
             List(HelpTopic.allCases, selection: $selectedTopic) { topic in
-                Label(topic.rawValue, systemImage: topic.icon)
+                Label(L10n[topic.rawValue], systemImage: topic.icon)
                     .tag(topic)
             }
             .navigationSplitViewColumnWidth(min: 140, ideal: 140)
@@ -103,27 +99,25 @@ struct HelpView: View {
 
     private var shortcutsContent: some View {
         HStack(alignment: .top, spacing: 0) {
-            // 左列：全局快捷键
             VStack(alignment: .leading, spacing: 16) {
-                sectionHeader("全局快捷键")
-                shortcutRow("⌘ ⇧ V", "打开 / 关闭剪贴板面板")
-                shortcutRow("⏎", "粘贴选中的条目")
-                shortcutRow("⌫", "删除选中的条目")
-                shortcutRow("⌘ A", "全选")
-                shortcutRow("⌘ F", "搜索")
-                shortcutRow("⎋", "关闭面板 / 取消搜索")
+                sectionHeader(L10n["help.shortcuts.global"])
+                shortcutRow("⌘ ⇧ V", L10n["help.shortcut.panel_toggle"])
+                shortcutRow("⏎", L10n["help.shortcut.paste_selected"])
+                shortcutRow("⌫", L10n["help.shortcut.delete_selected"])
+                shortcutRow("⌘ A", L10n["help.shortcut.select_all"])
+                shortcutRow("⌘ F", L10n["help.shortcut.search"])
+                shortcutRow("⎋", L10n["help.shortcut.close_panel"])
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // 右列：面板内快捷键
             VStack(alignment: .leading, spacing: 16) {
-                sectionHeader("面板内快捷键")
-                shortcutRow("↑ ↓", "方向键导航")
-                shortcutRow("⇧ ↑ ↓", "扩展选中范围")
-                shortcutRow("⌘ ← →", "横向滚动卡片")
-                shortcutRow("⌘ 单击", "切换卡片选中")
-                shortcutRow("⇧ 单击", "区间选中")
-                shortcutRow("⌘ 1-9", "快速粘贴第 1-9 条")
+                sectionHeader(L10n["help.shortcuts.panel"])
+                shortcutRow("↑ ↓", L10n["help.shortcut.arrow_nav"])
+                shortcutRow("⇧ ↑ ↓", L10n["help.shortcut.extend_selection"])
+                shortcutRow("⌘ ← →", L10n["help.shortcut.horizontal_scroll"])
+                shortcutRow("⌘ 单击", L10n["help.shortcut.toggle_select"])
+                shortcutRow("⇧ 单击", L10n["help.shortcut.range_select"])
+                shortcutRow("⌘ 1-9", L10n["help.shortcut.quick_paste"])
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -133,42 +127,29 @@ struct HelpView: View {
 
     private var usageContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("捕获")
-            Text("""
-            Pastry 自动监听系统剪贴板。复制任何内容 — \
-            文本、图片、文件、链接、HTML — 都会出现在面板中。
-            """)
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
-            .lineSpacing(4)
+            sectionHeader(L10n["help.usage.capture"])
+            Text(L10n["help.usage.capture_desc"])
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .lineSpacing(4)
 
-            sectionHeader("粘贴")
-            Text("""
-            单击卡片直接粘贴到当前应用。
-            双击或按 ⏎ 同理。
-            按住 ⌘ 可在卡片右下角看到数字角标，按 ⌘+数字 快速粘贴。
-            """)
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
-            .lineSpacing(4)
+            sectionHeader(L10n["help.usage.paste"])
+            Text(L10n["help.usage.paste_desc"])
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .lineSpacing(4)
 
-            sectionHeader("管理")
-            Text("""
-            右键卡片可钉选（pin）、预览、分享、删除。
-            钉选的条目在「已钉选」标签页中始终可见，不受历史清理影响。
-            """)
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
-            .lineSpacing(4)
+            sectionHeader(L10n["help.usage.manage"])
+            Text(L10n["help.usage.manage_desc"])
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .lineSpacing(4)
 
-            sectionHeader("筛选")
-            Text("""
-            搜索框支持实时过滤。筛选按钮可按类型（文本/链接/图片等）、\
-            来源应用、时间范围筛选，多个条件可叠加。
-            """)
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
-            .lineSpacing(4)
+            sectionHeader(L10n["help.usage.filter"])
+            Text(L10n["help.usage.filter_desc"])
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .lineSpacing(4)
         }
     }
 
@@ -176,12 +157,12 @@ struct HelpView: View {
 
     private var tipsContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            tipRow("💡", "拖拽卡片到桌面或 Finder 可直接保存文件")
-            tipRow("💡", "Cmd+点击多个卡片可批量 Pin 或删除")
-            tipRow("💡", "从 iPhone/iPad 复制的内容会标记为 Handoff 来源")
-            tipRow("💡", "链接卡片会自动抓取网页标题和缩略图")
-            tipRow("💡", "在设置中可切换中英文界面，即时生效")
-            tipRow("💡", "右键「预览」可用 Quick Look 查看文件内容")
+            tipRow("💡", L10n["help.tip.drag_save"])
+            tipRow("💡", L10n["help.tip.batch_pin"])
+            tipRow("💡", L10n["help.tip.handoff"])
+            tipRow("💡", L10n["help.tip.link_preview"])
+            tipRow("💡", L10n["help.tip.language"])
+            tipRow("💡", L10n["help.tip.quicklook"])
         }
     }
 

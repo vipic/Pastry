@@ -1530,6 +1530,533 @@
           }
         }
       }
+    },
+    "help.tab.shortcuts": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shortcuts"
+          }
+        }
+      }
+    },
+    "help.tab.usage": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基本用法"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basic Usage"
+          }
+        }
+      }
+    },
+    "help.tab.tips": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小技巧"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tips"
+          }
+        }
+      }
+    },
+    "help.shortcuts.global": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全局快捷键"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Global Shortcuts"
+          }
+        }
+      }
+    },
+    "help.shortcuts.panel": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面板内快捷键"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel Shortcuts"
+          }
+        }
+      }
+    },
+    "help.shortcut.panel_toggle": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开 / 关闭剪贴板面板"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open / Close clipboard panel"
+          }
+        }
+      }
+    },
+    "help.shortcut.paste_selected": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴选中的条目"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste selected item"
+          }
+        }
+      }
+    },
+    "help.shortcut.delete_selected": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除选中的条目"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete selected item"
+          }
+        }
+      }
+    },
+    "help.shortcut.select_all": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全选"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select all"
+          }
+        }
+      }
+    },
+    "help.shortcut.search": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "help.shortcut.close_panel": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭面板 / 取消搜索"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close panel / Cancel search"
+          }
+        }
+      }
+    },
+    "help.shortcut.arrow_nav": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "方向键导航"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrow key navigation"
+          }
+        }
+      }
+    },
+    "help.shortcut.extend_selection": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扩展选中范围"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extend selection"
+          }
+        }
+      }
+    },
+    "help.shortcut.horizontal_scroll": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "横向滚动卡片"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horizontal card scroll"
+          }
+        }
+      }
+    },
+    "help.shortcut.toggle_select": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换卡片选中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle card selection"
+          }
+        }
+      }
+    },
+    "help.shortcut.range_select": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "区间选中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Range select"
+          }
+        }
+      }
+    },
+    "help.shortcut.quick_paste": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快速粘贴第 1-9 条"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick-paste items 1-9"
+          }
+        }
+      }
+    },
+    "help.usage.capture": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "捕获"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capture"
+          }
+        }
+      }
+    },
+    "help.usage.paste": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste"
+          }
+        }
+      }
+    },
+    "help.usage.manage": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage"
+          }
+        }
+      }
+    },
+    "help.usage.filter": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "筛选"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter"
+          }
+        }
+      }
+    },
+    "help.usage.capture_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pastry 自动监听系统剪贴板。复制任何内容 — 文本、图片、文件、链接、HTML — 都会出现在面板中。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pastry automatically monitors your clipboard. Copy anything — text, images, files, links, HTML — and it appears in the panel."
+          }
+        }
+      }
+    },
+    "help.usage.paste_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单击卡片直接粘贴到当前应用。双击或按 ⏎ 同理。按住 ⌘ 可在卡片右下角看到数字角标，按 ⌘+数字 快速粘贴。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click a card to paste directly into the active app. Double-click or press ⏎ also works. Hold ⌘ to see number badges on cards, then press ⌘+number for quick paste."
+          }
+        }
+      }
+    },
+    "help.usage.manage_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右键卡片可钉选（pin）、预览、分享、删除。钉选的条目在「已钉选」标签页中始终可见，不受历史清理影响。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right-click cards to pin, preview, share, or delete. Pinned items remain visible in the Pinned tab, unaffected by history clearing."
+          }
+        }
+      }
+    },
+    "help.usage.filter_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索框支持实时过滤。筛选按钮可按类型（文本/链接/图片等）、来源应用、时间范围筛选，多个条件可叠加。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The search bar supports real-time filtering. Filter buttons let you filter by type (text/link/image, etc.), source app, and time range. Multiple conditions can be combined."
+          }
+        }
+      }
+    },
+    "help.tip.drag_save": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖拽卡片到桌面或 Finder 可直接保存文件"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag cards to Desktop or Finder to save files directly"
+          }
+        }
+      }
+    },
+    "help.tip.batch_pin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cmd+点击多个卡片可批量 Pin 或删除"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cmd+click multiple cards to batch pin or delete"
+          }
+        }
+      }
+    },
+    "help.tip.handoff": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从 iPhone/iPad 复制的内容会标记为 Handoff 来源"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Content copied from iPhone/iPad is tagged as Handoff source"
+          }
+        }
+      }
+    },
+    "help.tip.link_preview": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "链接卡片会自动抓取网页标题和缩略图"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link cards auto-fetch webpage titles and thumbnails"
+          }
+        }
+      }
+    },
+    "help.tip.language": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在设置中可切换中英文界面，即时生效"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch between Chinese and English in Settings, takes effect immediately"
+          }
+        }
+      }
+    },
+    "help.tip.quicklook": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右键「预览」可用 Quick Look 查看文件内容"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right-click Preview to view file contents with Quick Look"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
