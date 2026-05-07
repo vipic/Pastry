@@ -120,8 +120,13 @@ private final class PreviewContainerView: NSView {
         layer?.cornerRadius = 10
         layer?.masksToBounds = true
 
-        // QLPreviewView 填满，顶栏/底栏浮在它上面
-        previewView.frame = bounds
+        // QLPreviewView 放在顶栏和底栏之间，避免被遮挡
+        let topBarHeight: CGFloat = 32
+        let bottomBarHeight: CGFloat = 28
+        let previewHeight = bounds.height - topBarHeight - bottomBarHeight
+        previewView.frame = NSRect(x: 0, y: bottomBarHeight, width: bounds.width, height: previewHeight)
+        previewView.wantsLayer = true // Retina 渲染
+        previewView.layer?.backgroundColor = NSColor.black.cgColor
         previewView.autoresizingMask = [.width, .height]
         addSubview(previewView)
 

@@ -175,19 +175,6 @@ struct PastryApp: App {
     init() {
         let benchStart = Self.isBenchmark ? CFAbsoluteTimeGetCurrent() : 0
 
-        let isRegistered = SMAppService.mainApp.status == .enabled
-        if launchAtLogin != isRegistered {
-            do {
-                if launchAtLogin {
-                    try SMAppService.mainApp.register()
-                } else {
-                    try SMAppService.mainApp.unregister()
-                }
-            } catch {
-                log.error("开机启动同步失败: \\(error.localizedDescription)")
-            }
-        }
-
         store.start()
 
         if Self.isBenchmark {
@@ -199,7 +186,7 @@ struct PastryApp: App {
         GlobalHotkeyManager.shared.register()
         MenuBarManager.shared.setup()
 
-        log.info("Pastry 初始化，开机启动: \(isRegistered)")
+        log.info("Pastry 初始化完成")
     }
 
     var body: some Scene {
