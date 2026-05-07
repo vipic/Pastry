@@ -24,7 +24,7 @@ struct AboutView: View {
                 .padding(.horizontal, 40)
 
             // 描述
-            Text("about.description")
+            Text(L10n["about.description"])
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -34,7 +34,7 @@ struct AboutView: View {
             Spacer(minLength: 12)
 
             // 版权
-            Text("about.copyright")
+            Text(L10n["about.copyright"])
                 .font(.system(size: 10))
                 .foregroundColor(.secondary.opacity(0.6))
                 .padding(.bottom, 20)
