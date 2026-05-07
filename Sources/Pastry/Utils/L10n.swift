@@ -62,4 +62,9 @@ enum L10n {
         }
         return "en"
     }
+
+    /// 测试专用：强制重新加载 catalog（用于语言切换测试）
+    static func reloadCatalogForTesting() {
+        catalog = loadCatalog()
+    }
 }
