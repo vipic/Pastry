@@ -39,10 +39,12 @@ cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 cp "$PROJECT_DIR/Resources/Copy.aiff"    "$RESOURCES_DIR/Copy.aiff"    2>/dev/null || true
 cp "$PROJECT_DIR/Resources/Paste.aiff"   "$RESOURCES_DIR/Paste.aiff"   2>/dev/null || true
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns" 2>/dev/null || true
+cp "$PROJECT_DIR/Sources/Pastry/Resources/Localizable.xcstrings" "$RESOURCES_DIR/Localizable.xcstrings" 2>/dev/null || true
 
 # 5. Info.plist（首次部署时创建，后续保留）
 if [ ! -f "$CONTENTS/Info.plist" ]; then
-    cat > "$CONTENTS/Info.plist" << 'PLIST'
+    DEPLOY_BUILD=$(cd "$PROJECT_DIR" && git rev-parse --short HEAD)
+    cat > "$CONTENTS/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -56,7 +58,7 @@ if [ ! -f "$CONTENTS/Info.plist" ]; then
     <key>CFBundleName</key>
     <string>Pastry</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>${DEPLOY_BUILD}</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
     <key>LSMinimumSystemVersion</key>

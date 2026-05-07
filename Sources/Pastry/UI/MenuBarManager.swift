@@ -84,6 +84,15 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         menu.addItem(clearItem)
         menu.addItem(.separator())
 
+        let aboutItem = NSMenuItem(
+            title: L10n["menu.about"],
+            action: #selector(openAboutAction),
+            keyEquivalent: ""
+        )
+        aboutItem.target = self
+        aboutItem.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil)
+        menu.addItem(aboutItem)
+
         let settingsItem = NSMenuItem(
             title: L10n["menu.settings"],
             action: #selector(openSettingsAction),
@@ -123,6 +132,14 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     @MainActor
     @objc private func openOverlay() {
         OverlayPanelManager.shared.toggle()
+    }
+
+    @MainActor
+    @objc private func openAboutAction() {
+        OverlayPanelManager.shared.hide()
+        DispatchQueue.main.async {
+            AppDelegate.shared?.showAboutWindow()
+        }
     }
 
     @MainActor

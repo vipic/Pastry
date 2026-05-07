@@ -12,6 +12,7 @@ BUILD_DIR="$PROJECT_DIR/.build/release"
 STAGING="$PROJECT_DIR/.release_staging"
 BUNDLE_ID="com.nekutai.pastry"
 VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
+BUILD=$(git rev-list --count HEAD)
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 IDENTITY="${CODESIGN_IDENTITY:--}"  # 默认 ad-hoc，设环境变量覆盖
 
@@ -65,7 +66,7 @@ cat > "$STAGING/$APP_NAME.app/Contents/Info.plist" << PLIST
     <key>CFBundleName</key>
     <string>$APP_NAME</string>
     <key>CFBundleVersion</key>
-    <string>$VERSION</string>
+    <string>$BUILD</string>
     <key>CFBundleShortVersionString</key>
     <string>$VERSION</string>
     <key>LSMinimumSystemVersion</key>

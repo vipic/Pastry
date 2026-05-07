@@ -88,6 +88,7 @@ final class AppIconProvider {
             "/Applications/\(name).app",
             "/Applications/Utilities/\(name).app",
             "/System/Applications/\(name).app",
+            NSHomeDirectory() + "/Applications/\(name).app",
         ]
         for path in paths {
             let icon = NSWorkspace.shared.icon(forFile: path)

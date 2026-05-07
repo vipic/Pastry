@@ -9,10 +9,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     nonisolated(unsafe) static private(set) weak var shared: AppDelegate?
 
     private var settingsWindow: NSWindow?
+    private var aboutWindow: NSWindow?
+    private var helpWindow: NSWindow?
 
     override init() {
         super.init()
         AppDelegate.shared = self
+    }
+
+    // MARK: - NSApplicationDelegate
+
+    @MainActor
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // 替换系统"关于"菜单项 → 自定义 About 窗口
+        if let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu {
+            if let aboutItem = appMenu.items.first(where: {
+                $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
+            }) {
+                aboutItem.action = #selector(showAboutWindow)
+                aboutItem.target = self
+            }
+
+            // 替换"帮助"菜单项 → 自定义 Help 窗口
+            if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
+                if let helpItem = helpMenu.items.first {
+                    helpItem.action = #selector(showHelpWindow)
+                    helpItem.target = self
+                }
+            }
+        }
     }
 
     @MainActor
@@ -43,6 +68,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.delegate = delegate
         delegate.selfRetain()
         settingsWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    @objc func showAboutWindow() {
+        if let existing = aboutWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let savedPolicy = NSApp.activationPolicy()
+        NSApp.setActivationPolicy(.regular)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 340),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "\(L10n["menu.about"]) Pastry"
+        window.titlebarAppearsTransparent = true
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: AboutView())
+
+        let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy)
+        window.delegate = delegate
+        delegate.selfRetain()
+        aboutWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    @objc private func showHelpWindow() {
+        if let existing = helpWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let savedPolicy = NSApp.activationPolicy()
+        NSApp.setActivationPolicy(.regular)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 380),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = L10n["menu.help"]
+        window.titlebarAppearsTransparent = true
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: HelpView())
+
+        let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy)
+        window.delegate = delegate
+        delegate.selfRetain()
+        helpWindow = window
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
