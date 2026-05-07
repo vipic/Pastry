@@ -755,11 +755,12 @@ struct ClipboardCardView: View {
             }
             let tmpDir = FileManager.default.temporaryDirectory
             let tmpFile = tmpDir.appendingPathComponent("pastry_preview_\(UUID().uuidString.prefix(8)).\(ext)")
-            try? item.content.write(to: tmpFile, atomically: true, encoding: .utf8)
+            let fullContent = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
+            try? fullContent.write(to: tmpFile, atomically: true, encoding: .utf8)
 
-            let charCount = item.content.count
-            let wordCount = item.content.split { $0.isWhitespace || $0.isNewline }.count
-            let lineCount = item.content.split(separator: "\n", omittingEmptySubsequences: false).count
+            let charCount = fullContent.count
+            let wordCount = fullContent.split { $0.isWhitespace || $0.isNewline }.count
+            let lineCount = fullContent.split(separator: "\n", omittingEmptySubsequences: false).count
 
             metadata = QLPreviewHelper.PreviewMetadata(
                 url: tmpFile, displayName: String(format: L10n["preview.title"], typeLabel),
@@ -780,7 +781,7 @@ struct ClipboardCardView: View {
         if let url = openableURL {
             items = [url]
         } else if isTextType {
-            items = [item.content]
+            items = [DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content]
         } else {
             return
         }

@@ -107,11 +107,18 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let appName: String?        // 来源应用名
     let isHandoff: Bool          // 是否来自 Handoff（iPhone/iPad 通用剪贴板）
     let textAnnotation: String?       // 图片附带的文字（同时复制图文时保留）
-    let segments: [ContentSegment]?  // HTML 图文混排的有序段（仅 .html 类型）
+    let segmentsJSON: String?         // segments 的原始 JSON（延迟解码）
     let rawFormatData: Data?          // 原始格式数据（RTF/HTML 的原始字节，粘贴时写回）
     let rawFormatType: String?        // 原始格式的剪贴板类型（public.rtf / public.html）
     var displayCount: Int             // 被粘贴回的次数（可变，不计入 hash）
     var isPinned: Bool                // 钉选（pin），批量删除时保留（可变，不计入 hash）
+
+    /// segments 按需解码（仅 .html 类型使用，大文本不复制时不解码）
+    var segments: [ContentSegment]? {
+        guard let json = segmentsJSON,
+              let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode([ContentSegment].self, from: data)
+    }
 
     /// 从 segments 中提取的远程图片 URL 列表（方便卡片视图和去重使用）
     var imageURLs: [String]? {
@@ -135,6 +142,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         isHandoff: Bool = false,
         textAnnotation: String? = nil,
         segments: [ContentSegment]? = nil,
+        segmentsJSON: String? = nil,
         rawFormatData: Data? = nil,
         rawFormatType: String? = nil,
         displayCount: Int = 0,
@@ -147,7 +155,15 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.appName = appName
         self.isHandoff = isHandoff
         self.textAnnotation = textAnnotation
-        self.segments = segments
+        // 优先用已有 JSON，否则从 segments 编码
+        if let json = segmentsJSON {
+            self.segmentsJSON = json
+        } else if let segs = segments, !segs.isEmpty {
+            self.segmentsJSON = (try? JSONEncoder().encode(segs))
+                .flatMap { String(data: $0, encoding: .utf8) }
+        } else {
+            self.segmentsJSON = nil
+        }
         self.rawFormatData = rawFormatData
         self.rawFormatType = rawFormatType
         self.displayCount = displayCount
@@ -156,10 +172,10 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
 
     /// 去重用的内容摘要（足够长以避免长文本误判）
     var dedupKey: String {
-        let segSig = segments.map { segs in
-            segs.map { $0.imageURL != nil ? "img" : "txt" }.joined(separator: ",")
-        } ?? "nil"
-        return "\(contentType.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? ""):\(segSig)"
+        let segSig = segmentsJSON ?? "nil"
+        // 只取前 64 字符避免超长 key
+        let segPreview = segSig.count > 64 ? String(segSig.prefix(64)) : segSig
+        return "\(contentType.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? ""):\(segPreview)"
     }
 }
 

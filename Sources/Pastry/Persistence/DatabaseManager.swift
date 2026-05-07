@@ -183,10 +183,7 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 6, (item.textAnnotation as NSString?)?.utf8String ?? nil, -1, nil)
         let imageURLsJSON = item.imageURLs.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) }
         sqlite3_bind_text(stmt, 7, (imageURLsJSON as NSString?)?.utf8String ?? nil, -1, nil)
-        let segmentsJSON = item.segments.flatMap { segs in
-            segs.isEmpty ? nil : (try? JSONEncoder().encode(segs)).flatMap { String(data: $0, encoding: .utf8) }
-        }
-        sqlite3_bind_text(stmt, 8, (segmentsJSON as NSString?)?.utf8String ?? nil, -1, nil)
+        sqlite3_bind_text(stmt, 8, (item.segmentsJSON as NSString?)?.utf8String ?? nil, -1, nil)
         sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0)  // is_favorite
         sqlite3_bind_int(stmt, 10, Int32(item.displayCount))
         sqlite3_bind_int(stmt, 11, item.isHandoff ? 1 : 0)
@@ -487,12 +484,9 @@ final class DatabaseManager {
                 return String(cString: ptr)
             }()
             // image_urls 仅用于保留列位置（imageURLs 现从 segments 计算）
-            _ = sqlite3_column_text(stmt, 6)  // skip
-            let segments: [ContentSegment]? = {
+            let segmentsJSON: String? = {
                 guard let ptr = sqlite3_column_text(stmt, 7) else { return nil }
-                let json = String(cString: ptr)
-                guard let data = json.data(using: .utf8) else { return nil }
-                return try? JSONDecoder().decode([ContentSegment].self, from: data)
+                return String(cString: ptr)
             }()
             let pinned = sqlite3_column_int(stmt, 8) != 0
             let dispCount = Int(sqlite3_column_int(stmt, 9))
@@ -517,7 +511,7 @@ final class DatabaseManager {
                 appName: appName,
                 isHandoff: isHandoff,
                 textAnnotation: textAnnotation,
-                segments: segments,
+                segmentsJSON: segmentsJSON,
                 rawFormatData: rawFormatData,
                 rawFormatType: rawFormatType,
                 displayCount: dispCount,

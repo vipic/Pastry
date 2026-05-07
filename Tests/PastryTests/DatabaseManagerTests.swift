@@ -495,4 +495,57 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertNil(items[0].rawFormatData)
         XCTAssertNil(items[0].rawFormatType)
     }
+
+    // MARK: - content 截断
+
+    /// 插入超长文本 → recent() 返回 ≤256 字符
+    func testContentTruncatedOnQuery() {
+        let longText = String(repeating: "超级大文本内容", count: 50) // ~450 字符
+        XCTAssertGreaterThan(longText.count, 256)
+
+        let item = makeItem(content: longText, type: .text)
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].content.count, 256)
+        XCTAssertTrue(longText.hasPrefix(items[0].content))
+    }
+
+    /// loadFullContent 返回完整内容（未被截断）
+    func testLoadFullContentReturnsFull() {
+        let longText = String(repeating: "完整大文本", count: 40) // ~240 字符
+        let item = ClipboardItem(content: longText, contentType: .text)
+        db.insert(item)
+
+        let items = db.recent()
+        let full = db.loadFullContent(id: items[0].id)
+        XCTAssertEqual(full, longText)
+    }
+
+    /// 短文本不被截断（≤256 时原样返回）
+    func testShortContentNotTruncated() {
+        let short = "短文本"
+        db.insert(makeItem(content: short))
+
+        let items = db.recent()
+        XCTAssertEqual(items[0].content, short)
+    }
+
+    // MARK: - segmentsJSON 不解码
+
+    /// segmentsJSON 被存储但 segments 在未访问时不解码
+    func testSegmentsJSONStoredNotDecoded() {
+        let segs: [ContentSegment] = [.text("A"), .image(url: "https://x.com/p.png")]
+        let item = ClipboardItem(content: "text", contentType: .html, segments: segs)
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        // segmentsJSON 已存储
+        XCTAssertNotNil(items[0].segmentsJSON)
+        // segments 按需解码后应正确
+        XCTAssertEqual(items[0].segments?.count, 2)
+        XCTAssertEqual(items[0].segments?[0].textValue, "A")
+    }
 }

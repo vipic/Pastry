@@ -384,7 +384,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         let lines = items.compactMap { item -> String? in
             switch item.contentType {
             case .text, .rtf, .html, .url:
-                return item.content
+                return DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
             case .fileURL:
                 return item.content  // 文件路径也是文本
             case .image:
@@ -474,6 +474,9 @@ final class OverlayPanelManager: @unchecked Sendable {
         let t2 = CFAbsoluteTimeGetCurrent()
 
         let hostingView = NSHostingView(rootView: overlayView)
+
+        let t2a = CFAbsoluteTimeGetCurrent()
+
         hostingView.frame = screenFrame
         hostingView.autoresizingMask = [.width, .height]
         newPanel.contentView = hostingView
@@ -488,7 +491,10 @@ final class OverlayPanelManager: @unchecked Sendable {
         // 性能日志（OSLog + 文件持久化）
         let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
         let itemCount = StoreManager.shared.items.count
-        let perfLine = "\(Date()) | items: \(itemCount) | panel: \(ms(t1-t0))ms | overlayView: \(ms(t2-t1))ms | hostingView: \(ms(t3-t2))ms | orderFront: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+        // 统计最大 content 长度，检测是否有未被截断的大文本
+        let maxLen = StoreManager.shared.items.map { $0.content.count }.max() ?? 0
+        let totalLen = StoreManager.shared.items.reduce(0) { $0 + $1.content.count }
+        let perfLine = "\(Date()) | items: \(itemCount) | maxContent: \(maxLen) | totalContent: \(totalLen) | panel: \(ms(t1-t0))ms | overlayView: \(ms(t2-t1))ms | hostingInit: \(ms(t2a-t2))ms | hostingLayout: \(ms(t3-t2a))ms | orderFront: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
         log.info("⏱ \(perfLine, privacy: .public)")
 
         // 追加写入文件（~/Library/Logs/Pastry/perf.log）

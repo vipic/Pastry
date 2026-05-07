@@ -542,7 +542,9 @@ struct OverlayView: View {
                 let selected = visibleItems.filter { ids.contains($0.id) }
                 let text = selected.compactMap { it -> String? in
                     switch it.contentType {
-                    case .text, .rtf, .html, .fileURL: return it.content
+                    case .text, .rtf, .html:
+                        return DatabaseManager.shared.loadFullContent(id: it.id) ?? it.content
+                    case .fileURL: return it.content
                     default: return nil
                     }
                 }.joined(separator: "\n")
@@ -569,7 +571,8 @@ struct OverlayView: View {
                     }
                     return NSItemProvider(object: item.content as NSString)
                 default:
-                    return NSItemProvider(object: item.content as NSString)
+                    let content = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
+                    return NSItemProvider(object: content as NSString)
                 }
             }
         }
