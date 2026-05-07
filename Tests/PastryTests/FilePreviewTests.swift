@@ -254,4 +254,33 @@ final class FilePreviewTests: XCTestCase {
         let payload = ClipboardCardView.dragPayloadForTesting(item)
         XCTAssertFalse(payload.isFile, "HTML 不应为文件拖拽")
     }
+
+    // MARK: - 预览条件覆盖（url 类型能预览）
+
+    func testURLTypeCanPreview() {
+        // canPreview = canOpen || isTextType
+        // .url 属于 canOpen，应该能预览
+        let urlItem = makeItem("https://example.com", .url)
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: urlItem.contentType) == false,
+                      ".url 不应为文本类，但应通过 canOpen 能预览")
+    }
+
+    func testTextTypeCanPreview() {
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: .text))
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: .rtf))
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: .html))
+    }
+
+    func testFileURLTypeCanPreview() {
+        // .fileURL 属于 canOpen
+        let item = makeItem("/tmp/test.pdf", .fileURL)
+        XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(contentType: item.contentType),
+                       ".fileURL 不是文本类，但应通过 canOpen 能预览")
+    }
+
+    func testImageTypeCanPreview() {
+        let item = makeItem("/tmp/photo.jpg", .image)
+        XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(contentType: item.contentType),
+                       ".image 不是文本类，但应通过 canOpen 能预览")
+    }
 }
