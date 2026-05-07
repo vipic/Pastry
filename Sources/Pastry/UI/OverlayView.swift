@@ -266,20 +266,20 @@ struct OverlayView: View {
                 if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
             }
 
-            Button {
-                showFilterPopover.toggle()
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease")
-                    .font(.system(size: 12))
-                    .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(0.4))
-            }
-            .buttonStyle(.plain)
-            .onHover { hovering in
-                if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
-            }
-            .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
-                FilterPopoverContent(store: store)
-            }
+            Image(systemName: "line.3.horizontal.decrease")
+                .font(.system(size: 12))
+                .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(0.4))
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    showFilterPopover.toggle()
+                }
+                .onHover { hovering in
+                    if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
+                }
+                .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
+                    FilterPopoverContent(store: store)
+                }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
