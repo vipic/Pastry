@@ -246,7 +246,6 @@ struct OverlayView: View {
 
             TextField(L10n["search.placeholder"], text: $store.searchQuery)
                 .textFieldStyle(.plain)
-                .disableAutocorrection(true)
                 .font(.system(size: 13))
                 .foregroundColor(.white)
                 .focused($isSearchFocused)
