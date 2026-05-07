@@ -195,13 +195,12 @@ private final class PreviewContainerView: NSView {
             let revealBtn = NSButton(frame: NSRect(x: bounds.width - 100, y: 2, width: 90, height: 24))
             revealBtn.bezelStyle = .regularSquare
             revealBtn.isBordered = false
-            revealBtn.title = "Finder"
             revealBtn.font = .systemFont(ofSize: 11)
             revealBtn.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
             revealBtn.imagePosition = .imageLeading
             revealBtn.contentTintColor = .secondaryLabelColor
             revealBtn.attributedTitle = NSAttributedString(
-                string: "Finder",
+                string: L10n["preview.reveal"],
                 attributes: [.foregroundColor: NSColor.secondaryLabelColor, .font: NSFont.systemFont(ofSize: 11)]
             )
             revealBtn.target = self
