@@ -57,9 +57,8 @@ enum L10n {
             return lang
         }
         // Fallback to system language — use autoupdating locale
-        // (Locale.preferredLanguages reads from AppleLanguages which may have stale overrides)
         if let code = Locale.autoupdatingCurrent.language.languageCode?.identifier {
-            if code == "zh" { return "zh-Hans" }
+            if code.hasPrefix("zh") { return "zh-Hans" }
         }
         return "en"
     }
