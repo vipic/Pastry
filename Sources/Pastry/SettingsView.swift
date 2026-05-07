@@ -73,13 +73,12 @@ struct SettingsSceneView: View {
                 Label(tab.label, systemImage: tab.icon)
                     .tag(tab)
             }
+            .navigationSplitViewColumnWidth(min: 160, ideal: 180)
         } detail: {
             if let tab = selectedTab {
                 detail(for: tab)
             }
         }
-        .toolbar(removing: .sidebarToggle)
-        .frame(minWidth: 520, minHeight: 380)
         .id(selectedLanguage.rawValue) // force full re-render on language change
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
