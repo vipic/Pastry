@@ -42,7 +42,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         guard let event = NSApp.currentEvent else { return }
 
         if event.type == .rightMouseUp {
-            if menu == nil { buildMenu() }
+            buildMenu()
             refreshStats()
             statusItem.menu = menu
             statusItem.button?.performClick(nil)
