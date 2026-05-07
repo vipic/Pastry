@@ -1299,13 +1299,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "轻量级剪贴板管理工具，自动记录复制历史，支持文本、图片、文件、链接等多种类型，快速搜索、筛选和粘贴。"
+            "value": "轻灵的剪贴板伴侣。自动记录文字、图片、文件与链接，全局唤起、即搜即用，让每一次复制都不再转瞬即逝。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A lightweight clipboard manager that automatically records copy history, supporting text, images, files, links and more. Quick search, filter and paste."
+            "value": "A lightweight clipboard companion. Automatically saves text, images, files, and links. Summon it globally, search instantly — your clipboard, remembered."
           }
         }
       }
@@ -1316,13 +1316,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "© 2026 Nekutai. All rights reserved."
+            "value": "© 2026 Nekutai"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "© 2026 Nekutai. All rights reserved."
+            "value": "© 2026 Nekutai"
           }
         }
       }
