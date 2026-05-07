@@ -238,13 +238,25 @@ final class ClipboardMonitor: ObservableObject {
     private func readText(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
         // 标准纯文本
         if let text = pb.string(forType: .string), !text.isEmpty {
-            return ClipboardItem(content: text, contentType: .text, appName: appName, isHandoff: isHandoff)
+            let type = isPlainURL(text) ? ClipType.url : ClipType.text
+            return ClipboardItem(content: text, contentType: type, appName: appName, isHandoff: isHandoff)
         }
         // 微信/QQ 自定义富文本（TencentAttributeStringType plist）
         if let text = readTencentText(from: pb), !text.isEmpty {
-            return ClipboardItem(content: text, contentType: .text, appName: appName, isHandoff: isHandoff)
+            let type = isPlainURL(text) ? ClipType.url : ClipType.text
+            return ClipboardItem(content: text, contentType: type, appName: appName, isHandoff: isHandoff)
         }
         return nil
+    }
+
+    /// 检测纯文本是否为 URL（http/https），用于回退到 readText 时将链接归为 .url 类型
+    private func isPlainURL(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme,
+              ["http", "https"].contains(scheme.lowercased())
+        else { return false }
+        return true
     }
 
     /// 微信/QQ 剪贴板自定义类型：二进制 plist 数组，元素含 TencentElementType(11=文本) + TencentElementValue

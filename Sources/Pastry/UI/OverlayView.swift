@@ -35,6 +35,7 @@ struct OverlayView: View {
     @State private var showFilterPanel = false
     @State private var showFilterPopover = false
     @State private var hoverSearch = false
+    @State private var hoverFilter = false
     @State private var hoverGear = false
     @State private var hoverTab: StoreManager.PinTab? = nil
     @State private var cmdDown = false
@@ -264,21 +265,6 @@ struct OverlayView: View {
             .onHover { hovering in
                 if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
             }
-
-            Image(systemName: "line.3.horizontal.decrease")
-                .font(.system(size: 12))
-                .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(0.4))
-                .frame(width: 20, height: 20)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    showFilterPopover.toggle()
-                }
-                .onHover { hovering in
-                    if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
-                }
-                .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
-                    FilterPopoverContent(store: store)
-                }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
@@ -288,6 +274,31 @@ struct OverlayView: View {
                 .fill(Color.black.opacity(0.25))
         )
         .padding(.trailing, 6)
+    }
+
+    // MARK: - 筛选按钮
+
+    private var filterButton: some View {
+        Image(systemName: "line.3.horizontal.decrease")
+            .font(.system(size: 13))
+            .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(hoverFilter ? 0.7 : 0.35))
+            .frame(width: 28, height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(hoverFilter ? Color.white.opacity(0.1) : Color.clear)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                selection.reset()
+                showFilterPopover.toggle()
+            }
+            .onHover { hovering in
+                hoverFilter = hovering
+                if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
+            }
+            .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
+                FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
+            }
     }
 
     private var hasActiveTimeOrTypeFilter: Bool {
@@ -413,6 +424,8 @@ struct OverlayView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
         )
+        .contentShape(Rectangle())
+        .onTapGesture { selection.reset() }
     }
 
     // MARK: - Header
@@ -425,6 +438,8 @@ struct OverlayView: View {
             if showSearch {
                 // 搜索框展开 — 占用空间，tab 被挤到右侧
                 inlineSearchField
+                filterButton
+                    .padding(.trailing, 6)
 
                 tabButton(tab: .all, icon: "tray.full", label: L10n["tab.all"], isSelected: store.pinTab == .all)
                     .padding(.trailing, 6)
@@ -446,6 +461,9 @@ struct OverlayView: View {
                 .buttonStyle(.plain)
                 .onHover { hoverSearch = $0 }
                 .padding(.trailing, 6)
+
+                filterButton
+                    .padding(.trailing, 6)
 
                 tabButton(tab: .all, icon: "tray.full", label: L10n["tab.all"], isSelected: store.pinTab == .all)
                     .padding(.trailing, 6)
@@ -475,6 +493,7 @@ struct OverlayView: View {
 
     private func tabButton(tab: StoreManager.PinTab, icon: String, label: String, isSelected: Bool) -> some View {
         Button {
+            selection.reset()
             store.pinTab = tab
         } label: {
             let isHover = hoverTab == tab
@@ -734,6 +753,7 @@ private final class KeyboardEventHandler: ObservableObject {
 // MARK: - 筛选气泡内容（NSPopover 内嵌 SwiftUI）
 struct FilterPopoverContent: View {
     @ObservedObject var store: StoreManager
+    var onFilterChange: (() -> Void)?
 
     private var hasActiveFilter: Bool {
         store.typeFilter != nil || store.timeFilter != .any || store.appFilter != nil || store.handoffFilter
@@ -765,6 +785,7 @@ struct FilterPopoverContent: View {
                         store.appFilter = nil
                         store.handoffFilter = false
                         store.timeFilter = .any
+                        onFilterChange?()
                     }
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
@@ -778,17 +799,20 @@ struct FilterPopoverContent: View {
                         filterChip(L10n["filter.all"], isSelected: store.appFilter == nil && !store.handoffFilter) {
                             store.appFilter = nil
                             store.handoffFilter = false
+                            onFilterChange?()
                         }
                         ForEach(store.availableApps, id: \.self) { app in
                             AppFilterChip(app: app, isSelected: store.appFilter == app) {
                                 store.appFilter = (store.appFilter == app) ? nil : app
                                 store.handoffFilter = false
+                                onFilterChange?()
                             }
                         }
                         if hasHandoffItems {
                             filterChip(L10n["filter.handoff"], iconName: "laptopcomputer.and.iphone", isSelected: store.handoffFilter) {
                                 store.appFilter = nil
                                 store.handoffFilter.toggle()
+                                onFilterChange?()
                             }
                         }
                     }
@@ -800,6 +824,7 @@ struct FilterPopoverContent: View {
                     ForEach(ClipType.allCases, id: \.storageKey) { type in
                         filterChip(type.label, iconName: type.iconName, isSelected: store.typeFilter == type) {
                             store.typeFilter = (store.typeFilter == type) ? nil : type
+                            onFilterChange?()
                         }
                     }
                 }
@@ -810,6 +835,7 @@ struct FilterPopoverContent: View {
                     ForEach(StoreManager.TimeFilter.allCases, id: \.rawValue) { tf in
                         filterChip(tf.rawValue, isSelected: store.timeFilter == tf) {
                             store.timeFilter = tf
+                            onFilterChange?()
                         }
                     }
                 }
