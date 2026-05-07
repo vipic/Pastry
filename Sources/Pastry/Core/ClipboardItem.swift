@@ -22,12 +22,12 @@ enum ClipType: Codable, CaseIterable {
 
     var label: String {
         switch self {
-        case .text:    return "文本"
-        case .rtf:     return "富文本"
-        case .image:   return "图片"
-        case .fileURL: return "文件"
-        case .url:     return "链接"
-        case .html:    return "HTML"
+        case .text:    return L10n["filter.type.text"]
+        case .rtf:     return L10n["filter.type.rtf"]
+        case .image:   return L10n["filter.type.image"]
+        case .fileURL: return L10n["filter.type.fileURL"]
+        case .url:     return L10n["filter.type.url"]
+        case .html:    return L10n["filter.type.html"]
         }
     }
 

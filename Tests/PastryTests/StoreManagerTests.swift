@@ -464,4 +464,26 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertTrue(store.filteredItems.contains { $0.content == "B" })
         XCTAssertFalse(store.filteredItems.contains { $0.content == "C" })
     }
+
+    // MARK: - TimeFilter.label 本地化覆盖
+
+    /// 所有时间筛选项都有非空标签
+    func testTimeFilterAllLabelsNonEmpty() {
+        for tf in StoreManager.TimeFilter.allCases {
+            XCTAssertFalse(
+                tf.label.isEmpty,
+                "TimeFilter.\(tf) 的标签不应为空"
+            )
+        }
+    }
+
+    /// 所有时间筛选项标签互不相同
+    func testTimeFilterLabelsAreUnique() {
+        let labels = Set(StoreManager.TimeFilter.allCases.map { $0.label })
+        XCTAssertEqual(
+            labels.count,
+            StoreManager.TimeFilter.allCases.count,
+            "每个时间筛选项的标签应唯一"
+        )
+    }
 }

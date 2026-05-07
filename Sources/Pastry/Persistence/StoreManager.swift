@@ -68,6 +68,17 @@ final class StoreManager: ObservableObject {
         case lastWeek   = "上周"
         case last30Days = "过去 30 天"
 
+        var label: String {
+            switch self {
+            case .any:        return L10n["filter.time.any"]
+            case .today:      return L10n["filter.time.today"]
+            case .yesterday:  return L10n["filter.time.yesterday"]
+            case .thisWeek:   return L10n["filter.time.thisWeek"]
+            case .lastWeek:   return L10n["filter.time.lastWeek"]
+            case .last30Days: return L10n["filter.time.last30Days"]
+            }
+        }
+
         /// 时间区间（闭开：start ≤ t < end），any 返回 nil
         var dateRange: Range<Date>? {
             let cal = Calendar.current

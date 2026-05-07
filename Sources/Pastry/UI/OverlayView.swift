@@ -742,7 +742,7 @@ struct FilterPopoverContent: View {
             filterSection(title: L10n["filter.time"]) {
                 LazyVGrid(columns: gridColumns, spacing: 6) {
                     ForEach(StoreManager.TimeFilter.allCases, id: \.rawValue) { tf in
-                        filterChip(tf.rawValue, isSelected: store.timeFilter == tf) {
+                        filterChip(tf.label, isSelected: store.timeFilter == tf) {
                             store.timeFilter = tf
                             onFilterChange?()
                         }
@@ -790,7 +790,7 @@ struct FilterPopoverContent: View {
         .buttonStyle(.plain)
     }
 
-    /// 带应用图标的筛选芯片
+    /// 带应用图标的筛选标签
     private struct AppFilterChip: View {
         let app: String
         let isSelected: Bool
