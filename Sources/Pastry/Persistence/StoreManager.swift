@@ -305,7 +305,18 @@ final class StoreManager: ObservableObject {
     private func handleNewItem(_ item: ClipboardItem) {
         guard DatabaseManager.shared.insert(item) else { return }
 
-        items.insert(item, at: 0)
+        // 内存中的 items 数组截断 content 至 256 字符（DB 保留完整内容用于粘贴和 FTS）
+        let truncatedContent = item.content.count > 256 ? String(item.content.prefix(256)) : item.content
+        let listItem = ClipboardItem(
+            id: item.id, timestamp: item.timestamp,
+            content: truncatedContent, contentType: item.contentType,
+            appName: item.appName, isHandoff: item.isHandoff,
+            textAnnotation: item.textAnnotation,
+            segmentsJSON: item.segmentsJSON,
+            rawFormatData: item.rawFormatData, rawFormatType: item.rawFormatType,
+            displayCount: item.displayCount, isPinned: item.isPinned
+        )
+        items.insert(listItem, at: 0)
 
         let noActiveFilters = searchQuery.isEmpty
             && typeFilter == nil
