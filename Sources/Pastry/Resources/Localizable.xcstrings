@@ -1157,6 +1157,23 @@
         }
       }
     },
+    "preview.reveal": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开所在位置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reveal in Finder"
+          }
+        }
+      }
+    },
     "a11y.close": {
       "extractionState": "manual",
       "localizations": {
