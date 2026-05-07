@@ -448,4 +448,51 @@ final class DatabaseManagerTests: XCTestCase {
         let limited = db.favorites(limit: 3)
         XCTAssertEqual(limited.count, 3)
     }
+
+    // MARK: - rawFormatData 持久化
+
+    /// RTF 原始格式数据写入后完整回读
+    func testRawFormatDataRoundTripRTF() {
+        let raw = Data([0x7B, 0x5C, 0x72, 0x74, 0x66, 0x31])  // "{\\rtf1"
+        let item = ClipboardItem(
+            content: "hello",
+            contentType: .rtf,
+            rawFormatData: raw,
+            rawFormatType: "public.rtf"
+        )
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].rawFormatData, raw)
+        XCTAssertEqual(items[0].rawFormatType, "public.rtf")
+    }
+
+    /// HTML 原始格式数据写入后完整回读
+    func testRawFormatDataRoundTripHTML() {
+        let raw = Data("<p>hello</p>".utf8)
+        let item = ClipboardItem(
+            content: "hello",
+            contentType: .html,
+            rawFormatData: raw,
+            rawFormatType: "public.html"
+        )
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].rawFormatData, raw)
+        XCTAssertEqual(items[0].rawFormatType, "public.html")
+    }
+
+    /// 普通条目（.text）无原始格式数据
+    func testRawFormatDataNilByDefault() {
+        let item = makeItem(content: "纯文本", type: .text)
+        db.insert(item)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertNil(items[0].rawFormatData)
+        XCTAssertNil(items[0].rawFormatType)
+    }
 }

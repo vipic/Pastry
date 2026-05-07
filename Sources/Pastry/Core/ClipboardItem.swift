@@ -108,6 +108,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let isHandoff: Bool          // 是否来自 Handoff（iPhone/iPad 通用剪贴板）
     let textAnnotation: String?       // 图片附带的文字（同时复制图文时保留）
     let segments: [ContentSegment]?  // HTML 图文混排的有序段（仅 .html 类型）
+    let rawFormatData: Data?          // 原始格式数据（RTF/HTML 的原始字节，粘贴时写回）
+    let rawFormatType: String?        // 原始格式的剪贴板类型（public.rtf / public.html）
     var displayCount: Int             // 被粘贴回的次数（可变，不计入 hash）
     var isPinned: Bool                // 钉选（pin），批量删除时保留（可变，不计入 hash）
 
@@ -133,6 +135,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         isHandoff: Bool = false,
         textAnnotation: String? = nil,
         segments: [ContentSegment]? = nil,
+        rawFormatData: Data? = nil,
+        rawFormatType: String? = nil,
         displayCount: Int = 0,
         isPinned: Bool = false
     ) {
@@ -144,6 +148,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.isHandoff = isHandoff
         self.textAnnotation = textAnnotation
         self.segments = segments
+        self.rawFormatData = rawFormatData
+        self.rawFormatType = rawFormatType
         self.displayCount = displayCount
         self.isPinned = isPinned
     }

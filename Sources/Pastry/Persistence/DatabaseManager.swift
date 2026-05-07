@@ -146,6 +146,11 @@ final class DatabaseManager {
             _ = execute("ALTER TABLE clips ADD COLUMN is_handoff INTEGER DEFAULT 0;")
             userVersion = 5
         }
+        if version < 6 {
+            _ = execute("ALTER TABLE clips ADD COLUMN raw_format_data BLOB;")
+            _ = execute("ALTER TABLE clips ADD COLUMN raw_format_type TEXT;")
+            userVersion = 6
+        }
     }
 
     // MARK: - CRUD
@@ -160,8 +165,8 @@ final class DatabaseManager {
         if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return false }
 
         let sql = """
-        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -185,6 +190,18 @@ final class DatabaseManager {
         sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0)  // is_favorite
         sqlite3_bind_int(stmt, 10, Int32(item.displayCount))
         sqlite3_bind_int(stmt, 11, item.isHandoff ? 1 : 0)
+        if let rawData = item.rawFormatData {
+            _ = rawData.withUnsafeBytes { ptr in
+                sqlite3_bind_blob(stmt, 12, ptr.baseAddress, Int32(rawData.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+            }
+        } else {
+            sqlite3_bind_null(stmt, 12)
+        }
+        if let rawType = item.rawFormatType {
+            sqlite3_bind_text(stmt, 13, (rawType as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 13)
+        }
 
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -212,7 +229,7 @@ final class DatabaseManager {
         // FTS5 搜索（带前缀通配）
         let ftsSQL = """
         SELECT c.id, c.timestamp, c.content, c.content_type, c.app_name,
-               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff
+               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff, c.raw_format_data, c.raw_format_type
         FROM clips c
         JOIN clips_fts f ON c.rowid = f.rowid
         WHERE clips_fts MATCH ?
@@ -245,7 +262,7 @@ final class DatabaseManager {
     /// LIKE 降级搜索
     private func fallbackSearch(query: String, limit: Int) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type
         FROM clips
         WHERE content LIKE ?
         ORDER BY timestamp DESC
@@ -271,7 +288,7 @@ final class DatabaseManager {
         lock.lock()
         defer { lock.unlock() }
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type
         FROM clips
         ORDER BY timestamp DESC
         LIMIT ?;
@@ -294,7 +311,7 @@ final class DatabaseManager {
         lock.lock()
         defer { lock.unlock() }
         let sql = """
-        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff
+        SELECT id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type
         FROM clips
         WHERE is_favorite = 1
         ORDER BY timestamp DESC
@@ -480,6 +497,17 @@ final class DatabaseManager {
             let pinned = sqlite3_column_int(stmt, 8) != 0
             let dispCount = Int(sqlite3_column_int(stmt, 9))
             let isHandoff = sqlite3_column_int(stmt, 10) != 0
+            let rawFormatData: Data? = {
+                guard let ptr = sqlite3_column_blob(stmt, 11),
+                      sqlite3_column_bytes(stmt, 11) > 0
+                else { return nil }
+                let count = Int(sqlite3_column_bytes(stmt, 11))
+                return Data(bytes: ptr, count: count)
+            }()
+            let rawFormatType: String? = {
+                guard let ptr = sqlite3_column_text(stmt, 12) else { return nil }
+                return String(cString: ptr)
+            }()
 
             let item = ClipboardItem(
                 id: UUID(uuidString: idStr) ?? UUID(),
@@ -490,6 +518,8 @@ final class DatabaseManager {
                 isHandoff: isHandoff,
                 textAnnotation: textAnnotation,
                 segments: segments,
+                rawFormatData: rawFormatData,
+                rawFormatType: rawFormatType,
                 displayCount: dispCount,
                 isPinned: pinned
             )

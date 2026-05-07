@@ -282,7 +282,14 @@ final class ClipboardMonitor: ObservableObject {
                   options: [.documentType: NSAttributedString.DocumentType.rtf],
                   documentAttributes: nil)
         else { return nil }
-        return ClipboardItem(content: attr.string, contentType: .rtf, appName: appName, isHandoff: isHandoff)
+        return ClipboardItem(
+            content: attr.string,
+            contentType: .rtf,
+            appName: appName,
+            isHandoff: isHandoff,
+            rawFormatData: data,
+            rawFormatType: "public.rtf"
+        )
     }
 
     private func readHTML(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
@@ -310,7 +317,9 @@ final class ClipboardMonitor: ObservableObject {
             contentType: .html,
             appName: appName,
             isHandoff: isHandoff,
-            segments: segments.isEmpty ? nil : segments
+            segments: segments.isEmpty ? nil : segments,
+            rawFormatData: data,
+            rawFormatType: "public.html"
         )
     }
 
