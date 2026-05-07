@@ -245,6 +245,7 @@ final class OverlayPanelManager: @unchecked Sendable {
     private var previousFrontApp: NSRunningApplication?
     private var alertActive = false
     private var isPasting = false
+    private var isDragThrough = false
     private var panelResignKeyObserver: NSObjectProtocol?
 
     /// 筛选气泡
@@ -429,6 +430,29 @@ final class OverlayPanelManager: @unchecked Sendable {
     @MainActor
     func beginDragThrough() {
         panel?.ignoresMouseEvents = true
+        isDragThrough = true
+        // 轮询鼠标释放来检测拖拽结束
+        DispatchQueue.main.async { [weak self] in
+            self?.pollDragEnd()
+        }
+    }
+
+    /// 轮询鼠标按键状态，释放时恢复面板交互
+    private func pollDragEnd() {
+        guard isDragThrough else { return }
+        if NSEvent.pressedMouseButtons == 0 {
+            // 鼠标已释放 → 拖拽结束，等一小会让 drop 完成
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                guard let self, self.isDragThrough else { return }
+                self.isDragThrough = false
+                self.panel?.ignoresMouseEvents = false
+                self.panel?.makeKey()   // 重新成为 key window，这样后续点击空白仍会触发 didResignKey → hide
+            }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.pollDragEnd()
+            }
+        }
     }
 
     var isVisible: Bool { panel != nil }
@@ -517,11 +541,11 @@ final class OverlayPanelManager: @unchecked Sendable {
             try? (perfLine + "\n").write(to: logFile, atomically: true, encoding: .utf8)
         }
 
-        // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起
+        // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起（拖拽穿透期间除外）
         panelResignKeyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: newPanel, queue: .main
         ) { [weak self] _ in
-            guard let self, !self.isPasting, !self.alertActive else { return }
+            guard let self, !self.isPasting, !self.alertActive, !self.isDragThrough else { return }
             DispatchQueue.main.async { self.hide() }
         }
 
@@ -618,6 +642,8 @@ final class OverlayPanelManager: @unchecked Sendable {
             panelResignKeyObserver = nil
         }
         removeKeyboardMonitor()
+        isDragThrough = false
+        panel?.ignoresMouseEvents = false
         panel?.orderOut(nil)
         panel = nil
         previousFrontApp = nil
