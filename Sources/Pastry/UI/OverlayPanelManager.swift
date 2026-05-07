@@ -192,7 +192,7 @@ private final class PreviewContainerView: NSView {
 
         // Reveal in Finder（右下角，仅本地文件显示）
         if metadata.isLocalFile {
-            let revealBtn = NSButton(frame: NSRect(x: bounds.width - 100, y: 2, width: 90, height: 24))
+            let revealBtn = NSButton(frame: NSRect(x: bounds.width - 140, y: 2, width: 130, height: 24))
             revealBtn.bezelStyle = .regularSquare
             revealBtn.isBordered = false
             revealBtn.font = .systemFont(ofSize: 11)
