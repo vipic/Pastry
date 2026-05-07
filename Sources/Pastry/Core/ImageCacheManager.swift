@@ -3,7 +3,7 @@ import OSLog
 
 // MARK: - 图片缓存管理器
 final class ImageCacheManager {
-    static let shared = ImageCacheManager()
+    nonisolated(unsafe) static let shared = ImageCacheManager()
 
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "image-cache")
 

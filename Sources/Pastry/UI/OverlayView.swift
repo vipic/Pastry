@@ -32,7 +32,6 @@ struct OverlayView: View {
     @State private var renderedIds: Set<UUID> = []    // 当前已渲染（可见）的卡片 ID
     @State private var showDeleteConfirm = false
     @State private var showSearch = false
-    @State private var showFilterPanel = false
     @State private var showFilterPopover = false
     @State private var hoverSearch = false
     @State private var hoverFilter = false
@@ -175,7 +174,6 @@ struct OverlayView: View {
             }
         } else {
             isSearchFocused = false
-            showFilterPanel = false
             showFilterPopover = false
             // clearFilters 由 closeSearch(clearFilter:) 控制，不在这里自动清
         }
@@ -185,7 +183,6 @@ struct OverlayView: View {
 
     private func resetAllState() {
         showSearch = false
-        showFilterPanel = false
         showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
@@ -200,7 +197,6 @@ struct OverlayView: View {
         guard cardVisible else { return }
         keyHandler.uninstall()
         showSearch = false
-        showFilterPanel = false
         showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
@@ -303,93 +299,6 @@ struct OverlayView: View {
 
     private var hasActiveTimeOrTypeFilter: Bool {
         store.typeFilter != nil || store.timeFilter != .any || store.appFilter != nil
-    }
-
-    // MARK: - 筛选面板
-
-    private var filterPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if !store.availableApps.isEmpty {
-                filterSection(title: L10n["filter.source_app"]) {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], spacing: 6) {
-                        filterChip(L10n["filter.all"], isSelected: store.appFilter == nil) {
-                            store.appFilter = nil
-                        }
-                        ForEach(store.availableApps, id: \.self) { app in
-                            filterChip(app, isSelected: store.appFilter == app) {
-                                store.appFilter = (store.appFilter == app) ? nil : app
-                            }
-                        }
-                    }
-                }
-            }
-
-            filterSection(title: L10n["filter.type"]) {
-                HStack(spacing: 6) {
-                    ForEach(ClipType.allCases, id: \.storageKey) { type in
-                        filterChip(type.label, isSelected: store.typeFilter == type) {
-                            store.typeFilter = (store.typeFilter == type) ? nil : type
-                        }
-                    }
-                }
-            }
-
-            filterSection(title: L10n["filter.time"]) {
-                HStack(spacing: 6) {
-                    ForEach(StoreManager.TimeFilter.allCases, id: \.rawValue) { tf in
-                        filterChip(tf.rawValue, isSelected: store.timeFilter == tf) {
-                            store.timeFilter = tf
-                        }
-                    }
-                }
-            }
-
-            if hasActiveTimeOrTypeFilter {
-                HStack {
-                    Spacer()
-                    Button(L10n["filter.clear"]) {
-                        store.typeFilter = nil
-                        store.appFilter = nil
-                        store.handoffFilter = false
-                        store.timeFilter = .any
-                    }
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.black.opacity(0.35))
-        )
-        .padding(.bottom, 6)
-    }
-
-    private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.secondary)
-                .textCase(.uppercase)
-            content()
-        }
-    }
-
-    private func filterChip(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(isSelected ? .black : .primary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(isSelected ? Color.white : Color.primary.opacity(0.08))
-                )
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - 卡片容器

@@ -5,7 +5,7 @@ import Quartz
 
 // MARK: - 链接预览加载器
 final class LinkPreviewLoader {
-    static let shared = LinkPreviewLoader()
+    nonisolated(unsafe) static let shared = LinkPreviewLoader()
 
     struct Preview {
         let title: String

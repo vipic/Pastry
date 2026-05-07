@@ -4,7 +4,7 @@ import Foundation
 /// 用法：L10n["settings.tab.general"] → 根据设置语言返回对应翻译
 /// 语言切换立即生效，无需重启。
 enum L10n {
-    private static var catalog: [String: [String: String]] = loadCatalog()
+    nonisolated(unsafe) private static var catalog: [String: [String: String]] = loadCatalog()
 
     private static func loadCatalog() -> [String: [String: String]] {
         // 1. deployed app: ~/Applications/Pastry.app/Contents/Resources/

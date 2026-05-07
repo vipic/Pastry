@@ -7,7 +7,7 @@ import OSLog
 final class ClipboardMonitor: ObservableObject {
 
     // MARK: 单例
-    static let shared = ClipboardMonitor()
+    nonisolated(unsafe) static let shared = ClipboardMonitor()
 
     // MARK: Published
     @Published private(set) var latestItem: ClipboardItem?

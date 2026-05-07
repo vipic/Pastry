@@ -5,7 +5,7 @@ import OSLog
 // MARK: - 菜单栏管理器（左键打开面板，右键弹出菜单）
 final class MenuBarManager: NSObject, NSMenuDelegate {
 
-    static let shared = MenuBarManager()
+    nonisolated(unsafe) static let shared = MenuBarManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "menubar")
 
     private var statusItem: NSStatusItem!
