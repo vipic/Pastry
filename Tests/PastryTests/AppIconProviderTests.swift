@@ -78,6 +78,36 @@ final class AppIconProviderTests: XCTestCase {
         XCTAssertFalse(icon.size.width == 0, "应返回有效图标")
     }
 
+    // MARK: - icon: 已知应用返回真实图标
+
+    func testIconKnownAppNotDefaultIcon() {
+        let realIcon = provider.icon(for: "Safari")
+        let defaultIcon = provider.icon(for: "__NoSuchApp_12345__")
+        // 真实图标应包含高清表示，默认占位图标不应包含
+        let realHighRes = realIcon.representations.filter { $0.pixelsWide >= 256 }.count
+        let defaultHighRes = defaultIcon.representations.filter { $0.pixelsWide >= 256 }.count
+        XCTAssertGreaterThan(realHighRes, 0, "已知应用图标应包含 ≥256px 表示")
+        XCTAssertEqual(defaultHighRes, 0, "占位图标不应包含 ≥256px 表示")
+    }
+
+    func testIconKnownAppHasHighResRepresentations() {
+        let icon = provider.icon(for: "Xcode")
+        // 真实应用图标包含多个高清表示（≥256px），占位图标仅有少量低清表示
+        let highResCount = icon.representations.filter { rep in
+            rep.pixelsWide >= 256 || rep.pixelsHigh >= 256
+        }.count
+        XCTAssertGreaterThan(highResCount, 0, "真实应用图标应包含 ≥256px 的表示")
+    }
+
+    func testIconUnknownAppReturnsDefault() {
+        let icon = provider.icon(for: "DefinitelyNotARealApp")
+        // 未知应用不应有高清表示，返回的是默认占位图标
+        let highResCount = icon.representations.filter { rep in
+            rep.pixelsWide >= 256 || rep.pixelsHigh >= 256
+        }.count
+        XCTAssertEqual(highResCount, 0, "未知应用的图标不应包含高清表示")
+    }
+
     // MARK: - 缓存
 
     func testThemeColorCaching() {
