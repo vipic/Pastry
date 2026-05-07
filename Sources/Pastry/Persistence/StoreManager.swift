@@ -151,12 +151,20 @@ final class StoreManager: ObservableObject {
         let pb = NSPasteboard.general
         pb.clearContents()
 
+        // 列表查询只取前 256 字符，粘贴前按需取完整内容
+        let fullContent: String
+        switch item.contentType {
+        case .text, .url, .rtf, .html:
+            fullContent = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
+        default:
+            fullContent = item.content
+        }
+
         switch item.contentType {
         case .text, .url:
-            pb.setString(item.content, forType: .string)
+            pb.setString(fullContent, forType: .string)
         case .rtf, .html:
-            // 写回原始格式 + 纯文本 fallback
-            pb.setString(item.content, forType: .string)
+            pb.setString(fullContent, forType: .string)
             if let raw = item.rawFormatData, let typeStr = item.rawFormatType {
                 pb.setData(raw, forType: NSPasteboard.PasteboardType(typeStr))
             }
