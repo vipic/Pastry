@@ -552,12 +552,13 @@ struct OverlayView: View {
                 return NSItemProvider(object: text as NSString)
             } else {
                 // 单选拖拽：按类型提供原生数据
-                let url = URL(fileURLWithPath: item.content)
                 switch item.contentType {
                 case .image:
-                    if FileManager.default.fileExists(atPath: item.content),
-                       let provider = NSItemProvider(contentsOf: url) {
-                        provider.suggestedName = url.lastPathComponent
+                    let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
+                    let imageURL = URL(fileURLWithPath: imagePath)
+                    if FileManager.default.fileExists(atPath: imagePath),
+                       let provider = NSItemProvider(contentsOf: imageURL) {
+                        provider.suggestedName = imageURL.lastPathComponent
                         return provider
                     }
                     return NSItemProvider(object: item.content as NSString)

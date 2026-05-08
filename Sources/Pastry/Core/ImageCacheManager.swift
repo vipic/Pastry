@@ -31,20 +31,58 @@ final class ImageCacheManager {
         }
     }
 
+    /// 保存图片：原始数据保留原格式（.orig），另存缩略图（.png）用于卡片预览。
+    /// 返回缩略图路径（向后兼容 ClipboardItem.content）。
     func save(image: NSImage, data: Data) -> String? {
-        let filename = "\(UUID().uuidString).png"
-        let fileURL = cacheDir.appendingPathComponent(filename)
+        let uuid = UUID().uuidString
+        let thumbFilename = "\(uuid).png"
+        let origFilename = "\(uuid).orig"
+        let thumbURL = cacheDir.appendingPathComponent(thumbFilename)
+        let origURL = cacheDir.appendingPathComponent(origFilename)
+
+        // 1. 保存原始数据（保持剪贴板原有格式，TIFF/PNG）
+        do {
+            try data.write(to: origURL)
+        } catch {
+            log.error("原始图片写入失败: \(error.localizedDescription)")
+            return nil
+        }
+
+        // 2. 生成并保存缩略图（用于卡片预览）
         let thumb = thumbnail(from: image, maxSize: NSSize(width: 256, height: 256))
         guard let thumbData = thumb.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: thumbData),
               let pngData = bitmap.representation(using: .png, properties: [:])
-        else { return nil }
-        do {
-            try pngData.write(to: fileURL)
-            evictIfNeeded()
-            return fileURL.path
-        } catch {
+        else {
+            try? FileManager.default.removeItem(at: origURL)
             return nil
+        }
+        do {
+            try pngData.write(to: thumbURL)
+        } catch {
+            try? FileManager.default.removeItem(at: origURL)
+            return nil
+        }
+
+        evictIfNeeded()
+        return thumbURL.path
+    }
+
+    /// 从缩略图路径推导原始图片路径（用于粘贴时读取高清数据）
+    func originalPath(forThumbnail thumbnailPath: String) -> String? {
+        let stem = URL(fileURLWithPath: thumbnailPath).deletingPathExtension().lastPathComponent
+        let origURL = cacheDir.appendingPathComponent("\(stem).orig")
+        return FileManager.default.fileExists(atPath: origURL.path) ? origURL.path : nil
+    }
+
+    /// 配对文件路径：.png ↔ .orig
+    private func counterpartURL(for url: URL) -> URL? {
+        let stem = url.deletingPathExtension().lastPathComponent
+        let ext = url.pathExtension
+        switch ext {
+        case "png": return cacheDir.appendingPathComponent("\(stem).orig")
+        case "orig": return cacheDir.appendingPathComponent("\(stem).png")
+        default: return nil
         }
     }
 
@@ -80,6 +118,12 @@ final class ImageCacheManager {
             do {
                 try fm.removeItem(at: info.url)
                 totalSize -= info.size
+                // 同时清理配对文件（.png ↔ .orig）
+                if let c = counterpartURL(for: info.url),
+                   let cSize = (try? fm.attributesOfItem(atPath: c.path)[.size] as? Int64) {
+                    try? fm.removeItem(at: c)
+                    totalSize -= cSize
+                }
             } catch {
                 // 无法删除的文件跳过，继续处理下一个
             }
