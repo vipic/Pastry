@@ -327,7 +327,9 @@ final class OverlayPanelManager: @unchecked Sendable {
             let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
             pb.writeObjects(urls as [NSURL])
         case .image:
-            if let image = NSImage(contentsOfFile: item.content) {
+            // 优先从原始数据路径加载（高清），回退到缩略图路径
+            let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
+            if let image = NSImage(contentsOfFile: imagePath) {
                 if let annotation = item.textAnnotation, !annotation.isEmpty {
                     let attr = NSMutableAttributedString()
                     let attachment = NSTextAttachment()
