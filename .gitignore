@@ -10,6 +10,8 @@ Package.resolved
 # ── Build outputs ──
 *.app
 *.dSYM
+*.dmg
+Pastry
 
 # ── Xcode (if generated) ──
 *.xcworkspace

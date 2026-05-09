@@ -87,6 +87,9 @@ final class AppIconProvider {
             "/Applications/\(name).app",
             "/Applications/Utilities/\(name).app",
             "/System/Applications/\(name).app",
+            "/System/Applications/Utilities/\(name).app",
+            "/System/Library/CoreServices/\(name).app",
+            "/System/Library/CoreServices/Applications/\(name).app",
             NSHomeDirectory() + "/Applications/\(name).app",
         ]
         for path in paths {
