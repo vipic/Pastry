@@ -127,10 +127,11 @@ final class UpdateChecker {
         // 2. 设置可执行权限
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executablePath)
 
-        // 3. 重签
+        // 3. 用原签名身份重签（保持 TCC 权限不丢失）
         let appPath = Bundle.main.bundlePath
+        let identity = existingCodeSignIdentity(for: appPath) ?? "-"
         _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/codesign"),
-                             arguments: ["--force", "--sign", "-", appPath])
+                             arguments: ["--force", "--deep", "--sign", identity, appPath])
 
         // 4. 重启
         DispatchQueue.main.async {
@@ -160,6 +161,29 @@ final class UpdateChecker {
             if t < c { return false }
         }
         return false
+    }
+
+    // MARK: - 签名
+
+    /// 提取当前 .app bundle 的代码签名身份
+    private func existingCodeSignIdentity(for appPath: String) -> String? {
+        let task = Process()
+        task.launchPath = "/usr/bin/codesign"
+        task.arguments = ["-dvvv", appPath]
+        let pipe = Pipe()
+        task.standardError = pipe
+        task.standardOutput = FileHandle.nullDevice
+        guard let _ = try? task.run() else { return nil }
+        task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+        // 匹配 "Authority=Pastry Release" 或 "Authority=Apple Development: ..."
+        for line in output.components(separatedBy: "\n") {
+            if line.hasPrefix("Authority=") {
+                return String(line.dropFirst(10))
+            }
+        }
+        return nil
     }
 
     // MARK: - 网络请求
