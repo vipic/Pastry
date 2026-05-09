@@ -30,7 +30,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 aboutItem.target = self
             }
 
-            // 在"关于"后插入"检查更新…"
+            // 替换"设置…"（⌘,）→ 自定义设置窗口
+            if let prefsItem = appMenu.items.first(where: { $0.keyEquivalent == "," }) {
+                prefsItem.action = #selector(openSettingsWindow)
+                prefsItem.target = self
+            }
+
+            // 在"关于"后面插入"检查更新…"
             let updateItem = NSMenuItem(
                 title: L10n["menu.check_update"],
                 action: #selector(checkUpdateFromSystemMenu),
@@ -38,12 +44,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             updateItem.target = self
             appMenu.insertItem(updateItem, at: 1)
-
-            // 替换"设置…"（⌘,）→ 自定义设置窗口
-            if let prefsItem = appMenu.items.first(where: { $0.keyEquivalent == "," }) {
-                prefsItem.action = #selector(openSettingsWindow)
-                prefsItem.target = self
-            }
 
             // 替换"帮助"菜单项 → 自定义 Help 窗口
             if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
