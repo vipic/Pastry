@@ -23,6 +23,10 @@ struct ClipboardCardView: View {
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
     @State private var previewLoadTrigger = 0
 
+    // 异步加载状态 — 避免主线程同步 I/O 触发 TCC 死锁
+    @State private var asyncFilePreview: NSImage?
+    @State private var asyncFileIcons: [URL: NSImage] = [:]
+
     private static let cardSize: CGFloat = 240
     private static let headerHeight: CGFloat = 48
     private static let appIconSize: CGFloat = 72
@@ -66,6 +70,7 @@ struct ClipboardCardView: View {
                 Self.imageCache.removeObject(forKey: old as NSString)
                 fetchLinkPreviewIfNeeded()
             }
+            .task { await loadFilePreviewsIfNeeded() }
     }
 
     /// 卡片基础渲染（样式 + 内容，不含手势和生命周期）
@@ -343,16 +348,16 @@ struct ClipboardCardView: View {
 
     @ViewBuilder
     private var imagePreview: some View {
-        let key = item.content as NSString
         let nsImage: NSImage? = {
+            // 缓存命中 (已在后台加载过)
+            let key = item.content as NSString
             if let cached = Self.imageCache.object(forKey: key) { return cached }
-            guard let loaded = NSImage(contentsOfFile: item.content) else { return nil }
-            Self.imageCache.setObject(loaded, forKey: key)
-            return loaded
+            // 异步加载中或失败 → 返回 nil，用 asyncFilePreview 的 placeholder
+            return nil
         }()
         VStack(spacing: 0) {
-            if let nsImage = nsImage {
-                Image(nsImage: nsImage)
+            if let img = asyncFilePreview ?? nsImage {
+                Image(nsImage: img)
                     .resizable().aspectRatio(contentMode: .fit)
                     .cornerRadius(4)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -410,7 +415,7 @@ struct ClipboardCardView: View {
     private func filePreviewContent(url: URL, style: FilePreviewStyle) -> some View {
         switch style {
         case .thumbnail:
-            if let img = cachedImage(for: url) {
+            if let img = asyncFilePreview {
                 Image(nsImage: img)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
@@ -420,7 +425,7 @@ struct ClipboardCardView: View {
                 fallbackPreview
             }
         case .systemIcon:
-            if let icon = systemIcon(for: url) {
+            if let icon = asyncFileIcons[url] {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
@@ -430,13 +435,68 @@ struct ClipboardCardView: View {
         }
     }
 
-    /// NSImage 文件缓存（缩略图用）
+    /// NSImage 文件缓存（缩略图用 — 仅缓存查询，不做 I/O）
     private func cachedImage(for url: URL) -> NSImage? {
         let key = url.path as NSString
-        if let cached = Self.imageCache.object(forKey: key) { return cached }
-        guard let loaded = NSImage(contentsOfFile: url.path) else { return nil }
-        Self.imageCache.setObject(loaded, forKey: key)
-        return loaded
+        return Self.imageCache.object(forKey: key)
+    }
+
+    /// 异步加载文件预览 — 避免主线程同步 I/O 触发 TCC 权限弹窗死锁
+    private func loadFilePreviewsIfNeeded() async {
+        // 图片类型 — 异步加载 NSImage
+        if item.contentType == .image {
+            let path = item.content
+            let key = path as NSString
+            if Self.imageCache.object(forKey: key) != nil { return }
+            let img = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+                NSImage(contentsOfFile: path)
+            }.value
+            if let img = img {
+                Self.imageCache.setObject(img, forKey: key)
+                await MainActor.run { asyncFilePreview = img }
+            }
+            return
+        }
+
+        // 文件 URL 类型 — 异步加载图标/缩略图
+        if item.contentType == .fileURL {
+            let urls = fileURLs
+            for url in urls {
+                let style = Self.filePreviewStyle(for: url)
+                let cacheKey: NSString
+                let needsThumbnail: Bool
+
+                switch style {
+                case .thumbnail:
+                    cacheKey = url.path as NSString
+                    needsThumbnail = true
+                case .systemIcon:
+                    cacheKey = "icon:\(url.path)" as NSString
+                    needsThumbnail = false
+                }
+
+                if Self.imageCache.object(forKey: cacheKey) != nil { continue }
+
+                let loaded = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+                    if needsThumbnail {
+                        return NSImage(contentsOfFile: url.path)
+                    } else {
+                        return NSWorkspace.shared.icon(forFile: url.path)
+                    }
+                }.value
+
+                if let loaded = loaded {
+                    Self.imageCache.setObject(loaded, forKey: cacheKey)
+                    await MainActor.run {
+                        if needsThumbnail {
+                            asyncFilePreview = loaded
+                        } else {
+                            asyncFileIcons[url] = loaded
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - 文件列表（多文件 → 小图标行）
@@ -446,7 +506,7 @@ struct ClipboardCardView: View {
         return VStack(alignment: .leading, spacing: 3) {
             ForEach(urls.prefix(4), id: \.self) { url in
                 HStack(spacing: 4) {
-                    if let icon = systemIcon(for: url) {
+                    if let icon = asyncFileIcons[url] {
                         Image(nsImage: icon)
                             .resizable()
                             .frame(width: 12, height: 12)
