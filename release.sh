@@ -26,6 +26,14 @@ done
 echo "🏭 Building $APP_NAME $VERSION (release)..."
 echo ""
 
+# ── 检查：是否有新代码 ──
+EXISTING_TAG=$(git tag --points-at HEAD | head -1)
+if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" != "v$VERSION" ]; then
+    echo "❌ 当前 commit 已有 tag \"$EXISTING_TAG\"，没有新代码"
+    echo "   如需强制重新发布：先 commit 改动后再运行"
+    exit 1
+fi
+
 cd "$PROJECT_DIR"
 
 # ── 1. Release 编译（启用优化，去除 assert） ──
