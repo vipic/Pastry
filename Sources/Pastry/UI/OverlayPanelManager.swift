@@ -449,6 +449,7 @@ final class OverlayPanelManager: @unchecked Sendable {
                 self.isDragThrough = false
                 self.panel?.ignoresMouseEvents = false
                 self.panel?.makeKey()   // 重新成为 key window，这样后续点击空白仍会触发 didResignKey → hide
+                self.hide()             // 拖拽完成后自动关闭面板
             }
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
