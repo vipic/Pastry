@@ -21,41 +21,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // 修改系统菜单 — 在 SwiftUI 生成的菜单基础上替换/插入条目
-        customizeAppMenu()
-    }
+        // 替换系统"关于"菜单项 → 自定义 About 窗口
+        if let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu {
+            if let aboutItem = appMenu.items.first(where: {
+                $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
+            }) {
+                aboutItem.action = #selector(showAboutWindow)
+                aboutItem.target = self
+            }
 
-    // MARK: - 系统菜单定制
+            // 在"关于"后插入"检查更新…"
+            let updateItem = NSMenuItem(
+                title: L10n["menu.check_update"],
+                action: #selector(checkUpdateFromSystemMenu),
+                keyEquivalent: ""
+            )
+            updateItem.target = self
+            appMenu.insertItem(updateItem, at: 1)
 
-    /// 在系统生成的菜单上做三点定制：替换关于、插入检查更新、替换设置
-    @MainActor
-    private func customizeAppMenu() {
-        guard let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu else { return }
+            // 替换"设置…"（⌘,）→ 自定义设置窗口
+            if let prefsItem = appMenu.items.first(where: { $0.keyEquivalent == "," }) {
+                prefsItem.action = #selector(openSettingsWindow)
+                prefsItem.target = self
+            }
 
-        // 1. 替换"关于" → 自定义窗口
-        if let aboutItem = appMenu.items.first(where: {
-            $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
-        }) {
-            aboutItem.action = #selector(showAboutWindow)
-            aboutItem.target = self
-        }
-
-        // 2. 在"关于"后面插入"检查更新…"
-        let updateItem = NSMenuItem(
-            title: L10n["menu.check_update"],
-            action: #selector(checkUpdateFromSystemMenu),
-            keyEquivalent: ""
-        )
-        updateItem.target = self
-        // 关于在 index 0，分隔线在 index 1 → 插在 index 1 位置，把分隔线往后挤
-        appMenu.insertItem(updateItem, at: 1)
-
-        // 3. 替换"设置…"（⌘,）→ 自定义设置窗口
-        if let prefsItem = appMenu.items.first(where: {
-            $0.keyEquivalent == ","
-        }) {
-            prefsItem.action = #selector(openSettingsWindow)
-            prefsItem.target = self
+            // 替换"帮助"菜单项 → 自定义 Help 窗口
+            if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
+                if let helpItem = helpMenu.items.first {
+                    helpItem.action = #selector(showHelpWindow)
+                    helpItem.target = self
+                }
+            }
         }
     }
 
