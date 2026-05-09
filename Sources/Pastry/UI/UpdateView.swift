@@ -84,7 +84,7 @@ private struct UpToDateView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        AppVersion.current
     }
 }
 
