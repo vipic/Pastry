@@ -52,8 +52,8 @@ mkdir -p "$STAGING/$APP_NAME.app/Contents/Resources"
 
 # 二进制
 cp "$BIN" "$STAGING/$APP_NAME.app/Contents/MacOS/$APP_NAME"
-# 同时复制裸二进制作为独立资产（用于自动更新功能）
-cp "$BIN" "$STAGING/$APP_NAME"
+# 同时复制裸二进制到项目根（用于上传到 GitHub Release）
+cp "$BIN" "$PROJECT_DIR/$APP_NAME"
 
 # 资源
 cp "$PROJECT_DIR/Resources/Copy.aiff"    "$STAGING/$APP_NAME.app/Contents/Resources/" 2>/dev/null || true
@@ -131,7 +131,7 @@ rm -f "$DMG_PATH"
 DMG_SRC="$STAGING/dmg_root"
 mkdir -p "$DMG_SRC"
 cp -R "$STAGING/$APP_NAME.app" "$DMG_SRC/"
-cp "$STAGING/$APP_NAME" "$DMG_SRC/$APP_NAME"  # 裸二进制（自动更新用）
+cp "$PROJECT_DIR/$APP_NAME" "$DMG_SRC/$APP_NAME"  # 裸二进制（自动更新用）
 ln -s /Applications "$DMG_SRC/Applications" 2>/dev/null || true
 
 hdiutil create -volname "$APP_NAME" \
