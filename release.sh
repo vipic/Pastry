@@ -62,6 +62,8 @@ mkdir -p "$STAGING/$APP_NAME.app/Contents/Resources"
 cp "$BIN" "$STAGING/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 # 同时复制裸二进制到项目根（用于上传到 GitHub Release）
 cp "$BIN" "$PROJECT_DIR/$APP_NAME"
+# 复制 Info.plist 到项目根（更新时需同步替换）
+cp "$STAGING/$APP_NAME.app/Contents/Info.plist" "$PROJECT_DIR/Info.plist"
 
 # 资源
 cp "$PROJECT_DIR/Resources/Copy.aiff"    "$STAGING/$APP_NAME.app/Contents/Resources/" 2>/dev/null || true
@@ -179,14 +181,15 @@ if $PUBLISH; then
     # 检查是否已有同名 Release
     if gh release view "$TAG" &>/dev/null 2>&1; then
         echo "   ⚠️  Release $TAG 已存在，仅上传资产..."
-        gh release upload "$TAG" "$DMG_PATH" "$PROJECT_DIR/$APP_NAME" --clobber
+        gh release upload "$TAG" "$DMG_PATH" "$PROJECT_DIR/$APP_NAME" "$PROJECT_DIR/Info.plist" --clobber
     else
         echo "   📦 创建 Release $TAG..."
         gh release create "$TAG" \
             --title "$APP_NAME $VERSION" \
             --notes "Pastry $VERSION 发布" \
             "$DMG_PATH" \
-            "$PROJECT_DIR/$APP_NAME"
+            "$PROJECT_DIR/$APP_NAME" \
+            "$PROJECT_DIR/Info.plist"
     fi
     
     echo "   ✅ 发布完成"
