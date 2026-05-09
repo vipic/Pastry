@@ -1,9 +1,10 @@
 #!/bin/bash
 # Pastry Release — 生产发布
 # 流程：release 编译 → 去除符号 → DMG 打包 → 签名
-# 用法: ./release.sh [version]
-#   ./release.sh 1.0.1        # 指定版本号
-#   ./release.sh              # 自动取 git tag，没有则用 1.0
+# 用法: ./release.sh [version] [--publish]
+#   ./release.sh 1.0.1              # 仅构建 DMG
+#   ./release.sh 1.0.1 --publish    # 构建 + 推 tag + 创建 GitHub Release
+#   ./release.sh                    # 自动取 git tag，没有则用 1.0
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -15,6 +16,12 @@ VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
 BUILD=$(git rev-list --count HEAD)
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 IDENTITY="${CODESIGN_IDENTITY:-Pastry Release}"  # 默认固定证书（TCC 持久），用 CODESIGN_IDENTITY 环境变量覆盖
+
+# 解析 --publish 标志
+PUBLISH=false
+for arg in "$@"; do
+    [[ "$arg" == "--publish" ]] && PUBLISH=true
+done
 
 echo "🏭 Building $APP_NAME $VERSION (release)..."
 echo ""
@@ -134,6 +141,50 @@ hdiutil create -volname "$APP_NAME" \
 
 # 清理
 rm -rf "$STAGING"
+
+# ── 6. 发布到 GitHub Releases（可选） ──
+if $PUBLISH; then
+    echo ""
+    echo "━━━ 6/6 发布到 GitHub Releases ━━━"
+    
+    if ! command -v gh &>/dev/null; then
+        echo "❌ 未安装 gh CLI，请先运行: brew install gh && gh auth login"
+        exit 1
+    fi
+    
+    if ! gh auth status &>/dev/null; then
+        echo "❌ gh 未登录，请先运行: gh auth login"
+        exit 1
+    fi
+    
+    TAG="v$VERSION"
+    
+    # 创建 tag 并推送
+    if git rev-parse "$TAG" &>/dev/null; then
+        echo "   ⚠️  tag $TAG 已存在，跳过创建"
+    else
+        echo "   🏷  创建 tag $TAG..."
+        git tag "$TAG"
+    fi
+    
+    git push origin main "$TAG" 2>&1 | tail -2
+    
+    # 检查是否已有同名 Release
+    if gh release view "$TAG" &>/dev/null 2>&1; then
+        echo "   ⚠️  Release $TAG 已存在，仅上传资产..."
+        gh release upload "$TAG" "$DMG_PATH" "$PROJECT_DIR/$APP_NAME" --clobber
+    else
+        echo "   📦 创建 Release $TAG..."
+        gh release create "$TAG" \
+            --title "$APP_NAME $VERSION" \
+            --notes "Pastry $VERSION 发布" \
+            "$DMG_PATH" \
+            "$PROJECT_DIR/$APP_NAME"
+    fi
+    
+    echo "   ✅ 发布完成"
+    echo "   🔗 $(gh release view "$TAG" --json url -q '.url')"
+fi
 
 echo ""
 echo "╔══════════════════════════════════════╗"
