@@ -12,6 +12,10 @@ Package.resolved
 *.dSYM
 *.dmg
 Pastry
+Info.plist
+
+# ── Generated source (release.sh 注入版本号) ──
+Sources/Pastry/Generated/
 
 # ── Xcode (if generated) ──
 *.xcworkspace
