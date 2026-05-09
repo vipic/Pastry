@@ -433,13 +433,15 @@ final class OverlayPanelManager: @unchecked Sendable {
     func beginDragThrough() {
         panel?.ignoresMouseEvents = true
         isDragThrough = true
-        // 轮询鼠标释放来检测拖拽结束
+        panel?.orderOut(nil)   // 拖拽开始即收起面板
+        // 轮询鼠标释放来触发清理
         DispatchQueue.main.async { [weak self] in
             self?.pollDragEnd()
         }
     }
 
     /// 轮询鼠标按键状态，释放时关闭面板
+    @MainActor
     private func pollDragEnd() {
         guard isDragThrough else { return }
         if NSEvent.pressedMouseButtons == 0 {
