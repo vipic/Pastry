@@ -51,7 +51,9 @@ struct AboutView: View {
     }
 
     private var appBuild: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        AppVersion.build == "0"
+            ? (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
+            : AppVersion.build
     }
 }
 
