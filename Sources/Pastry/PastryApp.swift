@@ -20,81 +20,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - NSApplicationDelegate
 
     @MainActor
-    func applicationWillFinishLaunching(_ notification: Notification) {
-        // 完全接管系统菜单，避免 SwiftUI Settings 场景干扰
-        buildAppMenu()
-    }
-
-    @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // app menu 已在 willFinishLaunching 中构建，无需再做
+        // 修改系统菜单 — 在 SwiftUI 生成的菜单基础上替换/插入条目
+        customizeAppMenu()
     }
 
-    // MARK: - 系统菜单
+    // MARK: - 系统菜单定制
 
+    /// 在系统生成的菜单上做三点定制：替换关于、插入检查更新、替换设置
     @MainActor
-    private func buildAppMenu() {
-        let mainMenu = NSMenu()
+    private func customizeAppMenu() {
+        guard let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu else { return }
 
-        // ── Pastry 菜单 ──
-        let appMenu = NSMenu()
-        let appMenuItem = NSMenuItem()
-        appMenuItem.submenu = appMenu
-        mainMenu.addItem(appMenuItem)
+        // 1. 替换"关于" → 自定义窗口
+        if let aboutItem = appMenu.items.first(where: {
+            $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
+        }) {
+            aboutItem.action = #selector(showAboutWindow)
+            aboutItem.target = self
+        }
 
-        // 关于
-        appMenu.addItem(withTitle: L10n["menu.about"],
-                        action: #selector(showAboutWindow),
-                        keyEquivalent: "").target = self
+        // 2. 在"关于"后面插入"检查更新…"
+        let updateItem = NSMenuItem(
+            title: L10n["menu.check_update"],
+            action: #selector(checkUpdateFromSystemMenu),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        // 关于在 index 0，分隔线在 index 1 → 插在 index 1 位置，把分隔线往后挤
+        appMenu.insertItem(updateItem, at: 1)
 
-        appMenu.addItem(.separator())
-
-        // 检查更新…
-        appMenu.addItem(withTitle: L10n["menu.check_update"],
-                        action: #selector(checkUpdateFromSystemMenu),
-                        keyEquivalent: "").target = self
-
-        appMenu.addItem(.separator())
-
-        // 设置…
-        let prefsItem = appMenu.addItem(withTitle: L10n["menu.settings"],
-                                         action: #selector(openSettingsWindow),
-                                         keyEquivalent: ",")
-        prefsItem.target = self
-
-        appMenu.addItem(.separator())
-
-        // 服务
-        let servicesMenu = NSMenu()
-        let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
-        servicesItem.submenu = servicesMenu
-        appMenu.addItem(servicesItem)
-        NSApp.servicesMenu = servicesMenu
-
-        appMenu.addItem(.separator())
-
-        // 隐藏 / 隐藏其他 / 显示全部
-        appMenu.addItem(withTitle: L10n["menu.hide_pastry"],
-                        action: #selector(NSApplication.hide(_:)),
-                        keyEquivalent: "h")
-
-        let hideOthersItem = appMenu.addItem(withTitle: L10n["menu.hide_others"],
-                                              action: #selector(NSApplication.hideOtherApplications(_:)),
-                                              keyEquivalent: "h")
-        hideOthersItem.keyEquivalentModifierMask = [.command, .option]
-
-        appMenu.addItem(withTitle: L10n["menu.show_all"],
-                        action: #selector(NSApplication.unhideAllApplications(_:)),
-                        keyEquivalent: "")
-
-        appMenu.addItem(.separator())
-
-        // 退出
-        appMenu.addItem(withTitle: L10n["menu.quit"],
-                        action: #selector(NSApplication.terminate(_:)),
-                        keyEquivalent: "q")
-
-        NSApp.mainMenu = mainMenu
+        // 3. 替换"设置…"（⌘,）→ 自定义设置窗口
+        if let prefsItem = appMenu.items.first(where: {
+            $0.keyEquivalent == ","
+        }) {
+            prefsItem.action = #selector(openSettingsWindow)
+            prefsItem.target = self
+        }
     }
 
     @MainActor
@@ -282,7 +244,8 @@ struct PastryApp: App {
     }
 
     var body: some Scene {
-        // 不依赖 SwiftUI 的 Settings/WindowGroup — 菜单栏应用自己管理窗口和菜单
-        _EmptyScene()
+        Settings {
+            EmptyView()
+        }
     }
 }
