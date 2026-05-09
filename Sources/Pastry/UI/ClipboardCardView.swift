@@ -447,7 +447,10 @@ struct ClipboardCardView: View {
         if item.contentType == .image {
             let path = item.content
             let key = path as NSString
-            if Self.imageCache.object(forKey: key) != nil { return }
+            if let cached = Self.imageCache.object(forKey: key) {
+                await MainActor.run { asyncFilePreview = cached }
+                return
+            }
             let img = await Task.detached(priority: .userInitiated) { () -> NSImage? in
                 NSImage(contentsOfFile: path)
             }.value
@@ -475,7 +478,13 @@ struct ClipboardCardView: View {
                     needsThumbnail = false
                 }
 
-                if Self.imageCache.object(forKey: cacheKey) != nil { continue }
+                if let cached = Self.imageCache.object(forKey: cacheKey) {
+                    await MainActor.run {
+                        if needsThumbnail { asyncFilePreview = cached }
+                        else { asyncFileIcons[url] = cached }
+                    }
+                    continue
+                }
 
                 let loaded = await Task.detached(priority: .userInitiated) { () -> NSImage? in
                     if needsThumbnail {
