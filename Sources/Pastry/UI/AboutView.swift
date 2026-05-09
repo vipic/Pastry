@@ -10,7 +10,7 @@ struct AboutView: View {
                 .padding(.top, 28)
                 .padding(.bottom, 16)
 
-            Text("Pastry")
+            Text(appDisplayName)
                 .font(.system(size: 18, weight: .semibold))
             Text("Version \(appVersion) (Build \(appBuild))")
                 .font(.system(size: 11))
@@ -36,6 +36,12 @@ struct AboutView: View {
                 .padding(.bottom, 20)
         }
         .frame(width: 360, height: 340)
+    }
+
+    private var appDisplayName: String {
+        Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String
+            ?? Bundle.main.infoDictionary?["CFBundleName"] as? String
+            ?? "Pastry"
     }
 
     private var appVersion: String {

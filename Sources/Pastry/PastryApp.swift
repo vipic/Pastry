@@ -58,7 +58,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Pastry"
+        let appName = Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String
+            ?? Bundle.main.infoDictionary?["CFBundleName"] as? String
+            ?? "Pastry"
+        window.title = appName
         window.styleMask.insert(.fullSizeContentView)
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
