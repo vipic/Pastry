@@ -21,30 +21,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
-            // 替换系统"关于"菜单项 → 自定义 About 窗口
-        if let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu {
-            if let aboutItem = appMenu.items.first(where: {
-                $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
-            }) {
-                aboutItem.action = #selector(showAboutWindow)
-                aboutItem.target = self
-            }
+        // LSUIElement 应用的系统菜单可能尚未就绪，延迟设置
+        DispatchQueue.main.async { [weak self] in
+            self?.setupAppMenu()
+        }
+        
+        // 兜底：应用首次激活时再试一次
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: NSApp,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setupAppMenu()
+        }
+    }
 
-            // 在系统菜单"关于"后添加"检查更新..."
-            let updateItem = NSMenuItem(
-                title: L10n["menu.check_update"],
-                action: #selector(checkUpdateFromSystemMenu),
-                keyEquivalent: ""
-            )
-            updateItem.target = self
-            appMenu.insertItem(updateItem, at: 2)
+    @MainActor
+    private func setupAppMenu() {
+        // 替换系统"关于"菜单项 → 自定义 About 窗口
+        guard let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu else { return }
+        
+        if let aboutItem = appMenu.items.first(where: {
+            $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
+        }) {
+            aboutItem.action = #selector(showAboutWindow)
+            aboutItem.target = self
+        }
 
-            // 替换"帮助"菜单项 → 自定义 Help 窗口
-            if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
-                if let helpItem = helpMenu.items.first {
-                    helpItem.action = #selector(showHelpWindow)
-                    helpItem.target = self
-                }
+        // 在系统菜单"关于"后添加"检查更新..."
+        let updateItem = NSMenuItem(
+            title: L10n["menu.check_update"],
+            action: #selector(checkUpdateFromSystemMenu),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        appMenu.insertItem(updateItem, at: 2)
+
+        // 替换"帮助"菜单项 → 自定义 Help 窗口
+        if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
+            if let helpItem = helpMenu.items.first {
+                helpItem.action = #selector(showHelpWindow)
+                helpItem.target = self
             }
         }
     }
