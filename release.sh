@@ -62,8 +62,6 @@ mkdir -p "$STAGING/$APP_NAME.app/Contents/Resources"
 cp "$BIN" "$STAGING/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 # 同时复制裸二进制到项目根（用于上传到 GitHub Release）
 cp "$BIN" "$PROJECT_DIR/$APP_NAME"
-# 复制 Info.plist 到项目根（更新时需同步替换）
-cp "$STAGING/$APP_NAME.app/Contents/Info.plist" "$PROJECT_DIR/Info.plist"
 
 # 资源
 cp "$PROJECT_DIR/Resources/Copy.aiff"    "$STAGING/$APP_NAME.app/Contents/Resources/" 2>/dev/null || true
@@ -99,6 +97,9 @@ cat > "$STAGING/$APP_NAME.app/Contents/Info.plist" << PLIST
 </dict>
 </plist>
 PLIST
+
+# 复制 Info.plist 到项目根（更新时需同步替换）
+cp "$STAGING/$APP_NAME.app/Contents/Info.plist" "$PROJECT_DIR/Info.plist"
 
 # ── 4. 代码签名 ──
 echo ""
