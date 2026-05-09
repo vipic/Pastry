@@ -4,6 +4,41 @@
 
 ## Build & Deploy
 
+### 快速开发部署
+
+```bash
+./deploy.sh   # debug 编译 → 签名 → 启动，部署到 ~/Applications/Pastry Dev.app
+```
+
+### 生产发布
+
+```bash
+./release.sh [version]   # release 编译 → DMG，发布到 /Applications/Pastry.app
+```
+
+### 一次性设置：代码签名证书
+
+为了让 TCC 权限（辅助功能等）在更新时不丢失，需要固定签名证书。两个脚本各自使用独立证书：
+
+| 脚本 | 证书名称 | 用途 |
+|---|---|---|
+| `deploy.sh` | `Pastry Dev` | 开发版，`com.nekutai.pastry.dev` |
+| `release.sh` | `Pastry Release` | 正式版，`com.nekutai.pastry` |
+
+**创建方法（只需一次，30 秒）：**
+
+1. 打开 **Keychain Access**（钥匙串访问）
+2. 菜单 **钥匙串访问 → 证书助理 → 创建证书**
+3. 名称填 `Pastry Dev`（或 `Pastry Release`）
+4. 身份类型：**自签名根**
+5. 证书类型：**代码签名**
+6. 勾选 **覆盖默认**（覆盖默认值）
+7. 点击「继续」→「创建」
+
+证书缺时脚本自动回退到 ad-hoc 签名，不影响运行，仅 TCC 权限不持久。
+
+### 手动命令（备用）
+
 ```bash
 # 构建
 swift build -c release
@@ -11,15 +46,13 @@ swift build -c release
 # 部署（必须 kill 旧进程，否则运行中的二进制不更新）
 cp .build/release/Pastry ~/Applications/Pastry.app/Contents/MacOS/Pastry
 
-# codesign 必须重签，否则 kill:9 崩溃
+# 重签
 rm -rf ~/Applications/Pastry.app/Contents/_CodeSignature
-codesign --force --sign - ~/Applications/Pastry.app
+codesign --force --sign "Pastry Dev" ~/Applications/Pastry.app   # 或 --sign - 回退 ad-hoc
 
 # 重启
 pkill -f Pastry; sleep 0.5; open ~/Applications/Pastry.app
 ```
-
-**关键教训**：`swift build` 之后如果不 kill 旧进程，运行的仍是旧二进制。`pkill -f Pastry` 是必须的。
 
 ## Architecture
 

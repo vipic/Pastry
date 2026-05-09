@@ -14,7 +14,7 @@ BUNDLE_ID="com.nekutai.pastry"
 VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
 BUILD=$(git rev-list --count HEAD)
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
-IDENTITY="${CODESIGN_IDENTITY:--}"  # 默认 ad-hoc，设环境变量覆盖
+IDENTITY="${CODESIGN_IDENTITY:-Pastry Release}"  # 默认固定证书（TCC 持久），用 CODESIGN_IDENTITY 环境变量覆盖
 
 echo "🏭 Building $APP_NAME $VERSION (release)..."
 echo ""
@@ -84,13 +84,33 @@ PLIST
 # ── 4. 代码签名 ──
 echo ""
 echo "━━━ 4/5 代码签名 ━━━"
-if [ "$IDENTITY" = "-" ]; then
-    echo "   使用 ad-hoc 签名（本地可用，无法分发）"
-    echo "   分发时请设置: CODESIGN_IDENTITY='Developer ID Application: ...' ./release.sh"
+
+# 固定证书签名 = TCC 权限持久保留（更新不需要重新授权）
+# 首次运行需手动创建一次（30 秒）：
+#   Keychain Access → 证书助理 → 创建证书
+#   名称: Pastry Release, 身份类型: 自签名根, 证书类型: 代码签名
+CERT_OK=true
+if [ "$IDENTITY" = "Pastry Release" ]; then
+    if ! security find-identity -p codesigning 2>/dev/null | grep -q "Pastry Release"; then
+        echo "⚠️  未找到 \"Pastry Release\" 代码签名证书"
+        echo "   首次运行需创建一次（后续永久有效）："
+        echo "   Keychain Access → 菜单「证书助理」→「创建证书」"
+        echo "   名称: Pastry Release  |  类型: 代码签名"
+        echo "   本次回退到 ad-hoc 签名（TCC 不持久）"
+        CERT_OK=false
+    else
+        echo "   使用固定证书 Pastry Release（TCC 权限持久保留，更新不需重新授权）"
+    fi
+    echo "   分发正式签名请设: CODESIGN_IDENTITY='Developer ID Application: ...' ./release.sh"
 else
     echo "   签名身份: $IDENTITY"
 fi
-codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1
+
+if $CERT_OK && [ "$IDENTITY" = "Pastry Release" ]; then
+    codesign --force --deep --sign "Pastry Release" "$STAGING/$APP_NAME.app" 2>&1
+else
+    codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1
+fi
 
 # ── 5. DMG 打包 ──
 echo ""
