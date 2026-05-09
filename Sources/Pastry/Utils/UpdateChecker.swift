@@ -127,9 +127,10 @@ final class UpdateChecker {
         // 2. 设置可执行权限
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executablePath)
 
-        // 3. 用原签名身份重签（保持 TCC 权限不丢失）
+        // 3. 用已知证书重签（保持 TCC 权限不丢失）
+        // 先试 Pastry Release，失败则降级到 ad-hoc
         let appPath = Bundle.main.bundlePath
-        let identity = existingCodeSignIdentity(for: appPath) ?? "-"
+        let identity = resolveCodeSignIdentity()
         _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/codesign"),
                              arguments: ["--force", "--deep", "--sign", identity, appPath])
 
@@ -165,25 +166,24 @@ final class UpdateChecker {
 
     // MARK: - 签名
 
-    /// 提取当前 .app bundle 的代码签名身份
-    private func existingCodeSignIdentity(for appPath: String) -> String? {
-        let task = Process()
-        task.launchPath = "/usr/bin/codesign"
-        task.arguments = ["-dvvv", appPath]
-        let pipe = Pipe()
-        task.standardError = pipe
-        task.standardOutput = FileHandle.nullDevice
-        guard let _ = try? task.run() else { return nil }
-        task.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8) ?? ""
-        // 匹配 "Authority=Pastry Release" 或 "Authority=Apple Development: ..."
-        for line in output.components(separatedBy: "\n") {
-            if line.hasPrefix("Authority=") {
-                return String(line.dropFirst(10))
+    /// 解析代码签名身份：先尝 Pastry Release（TCC 持久），失败则 ad-hoc
+    private func resolveCodeSignIdentity() -> String {
+        let identities = ["Pastry Release", "Pastry Dev"]
+        for name in identities {
+            let task = Process()
+            task.launchPath = "/usr/bin/security"
+            task.arguments = ["find-identity", "-p", "codesigning", name]
+            task.standardOutput = FileHandle.nullDevice
+            task.standardError = FileHandle.nullDevice
+            try? task.run()
+            task.waitUntilExit()
+            if task.terminationStatus == 0 {
+                log.info("使用签名身份: \(name)")
+                return name
             }
         }
-        return nil
+        log.warning("未找到固定证书，使用 ad-hoc 签名（TCC 不持久）")
+        return "-"
     }
 
     // MARK: - 网络请求
