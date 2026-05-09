@@ -45,6 +45,8 @@ mkdir -p "$STAGING/$APP_NAME.app/Contents/Resources"
 
 # 二进制
 cp "$BIN" "$STAGING/$APP_NAME.app/Contents/MacOS/$APP_NAME"
+# 同时复制裸二进制作为独立资产（用于自动更新功能）
+cp "$BIN" "$STAGING/$APP_NAME"
 
 # 资源
 cp "$PROJECT_DIR/Resources/Copy.aiff"    "$STAGING/$APP_NAME.app/Contents/Resources/" 2>/dev/null || true
