@@ -133,14 +133,13 @@ final class UpdateChecker {
         _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/codesign"),
                              arguments: ["--force", "--deep", "--sign", identity, appPath])
 
-        // 4. 重启
-        DispatchQueue.main.async {
-            let task = Process()
-            task.launchPath = "/usr/bin/open"
-            task.arguments = [Bundle.main.bundlePath]
-            try? task.run()
-            NSApp.terminate(nil)
-        }
+        // 4. 重启（用 bash 中间进程，避免 terminate 杀子进程）
+        let bundlePath = Bundle.main.bundlePath
+        let task = Process()
+        task.launchPath = "/bin/bash"
+        task.arguments = ["-c", "sleep 0.3; open '\(bundlePath)'"]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 
     // MARK: - 版本比较
