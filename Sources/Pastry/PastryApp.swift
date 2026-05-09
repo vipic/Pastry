@@ -36,15 +36,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 prefsItem.target = self
             }
 
-            // 在"关于"后面插入"检查更新…"
-            let updateItem = NSMenuItem(
-                title: L10n["menu.check_update"],
-                action: #selector(checkUpdateFromSystemMenu),
-                keyEquivalent: ""
-            )
-            updateItem.target = self
-            appMenu.insertItem(updateItem, at: 1)
-
             // 替换"帮助"菜单项 → 自定义 Help 窗口
             if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
                 if let helpItem = helpMenu.items.first {
@@ -158,33 +149,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-
-    // MARK: - 检查更新
-
-    @MainActor
-    @objc private func checkUpdateFromSystemMenu() {
-        let progressWindow = UpdateWindow.showProgress()
-
-        Task {
-            let result = await UpdateChecker.shared.checkForUpdate(force: true)
-            progressWindow.close()
-
-            if let update = result {
-                UpdateWindow.showUpdateAvailable(update) {
-                    Task {
-                        do {
-                            let binaryURL = try await UpdateChecker.shared.downloadBinary(from: update.downloadURL)
-                            try UpdateChecker.shared.applyUpdate(binaryAt: binaryURL)
-                        } catch {
-                            UpdateWindow.showError(error.localizedDescription)
-                        }
-                    }
-                }
-            } else {
-                UpdateWindow.showUpToDate()
-            }
-        }
     }
 }
 
