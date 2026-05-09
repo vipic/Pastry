@@ -439,18 +439,13 @@ final class OverlayPanelManager: @unchecked Sendable {
         }
     }
 
-    /// 轮询鼠标按键状态，释放时恢复面板交互
+    /// 轮询鼠标按键状态，释放时关闭面板
     private func pollDragEnd() {
         guard isDragThrough else { return }
         if NSEvent.pressedMouseButtons == 0 {
-            // 鼠标已释放 → 拖拽结束，等一小会让 drop 完成
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                guard let self, self.isDragThrough else { return }
-                self.isDragThrough = false
-                self.panel?.ignoresMouseEvents = false
-                self.panel?.makeKey()   // 重新成为 key window，这样后续点击空白仍会触发 didResignKey → hide
-                self.hide()             // 拖拽完成后自动关闭面板
-            }
+            // 鼠标已释放 → 拖拽完成，直接关闭
+            isDragThrough = false
+            hide()
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.pollDragEnd()
