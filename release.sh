@@ -124,6 +124,7 @@ rm -f "$DMG_PATH"
 DMG_SRC="$STAGING/dmg_root"
 mkdir -p "$DMG_SRC"
 cp -R "$STAGING/$APP_NAME.app" "$DMG_SRC/"
+cp "$STAGING/$APP_NAME" "$DMG_SRC/$APP_NAME"  # 裸二进制（自动更新用）
 ln -s /Applications "$DMG_SRC/Applications" 2>/dev/null || true
 
 hdiutil create -volname "$APP_NAME" \
