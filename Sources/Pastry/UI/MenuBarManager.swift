@@ -105,6 +105,17 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         menu.addItem(settingsItem)
         menu.addItem(.separator())
 
+        let updateItem = NSMenuItem(
+            title: L10n["menu.check_update"],
+            action: #selector(checkUpdateAction),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        updateItem.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
+        updateItem.isEnabled = !isUpdateDevBuild
+        menu.addItem(updateItem)
+        menu.addItem(.separator())
+
         let quitItem = NSMenuItem(
             title: L10n["menu.quit"],
             action: #selector(quitApp),
@@ -129,6 +140,37 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     }
 
     // MARK: - 操作
+
+    private var isUpdateDevBuild: Bool {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        return version.contains("-dev")
+    }
+
+    @MainActor
+    @objc private func checkUpdateAction() {
+        let progressWindow = UpdateWindow.showProgress()
+
+        Task {
+            let result = await UpdateChecker.shared.checkForUpdate(force: true)
+            progressWindow.close()
+
+            if let update = result {
+                UpdateWindow.showUpdateAvailable(update) { [weak progressWindow] in
+                    Task {
+                        do {
+                            let binaryURL = try await UpdateChecker.shared.downloadBinary(from: update.downloadURL)
+                            try UpdateChecker.shared.applyUpdate(binaryAt: binaryURL)
+                        } catch {
+                            progressWindow?.close()
+                            UpdateWindow.showError(error.localizedDescription)
+                        }
+                    }
+                }
+            } else {
+                UpdateWindow.showUpToDate()
+            }
+        }
+    }
 
     @MainActor
     @objc private func openOverlay() {
