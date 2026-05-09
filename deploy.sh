@@ -32,10 +32,10 @@ cd "$PROJECT_DIR"
 # 1. 编译
 swift build 2>&1 | tail -3
 
-# 2. 杀进程 + 等待退出
-pkill -x Pastry 2>/dev/null || true
+# 2. 杀 dev 进程 + 等待退出（只杀 dev，不影响正式版）
+pkill -f "Pastry Dev.app" 2>/dev/null || true
 for i in $(seq 1 10); do
-    if ! pgrep -x Pastry > /dev/null 2>&1; then break; fi
+    if ! pgrep -f "Pastry Dev.app" > /dev/null 2>&1; then break; fi
     sleep 0.2
 done
 
