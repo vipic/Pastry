@@ -159,7 +159,8 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
                     Task {
                         do {
                             let binaryURL = try await UpdateChecker.shared.downloadBinary(from: update.downloadURL)
-                            try UpdateChecker.shared.applyUpdate(binaryAt: binaryURL)
+                            let plistURL = try await UpdateChecker.shared.downloadBinary(from: update.plistURL)
+                            try UpdateChecker.shared.applyUpdate(binaryAt: binaryURL, plistAt: plistURL)
                         } catch {
                             progressWindow?.close()
                             UpdateWindow.showError(error.localizedDescription)

@@ -39,6 +39,7 @@ final class UpdateChecker {
         let releaseNotes: String
         let downloadURL: String
         let htmlURL: String
+        let plistURL: String
     }
 
     private init() {
@@ -77,9 +78,10 @@ final class UpdateChecker {
             return nil
         }
 
-        // 找裸二进制 asset（文件名 "Pastry"）
-        guard let binary = release.assets.first(where: { $0.name == "Pastry" }) else {
-            log.error("Release 中没有找到裸二进制文件")
+        // 找裸二进制 asset（文件名 "Pastry"）和 Info.plist
+        guard let binary = release.assets.first(where: { $0.name == "Pastry" }),
+              let plistAsset = release.assets.first(where: { $0.name == "Info.plist" }) else {
+            log.error("Release 中缺少必需文件")
             return nil
         }
 
@@ -88,7 +90,8 @@ final class UpdateChecker {
             latestVersion: release.tag_name,
             releaseNotes: release.body ?? "",
             downloadURL: binary.browser_download_url,
-            htmlURL: release.html_url
+            htmlURL: release.html_url,
+            plistURL: plistAsset.browser_download_url
         )
     }
 
@@ -108,33 +111,44 @@ final class UpdateChecker {
         return tempURL
     }
 
-    /// 应用更新：替换二进制并重启
-    func applyUpdate(binaryAt tempURL: URL) throws {
-        guard let executablePath = Bundle.main.executablePath else {
+    /// 应用更新：替换二进制 + Info.plist 并重启
+    func applyUpdate(binaryAt tempURL: URL, plistAt plistURL: URL) throws {
+        guard let executablePath = Bundle.main.executablePath,
+              let plistPath = Bundle.main.bundlePath + "/Contents/Info.plist" as String? else {
             throw UpdateError.cannotReplace
         }
 
-        // 1. 复制新二进制覆盖旧文件
         let fileManager = FileManager.default
-        let backupPath = executablePath + ".old"
 
+        // 1. 替换 Info.plist（先替换，再签名时生效）
+        let plistBackupPath = plistPath + ".old"
+        if fileManager.fileExists(atPath: plistBackupPath) {
+            try fileManager.removeItem(atPath: plistBackupPath)
+        }
+        if fileManager.fileExists(atPath: plistPath) {
+            try fileManager.moveItem(atPath: plistPath, toPath: plistBackupPath)
+        }
+        try fileManager.copyItem(atPath: plistURL.path, toPath: plistPath)
+
+        // 2. 替换二进制
+        let backupPath = executablePath + ".old"
         if fileManager.fileExists(atPath: backupPath) {
             try fileManager.removeItem(atPath: backupPath)
         }
         try fileManager.moveItem(atPath: executablePath, toPath: backupPath)
         try fileManager.copyItem(atPath: tempURL.path, toPath: executablePath)
 
-        // 2. 设置可执行权限
+        // 3. 设置可执行权限
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executablePath)
 
-        // 3. 用已知证书重签（保持 TCC 权限不丢失）
+        // 4. 用已知证书重签（保持 TCC 权限不丢失）
         // 先试 Pastry Release，失败则降级到 ad-hoc
         let appPath = Bundle.main.bundlePath
         let identity = resolveCodeSignIdentity()
         _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/codesign"),
                              arguments: ["--force", "--deep", "--sign", identity, appPath])
 
-        // 4. 重启
+        // 5. 重启
         DispatchQueue.main.async {
             let task = Process()
             task.launchPath = "/usr/bin/open"
