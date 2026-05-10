@@ -22,6 +22,7 @@ struct SettingsSceneView: View {
     @State private var accessibilityTrusted = false
     @State private var selectedTab: SettingsTab? = .general
     @State private var selectedLanguage: Language
+    @State private var excludedBundleIDs: [String] = []
 
     enum Language: String, CaseIterable, Identifiable {
         case system
@@ -167,6 +168,9 @@ struct SettingsSceneView: View {
                         Text(L10n["settings.clear_warning"])
                     }
                 }
+                Section(L10n["settings.excluded_apps"]) {
+                    excludedAppsContent
+                }
             }
             .formStyle(.grouped)
             .padding(20)
@@ -232,5 +236,86 @@ struct SettingsSceneView: View {
     private func refreshAccessibilityStatus() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
         accessibilityTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+    }
+
+    // MARK: - 排除应用
+
+    /// 从 bundleID 取 App 名称
+    private func displayName(for bundleID: String) -> String {
+        if let path = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+            return FileManager.default.displayName(atPath: path.path)
+                .replacingOccurrences(of: ".app", with: "")
+        }
+        return bundleID
+    }
+
+    private func addExcludedApp() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = L10n["settings.excluded_add"]
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            if let bundle = Bundle(url: url),
+               let id = bundle.bundleIdentifier {
+                var current = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+                if !current.contains(id) {
+                    current.append(id)
+                    UserDefaults.standard.set(current, forKey: UserDefaultsKeys.excludedBundleIDs)
+                    excludedBundleIDs = current
+                }
+            }
+        }
+    }
+
+    private func removeExcludedApp(_ bundleID: String) {
+        var current = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+        current.removeAll { $0 == bundleID }
+        UserDefaults.standard.set(current, forKey: UserDefaultsKeys.excludedBundleIDs)
+        excludedBundleIDs = current
+    }
+
+    private var excludedAppsContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if excludedBundleIDs.isEmpty {
+                Text(L10n["settings.excluded_empty"])
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(excludedBundleIDs, id: \.self) { bundleID in
+                    HStack {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile:
+                            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)?.path ?? ""))
+                            .resizable()
+                            .frame(width: 20, height: 20)
+                        Text(displayName(for: bundleID))
+                            .font(.body)
+                        Spacer()
+                        Button {
+                            removeExcludedApp(bundleID)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            Button(action: addExcludedApp) {
+                Label(L10n["settings.excluded_add"], systemImage: "plus")
+            }
+
+            Text(L10n["settings.excluded_hint"])
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.top, 2)
+        }
+        .onAppear {
+            excludedBundleIDs = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+        }
     }
 }

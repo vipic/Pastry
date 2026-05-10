@@ -44,6 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+
+        // 初次启动：写入常见密码管理器的默认排除名单
+        seedDefaultExcludedApps()
     }
 
     @MainActor
@@ -149,6 +152,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // MARK: - 默认排除名单
+
+    /// 初次启动时，写入常见密码管理器的 bundleID 到排除名单
+    private func seedDefaultExcludedApps() {
+        let seededKey = "excluded_apps_seeded"
+        guard !UserDefaults.standard.bool(forKey: seededKey) else { return }
+        UserDefaults.standard.set(true, forKey: seededKey)
+
+        let defaults: [String] = [
+            "com.1password.1password",           // 1Password
+            "com.bitwarden.desktop",             // Bitwarden
+            "com.apple.keychainaccess",           // 钥匙串访问
+            "org.keepassxc.keepassxc",            // KeePassXC
+            "com.lastpass.lastpass",              // LastPass
+            "com.dashlane.dashlane",              // Dashlane
+            "com.agilebits.onepassword7",        // 1Password 7
+        ]
+
+        var current = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+        for id in defaults where !current.contains(id) {
+            current.append(id)
+        }
+        UserDefaults.standard.set(current, forKey: UserDefaultsKeys.excludedBundleIDs)
     }
 }
 

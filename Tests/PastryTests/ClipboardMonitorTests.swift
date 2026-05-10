@@ -218,4 +218,30 @@ final class ClipboardMonitorTests: XCTestCase {
         XCTAssertEqual(item?.contentType, .fileURL)
         XCTAssertEqual(item?.content, "/tmp/actual-file.pdf")
     }
+
+    // MARK: - 排除名单（bundleID 过滤）
+
+    func testExcludedBundleIDIsBlocked() {
+        let testBundleID = "com.test.excluded-app"
+        UserDefaults.standard.set([testBundleID], forKey: UserDefaultsKeys.excludedBundleIDs)
+        defer { UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.excludedBundleIDs) }
+
+        XCTAssertTrue(ClipboardMonitor.isBundleIDExcludedForTesting(testBundleID),
+                      "排除名单中的 bundleID 应返回 true")
+    }
+
+    func testNonExcludedBundleIDIsAllowed() {
+        let testBundleID = "com.test.normal-app"
+        UserDefaults.standard.set(["com.test.excluded-app"], forKey: UserDefaultsKeys.excludedBundleIDs)
+        defer { UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.excludedBundleIDs) }
+
+        XCTAssertFalse(ClipboardMonitor.isBundleIDExcludedForTesting(testBundleID),
+                       "未在排除名单中的 bundleID 应返回 false")
+    }
+
+    func testEmptyExcludedListAllowsAll() {
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.excludedBundleIDs)
+        XCTAssertFalse(ClipboardMonitor.isBundleIDExcludedForTesting("com.1password.1password"),
+                       "排除名单为空时所有 App 都应允许")
+    }
 }

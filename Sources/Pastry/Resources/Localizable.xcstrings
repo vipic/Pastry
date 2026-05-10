@@ -2314,5 +2314,73 @@
       }
     }
   },
+  "settings.excluded_apps": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "排除的应用"
+        }
+      },
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Excluded Apps"
+        }
+      }
+    }
+  },
+  "settings.excluded_add": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "添加应用…"
+        }
+      },
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Add App…"
+        }
+      }
+    }
+  },
+  "settings.excluded_empty": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "暂未排除任何应用"
+        }
+      },
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "No apps excluded"
+        }
+      }
+    }
+  },
+  "settings.excluded_hint": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "排除名单中的应用不会被保存到剪贴板历史（如密码管理器）"
+        }
+      },
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Clipboard data from excluded apps will not be saved to history (e.g. password managers)"
+        }
+      }
+    }
+  },
   "version": "1.0"
 }
