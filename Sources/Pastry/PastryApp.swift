@@ -156,13 +156,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - 默认排除名单
 
-    /// 初次启动时，写入常见密码管理器的 bundleID 到排除名单
+    /// 初次启动时，检测已安装的常见密码管理器，写入排除名单。
+    /// 未安装的应用不写入，避免在设置界面显示无效条目。
     private func seedDefaultExcludedApps() {
         let seededKey = "excluded_apps_seeded"
         guard !UserDefaults.standard.bool(forKey: seededKey) else { return }
         UserDefaults.standard.set(true, forKey: seededKey)
 
-        let defaults: [String] = [
+        let candidates: [String] = [
             "com.1password.1password",           // 1Password
             "com.bitwarden.desktop",             // Bitwarden
             "com.apple.keychainaccess",           // 钥匙串访问
@@ -172,11 +173,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "com.agilebits.onepassword7",        // 1Password 7
         ]
 
+        let installed = candidates.filter { id in
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else {
+                return false
+            }
+            var isDir: ObjCBool = false
+            return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+        }
+
+        guard !installed.isEmpty else { return }
+
         var current = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
-        for id in defaults where !current.contains(id) {
+        for id in installed where !current.contains(id) {
             current.append(id)
         }
         UserDefaults.standard.set(current, forKey: UserDefaultsKeys.excludedBundleIDs)
+
+        let joined = installed.joined(separator: ", ")
+        Logger(subsystem: "com.nekutai.pastry", category: "app")
+            .info("默认排除名单已写入: \(joined)")
     }
 }
 
