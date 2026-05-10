@@ -157,19 +157,30 @@ final class ClipboardMonitor: ObservableObject {
         }
 
         // 来源 = 当前前台 App
-        let capturedApp = NSWorkspace.shared.frontmostApplication?.localizedName
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let capturedApp = frontApp?.localizedName
+        let capturedBundleID = frontApp?.bundleIdentifier
 
         DispatchQueue.main.async {
             [weak self] in
-            self?.processChange(capturedApp: capturedApp)
+            self?.processChange(capturedApp: capturedApp, capturedBundleID: capturedBundleID)
         }
     }
 
     // MARK: - 处理剪贴板变化
 
-    private func processChange(capturedApp: String?) {
+    private func processChange(capturedApp: String?, capturedBundleID: String?) {
         let dedup = currentDedupKey
         guard dedup != lastDedupKey else { return }
+
+        // 排除名单：密码管理器等敏感应用不保存剪贴板历史
+        if let bundleID = capturedBundleID {
+            let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+            if excluded.contains(bundleID) {
+                lastDedupKey = dedup  // 更新去重 key，避免下次误判为变化
+                return
+            }
+        }
 
         let pb = NSPasteboard.general
 
@@ -477,6 +488,12 @@ final class ClipboardMonitor: ObservableObject {
 
     static func readImageDataForTesting(from pb: NSPasteboard) -> (NSImage, Data)? {
         shared.readImageData(from: pb)
+    }
+
+    /// 供单元测试：检查 bundleID 是否在排除名单中
+    static func isBundleIDExcludedForTesting(_ bundleID: String) -> Bool {
+        let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+        return excluded.contains(bundleID)
     }
 
     // MARK: - 去重

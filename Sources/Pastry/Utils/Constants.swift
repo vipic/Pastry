@@ -34,6 +34,7 @@ enum UserDefaultsKeys {
     static let soundEnabled = "sound_enabled"
     static let hotkeyKeyCode = "hotkey_keycode"
     static let hotkeyModifiers = "hotkey_modifiers"
+    static let excludedBundleIDs = "excluded_bundle_ids"
 }
 
 // MARK: - 颜色
