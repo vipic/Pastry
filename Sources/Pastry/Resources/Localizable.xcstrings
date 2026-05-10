@@ -613,6 +613,40 @@
         }
       }
     },
+    "card.file_deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件已删除"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File Deleted"
+          }
+        }
+      }
+    },
+    "card.file_not_found": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件不在该位置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File Not Found"
+          }
+        }
+      }
+    },
     "search.placeholder": {
       "extractionState": "manual",
       "localizations": {
