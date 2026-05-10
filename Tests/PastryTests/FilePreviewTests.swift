@@ -283,4 +283,91 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(contentType: item.contentType),
                        ".image 不是文本类，但应通过 canOpen 能预览")
     }
+
+    // MARK: - isMultiFile 判断
+
+    func testIsMultiFileTrueForFileURLWithNewline() {
+        XCTAssertTrue(ClipboardCardView.isMultiFileForTesting(
+            content: "/tmp/a.txt\n/tmp/b.txt", contentType: .fileURL
+        ), "多文件路径（换行分隔）应判断为多文件")
+    }
+
+    func testIsMultiFileFalseForSingleFileURL() {
+        XCTAssertFalse(ClipboardCardView.isMultiFileForTesting(
+            content: "/tmp/only.txt", contentType: .fileURL
+        ), "单文件路径不应判断为多文件")
+    }
+
+    func testIsMultiFileFalseForNonFileURL() {
+        XCTAssertFalse(ClipboardCardView.isMultiFileForTesting(
+            content: "/tmp/a.txt\n/tmp/b.txt", contentType: .text
+        ), "非 fileURL 类型即使含换行也不应判断为多文件")
+        XCTAssertFalse(ClipboardCardView.isMultiFileForTesting(
+            content: "/tmp/a.txt\n/tmp/b.txt", contentType: .image
+        ))
+    }
+
+    // MARK: - openableURL 存在性检查
+
+    func testOpenableURLReturnsNilForDeletedFile() {
+        let path = NSTemporaryDirectory() + "pastry_test_deleted_\(UUID().uuidString).txt"
+        let item = makeItem(path, .fileURL)
+        // 文件不存在 → openableURL 应为 nil
+        XCTAssertNil(ClipboardCardView.openableURLForTesting(item),
+                     "已删除/不存在的文件 openableURL 应为 nil")
+    }
+
+    func testOpenableURLReturnsURLForExistingFile() {
+        let path = NSTemporaryDirectory() + "pastry_test_exists_\(UUID().uuidString).txt"
+        try? "test".write(toFile: path, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let item = makeItem(path, .fileURL)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "存在的文件 openableURL 不应为 nil")
+        XCTAssertEqual(result?.path, path)
+    }
+
+    func testOpenableURLMultiFileReturnsFirstExisting() {
+        let existing = NSTemporaryDirectory() + "pastry_test_multi_1_\(UUID().uuidString).txt"
+        let deleted = NSTemporaryDirectory() + "pastry_test_multi_2_\(UUID().uuidString).txt"
+        try? "first".write(toFile: existing, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: existing) }
+
+        let item = makeItem("\(existing)\n\(deleted)", .fileURL)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "多文件中至少一个存在时应返回第一个存在的")
+        XCTAssertEqual(result?.path, existing)
+    }
+
+    func testOpenableURLMultiFileAllDeletedReturnsNil() {
+        let a = NSTemporaryDirectory() + "pastry_test_allgone_a_\(UUID().uuidString).txt"
+        let b = NSTemporaryDirectory() + "pastry_test_allgone_b_\(UUID().uuidString).txt"
+        let item = makeItem("\(a)\n\(b)", .fileURL)
+        XCTAssertNil(ClipboardCardView.openableURLForTesting(item),
+                     "多文件全部删除时 openableURL 应为 nil")
+    }
+
+    func testOpenableURLImageType() {
+        let path = NSTemporaryDirectory() + "pastry_test_img_\(UUID().uuidString).png"
+        try? "fake".write(toFile: path, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let item = makeItem(path, .image)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "存在的图片缓存文件 openableURL 不应为 nil")
+    }
+
+    func testOpenableURLImageDeleted() {
+        let item = makeItem("/tmp/nonexistent_img.png", .image)
+        XCTAssertNil(ClipboardCardView.openableURLForTesting(item),
+                     "已删除的图片缓存 openableURL 应为 nil")
+    }
+
+    func testOpenableURLForHTTPURL() {
+        let item = makeItem("https://example.com", .url)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.absoluteString, "https://example.com")
+    }
 }

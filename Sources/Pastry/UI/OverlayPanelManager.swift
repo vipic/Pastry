@@ -325,7 +325,18 @@ final class OverlayPanelManager: @unchecked Sendable {
             }
         case .fileURL:
             let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
-            pb.writeObjects(urls as [NSURL])
+            let existingURLs = urls.filter { FileManager.default.fileExists(atPath: $0.path) }
+            guard !existingURLs.isEmpty else {
+                // 所有文件都已删除/移动，静默取消粘贴，关闭面板
+                ClipboardMonitor.shared.resume()
+                panel?.orderOut(nil)
+                panel = nil
+                removeKeyboardMonitor()
+                NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+                isPasting = false
+                return
+            }
+            pb.writeObjects(existingURLs as [NSURL])
         case .image:
             // 优先从原始数据路径加载（高清），回退到缩略图路径
             let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content

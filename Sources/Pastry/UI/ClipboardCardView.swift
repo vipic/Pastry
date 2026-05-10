@@ -26,6 +26,8 @@ struct ClipboardCardView: View {
     // 异步加载状态 — 避免主线程同步 I/O 触发 TCC 死锁
     @State private var asyncFilePreview: NSImage?
     @State private var asyncFileIcons: [URL: NSImage] = [:]
+    @State private var missingFileURLs: Set<URL> = []
+
 
     private static let cardSize: CGFloat = 240
     private static let headerHeight: CGFloat = 48
@@ -119,11 +121,15 @@ struct ClipboardCardView: View {
 
     // MARK: - 打开文件
 
-    /// 可打开的 URL（文件路径或文本中的 URL）
+    /// 可打开的 URL（文件路径或文本中的 URL）。多文件时返回第一个存在的文件，全缺失返回 nil。
     private var openableURL: URL? {
         switch item.contentType {
-        case .fileURL, .image:
-            return URL(fileURLWithPath: item.content)
+        case .fileURL:
+            return existingFileURLs.first
+        case .image:
+            let url = URL(fileURLWithPath: item.content)
+            guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+            return url
         case .text, .url:
             if let url = URL(string: item.content),
                url.scheme == "http" || url.scheme == "https" {
@@ -140,8 +146,15 @@ struct ClipboardCardView: View {
         item.contentType == .text || item.contentType == .rtf || item.contentType == .html || item.contentType == .url
     }
 
-    /// 用默认应用打开
+    /// 用默认应用打开（多文件时逐个打开所有存在的文件）
     private func openItem() {
+        if isMultiFile {
+            let urls = existingFileURLs
+            guard !urls.isEmpty else { return }
+            OverlayPanelManager.shared.hide()
+            for url in urls { NSWorkspace.shared.open(url) }
+            return
+        }
         guard let url = openableURL else { return }
         OverlayPanelManager.shared.hide()
         NSWorkspace.shared.open(url)
@@ -389,6 +402,21 @@ struct ClipboardCardView: View {
         return .systemIcon
     }
 
+    /// 缺失文件的图标占位区（等高等宽替换原有图标/缩略图，居中布局）
+    private var missingIconPlaceholder: some View {
+        VStack(spacing: 4) {
+            Spacer()
+            Image(systemName: "questionmark.folder")
+                .font(.system(size: 28))
+                .foregroundColor(.secondary.opacity(0.3))
+            Text(L10n["card.file_not_found"])
+                .font(.system(size: 10))
+                .foregroundColor(.secondary.opacity(0.45))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     @ViewBuilder
     private var fileURLContent: some View {
         let urls = fileURLs
@@ -399,13 +427,19 @@ struct ClipboardCardView: View {
         }
     }
 
-    /// 单文件卡片：统一布局，预览内容按策略切换
+    /// 单文件卡片：统一布局，预览内容按策略切换。缺失文件在图标区显示提示，文件名加删除线
     private func singleFilePreview(_ url: URL, style: FilePreviewStyle) -> some View {
-        VStack(spacing: style == .thumbnail ? 6 : 4) {
-            filePreviewContent(url: url, style: style)
+        let isMissing = missingFileURLs.contains(url)
+        return VStack(spacing: style == .thumbnail ? 6 : 4) {
+            if isMissing {
+                missingIconPlaceholder
+            } else {
+                filePreviewContent(url: url, style: style)
+            }
             Text(url.lastPathComponent)
                 .font(.system(size: 9))
-                .foregroundColor(.secondary)
+                .foregroundColor(isMissing ? .secondary.opacity(0.4) : .secondary)
+                .strikethrough(isMissing)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -461,10 +495,16 @@ struct ClipboardCardView: View {
             return
         }
 
-        // 文件 URL 类型 — 异步加载图标/缩略图
+        // 文件 URL 类型 — 先检查存在性，缺失文件标记后跳过
         if item.contentType == .fileURL {
             let urls = fileURLs
+            var newMissing: Set<URL> = []
             for url in urls {
+                // 文件已删除或移动 — 标记为缺失，不加载图标
+                guard FileManager.default.fileExists(atPath: url.path) else {
+                    newMissing.insert(url)
+                    continue
+                }
                 let style = Self.filePreviewStyle(for: url)
                 let cacheKey: NSString
                 let needsThumbnail: Bool
@@ -505,6 +545,7 @@ struct ClipboardCardView: View {
                     }
                 }
             }
+            await MainActor.run { missingFileURLs = newMissing }
         }
     }
 
@@ -514,13 +555,22 @@ struct ClipboardCardView: View {
         let urls = fileURLs
         return VStack(alignment: .leading, spacing: 3) {
             ForEach(urls.prefix(4), id: \.self) { url in
+                let isMissing = missingFileURLs.contains(url)
                 HStack(spacing: 4) {
-                    if let icon = asyncFileIcons[url] {
+                    if isMissing {
+                        Image(systemName: "questionmark.folder")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary.opacity(0.4))
+                    } else if let icon = asyncFileIcons[url] {
                         Image(nsImage: icon)
                             .resizable()
                             .frame(width: 12, height: 12)
                     }
-                    Text(url.lastPathComponent).lineLimit(1).font(.system(size: 10)).foregroundColor(.primary)
+                    Text(url.lastPathComponent)
+                        .lineLimit(1)
+                        .font(.system(size: 10))
+                        .foregroundColor(isMissing ? .secondary.opacity(0.4) : .primary)
+                        .strikethrough(isMissing)
                 }
             }
             if urls.count > 4 {
@@ -678,6 +728,17 @@ struct ClipboardCardView: View {
         item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
     }
 
+    /// 所有实际存在于磁盘的文件 URL（已过滤删除/移动的文件）
+    private var existingFileURLs: [URL] {
+        guard item.contentType == .fileURL || item.contentType == .image else { return [] }
+        return fileURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// 是否为多文件条目
+    private var isMultiFile: Bool {
+        item.contentType == .fileURL && item.content.contains("\n")
+    }
+
     private func loadAppInfo() {
         let provider = AppIconProvider.shared
         let name: String? = item.isHandoff ? "📱 Handoff" : item.appName
@@ -737,38 +798,54 @@ struct ClipboardCardView: View {
         pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: nil)
         menu.addItem(pinItem)
 
-        let canOpen = item.contentType == .fileURL || item.contentType == .image || item.contentType == .url
-            || (item.contentType == .text && openableURL != nil)
-        let canPreview = canOpen || isTextType
+        let isFileBased = item.contentType == .fileURL || item.contentType == .image
+        let hasAnyFile = isFileBased && !existingFileURLs.isEmpty
 
-        if canOpen {
+        // Open / Open With — 文件类始终显示（缺失时灰显）
+        let showOpenSection = isFileBased || item.contentType == .url
+            || (item.contentType == .text && openableURL != nil)
+
+        if showOpenSection {
             menu.addItem(.separator())
-            let openItem = NSMenuItem(title: L10n["context.open"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
-            openItem.target = handler
-            openItem.representedObject = "open" as NSString
-            openItem.image = NSImage(systemSymbolName: "arrow.up.forward.app", accessibilityDescription: nil)
-            menu.addItem(openItem)
-            let openWithItem = NSMenuItem(title: L10n["context.open_with"], action: nil, keyEquivalent: "")
-            openWithItem.image = NSImage(systemSymbolName: "square.on.square", accessibilityDescription: nil)
-            if let submenu = buildOpenWithSubmenu(for: handler) {
-                menu.setSubmenu(submenu, for: openWithItem)
+            let openEnabled = hasAnyFile || (!isFileBased && openableURL != nil)
+            let oItem = NSMenuItem(title: L10n["context.open"], action: openEnabled ? #selector(_MenuHandler.invoke(_:)) : nil, keyEquivalent: "")
+            oItem.target = openEnabled ? handler : nil
+            oItem.representedObject = openEnabled ? "open" as NSString : nil
+            oItem.image = NSImage(systemSymbolName: "arrow.up.forward.app", accessibilityDescription: nil)
+            oItem.isEnabled = openEnabled
+            menu.addItem(oItem)
+
+            let owEnabled = !isMultiFile && hasAnyFile
+            let owItem = NSMenuItem(title: L10n["context.open_with"], action: nil, keyEquivalent: "")
+            owItem.image = NSImage(systemSymbolName: "square.on.square", accessibilityDescription: nil)
+            owItem.isEnabled = owEnabled
+            if owEnabled, let submenu = buildOpenWithSubmenu(for: handler) {
+                menu.setSubmenu(submenu, for: owItem)
             }
-            menu.addItem(openWithItem)
+            menu.addItem(owItem)
         }
 
-        if canPreview {
-            menu.addItem(.separator())
-            let previewItem = NSMenuItem(title: L10n["context.preview"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
-            previewItem.target = handler
-            previewItem.representedObject = "preview" as NSString
-            previewItem.image = NSImage(systemSymbolName: "eye", accessibilityDescription: nil)
-            menu.addItem(previewItem)
+        // Preview / Share — 单文件：缺失灰显；多文件：Preview 灰显，Share 有文件时可用
+        let showPreviewSection = isFileBased || isTextType
+        let previewEnabled = !isMultiFile && hasAnyFile
+        let shareEnabled = hasAnyFile || (!isFileBased && openableURL != nil)
 
-            let shareItem = NSMenuItem(title: L10n["context.share"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
-            shareItem.target = handler
-            shareItem.representedObject = "share" as NSString
-            shareItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
-            menu.addItem(shareItem)
+        if showPreviewSection {
+            menu.addItem(.separator())
+
+            let pItem = NSMenuItem(title: L10n["context.preview"], action: previewEnabled ? #selector(_MenuHandler.invoke(_:)) : nil, keyEquivalent: "")
+            pItem.target = previewEnabled ? handler : nil
+            pItem.representedObject = previewEnabled ? "preview" as NSString : nil
+            pItem.image = NSImage(systemSymbolName: "eye", accessibilityDescription: nil)
+            pItem.isEnabled = previewEnabled
+            menu.addItem(pItem)
+
+            let sItem = NSMenuItem(title: L10n["context.share"], action: shareEnabled ? #selector(_MenuHandler.invoke(_:)) : nil, keyEquivalent: "")
+            sItem.target = shareEnabled ? handler : nil
+            sItem.representedObject = shareEnabled ? "share" as NSString : nil
+            sItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
+            sItem.isEnabled = shareEnabled
+            menu.addItem(sItem)
         }
 
         menu.addItem(.separator())
@@ -854,7 +931,11 @@ struct ClipboardCardView: View {
     /// 系统分享面板
     private func shareItem(from view: NSView) {
         let items: [Any]
-        if let url = openableURL {
+        if isMultiFile {
+            let urls = existingFileURLs
+            guard !urls.isEmpty else { return }
+            items = urls
+        } else if let url = openableURL {
             items = [url]
         } else if isTextType {
             items = [DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content]
@@ -905,6 +986,31 @@ struct ClipboardCardView: View {
             return (true, item.content)
         default:
             return (false, item.content)
+        }
+    }
+
+    /// 供单元测试：content → 是否为多文件条目
+    static func isMultiFileForTesting(content: String, contentType: ClipType) -> Bool {
+        contentType == .fileURL && content.contains("\n")
+    }
+
+    /// 供单元测试：item → openableURL 计算（单文件/多文件兼容）
+    static func openableURLForTesting(_ item: ClipboardItem) -> URL? {
+        switch item.contentType {
+        case .fileURL:
+            let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
+            return urls.first { FileManager.default.fileExists(atPath: $0.path) }
+        case .image:
+            let url = URL(fileURLWithPath: item.content)
+            return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        case .text, .url:
+            if let url = URL(string: item.content),
+               url.scheme == "http" || url.scheme == "https" {
+                return url
+            }
+            return nil
+        default:
+            return nil
         }
     }
 }
