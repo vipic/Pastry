@@ -50,6 +50,7 @@ struct SettingsSceneView: View {
     enum SettingsTab: String, CaseIterable, Identifiable {
         case general
         case shortcut
+        case security
 
         var id: String { rawValue }
 
@@ -57,6 +58,7 @@ struct SettingsSceneView: View {
             switch self {
             case .general:  return L10n["settings.tab.general"]
             case .shortcut: return L10n["settings.tab.shortcut"]
+            case .security: return L10n["settings.tab.security"]
             }
         }
 
@@ -64,6 +66,7 @@ struct SettingsSceneView: View {
             switch self {
             case .general:  return "gearshape"
             case .shortcut: return "command"
+            case .security: return "shield"
             }
         }
     }
@@ -168,15 +171,15 @@ struct SettingsSceneView: View {
                         Text(L10n["settings.clear_warning"])
                     }
                 }
-                Section(L10n["settings.excluded_apps"]) {
-                    excludedAppsContent
-                }
             }
             .formStyle(.grouped)
             .padding(20)
 
         case .shortcut:
             shortcutTab
+
+        case .security:
+            securityTab
         }
     }
 
@@ -233,6 +236,18 @@ struct SettingsSceneView: View {
         .padding(20)
     }
 
+    // MARK: - 安全 Tab
+
+    private var securityTab: some View {
+        Form {
+            Section(L10n["settings.excluded_apps"]) {
+                excludedAppsContent
+            }
+        }
+        .formStyle(.grouped)
+        .padding(20)
+    }
+
     private func refreshAccessibilityStatus() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
         accessibilityTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
@@ -278,14 +293,28 @@ struct SettingsSceneView: View {
         excludedBundleIDs = current
     }
 
+    /// 检查 bundleID 对应的 App 是否已安装
+    private func isAppInstalled(bundleID: String) -> Bool {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            return false
+        }
+        var isDir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+    }
+
+    /// 当前已安装的排除应用（从未安装的不显示）
+    private var installedExcludedBundleIDs: [String] {
+        excludedBundleIDs.filter { isAppInstalled(bundleID: $0) }
+    }
+
     private var excludedAppsContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if excludedBundleIDs.isEmpty {
+            if installedExcludedBundleIDs.isEmpty {
                 Text(L10n["settings.excluded_empty"])
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                ForEach(excludedBundleIDs, id: \.self) { bundleID in
+                ForEach(installedExcludedBundleIDs, id: \.self) { bundleID in
                     HStack {
                         Image(nsImage: NSWorkspace.shared.icon(forFile:
                             NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)?.path ?? ""))
