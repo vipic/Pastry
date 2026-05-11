@@ -712,11 +712,19 @@ struct ClipboardCardView: View {
 
     private var detectedLink: URL? {
         let trimmed = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: trimmed), let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return url }
+        if let url = URL(string: trimmed), let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return upgradeToHTTPS(url) }
         if let d = Self.linkDetector,
            let m = d.firstMatch(in: item.content, range: NSRange(item.content.startIndex..., in: item.content)),
-           let url = m.url, let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return url }
+           let url = m.url, let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return upgradeToHTTPS(url) }
         return nil
+    }
+
+    /// NSDataDetector 返回 http:// 裸域名时升级为 https://，避免重定向和不必要的 HTTP 请求
+    private func upgradeToHTTPS(_ url: URL) -> URL {
+        guard url.scheme?.lowercased() == "http" else { return url }
+        var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        c?.scheme = "https"
+        return c?.url ?? url
     }
 
     /// 链接预览：缓存优先，body 求值时同步读取，零帧延迟
@@ -1044,11 +1052,19 @@ struct ClipboardCardView: View {
     /// 供单元测试：从文本中检测 URL（与 detectedLink 逻辑一致）
     private static func detectedLinkForTesting(in text: String) -> URL? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: trimmed), let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return url }
+        if let url = URL(string: trimmed), let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return upgradeToHTTPSTesting(url) }
         if let d = linkDetector,
            let m = d.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-           let url = m.url, let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return url }
+           let url = m.url, let s = url.scheme, ["http", "https"].contains(s.lowercased()) { return upgradeToHTTPSTesting(url) }
         return nil
+    }
+
+    /// 测试专用：http → https 升级
+    private static func upgradeToHTTPSTesting(_ url: URL) -> URL {
+        guard url.scheme?.lowercased() == "http" else { return url }
+        var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        c?.scheme = "https"
+        return c?.url ?? url
     }
 
 }
