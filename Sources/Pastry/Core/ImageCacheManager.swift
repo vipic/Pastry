@@ -86,8 +86,10 @@ final class ImageCacheManager {
         }
     }
 
-    /// LRU 磁盘淘汰：超过 maxCacheSize 时按修改时间删除最旧文件，直到低于 targetCacheSize
+    /// LRU 磁盘淘汰：超过 maxCacheSize 时按修改时间删除最旧文件，直到低于 targetCacheSize。
+    /// 跳过数据库中仍被引用的文件。
     private func evictIfNeeded() {
+        let activePaths = DatabaseManager.shared.allImageContentPaths()
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(
             at: cacheDir,
@@ -115,6 +117,11 @@ final class ImageCacheManager {
 
         for info in fileInfos {
             guard totalSize > Self.targetCacheSize else { break }
+            // 跳过数据库中仍被引用的文件（防止卡片显示破损图标）
+            let thumbPath: String? = info.url.pathExtension == "png"
+                ? info.url.path
+                : counterpartURL(for: info.url)?.path
+            if let tp = thumbPath, activePaths.contains(tp) { continue }
             do {
                 try fm.removeItem(at: info.url)
                 totalSize -= info.size
