@@ -234,6 +234,9 @@ struct PastryApp: App {
 
         store.start()
 
+        // 清理孤儿图片缓存（数据库中已删除但缓存文件还在的 .png + .orig）
+        ImageCacheManager.shared.cleanupOrphans(activePaths: DatabaseManager.shared.allImageContentPaths())
+
         if Self.isBenchmark {
             let elapsed = Int((CFAbsoluteTimeGetCurrent() - benchStart) * 1000)
             print("启动耗时: \(elapsed)ms")
