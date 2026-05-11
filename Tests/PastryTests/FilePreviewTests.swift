@@ -419,4 +419,31 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertNil(ClipboardCardView.openableURLForTesting(item),
                      "HTML 纯文本不含链接不应返回 URL")
     }
+
+    // MARK: - HTTP → HTTPS 升级
+
+    func testHTTPUpgradedToHTTPSForBareDomain() {
+        // NSDataDetector 返回 http://something.com → 升级为 https://
+        let item = makeItem("example.org", .text)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.scheme, "https", "裸域名应升级为 https://")
+        XCTAssertEqual(result?.absoluteString, "https://example.org")
+    }
+
+    func testExplicitHTTPAlsoUpgraded() {
+        let item = makeItem("http://example.com", .text)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.scheme, "https", "显式 http:// 也应升级")
+        XCTAssertEqual(result?.absoluteString, "https://example.com")
+    }
+
+    func testHTTPSUnchanged() {
+        let item = makeItem("https://secure.example.com", .text)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.scheme, "https")
+        XCTAssertEqual(result?.absoluteString, "https://secure.example.com")
+    }
 }
