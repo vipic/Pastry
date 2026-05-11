@@ -370,4 +370,53 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertNotNil(result)
         XCTAssertEqual(result?.absoluteString, "https://example.com")
     }
+
+    // MARK: - openableURL 对 RTF/HTML 中链接的识别
+
+    func testOpenableURLForBareDomainInText() {
+        let item = makeItem("something.com", .text)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "裸域名应通过 NSDataDetector 识别")
+        XCTAssertEqual(result?.absoluteString, "http://something.com")
+    }
+
+    func testOpenableURLForBareDomainInRTF() {
+        let item = makeItem("something.com", .rtf)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "RTF 中的裸域名应通过 NSDataDetector 识别")
+        XCTAssertEqual(result?.absoluteString, "http://something.com")
+    }
+
+    func testOpenableURLForBareDomainInHTML() {
+        let item = makeItem("something.com", .html)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "HTML 中的裸域名应通过 NSDataDetector 识别")
+        XCTAssertEqual(result?.absoluteString, "http://something.com")
+    }
+
+    func testOpenableURLForFullURLInRTF() {
+        let item = makeItem("https://example.com", .rtf)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "RTF 中的完整 URL 应可识别")
+        XCTAssertEqual(result?.absoluteString, "https://example.com")
+    }
+
+    func testOpenableURLForFullURLInHTML() {
+        let item = makeItem("https://example.com/path", .html)
+        let result = ClipboardCardView.openableURLForTesting(item)
+        XCTAssertNotNil(result, "HTML 中的完整 URL 应可识别")
+        XCTAssertEqual(result?.absoluteString, "https://example.com/path")
+    }
+
+    func testOpenableURLReturnsNilForPlainTextInRTF() {
+        let item = makeItem("hello world", .rtf)
+        XCTAssertNil(ClipboardCardView.openableURLForTesting(item),
+                     "RTF 纯文本不应返回 URL")
+    }
+
+    func testOpenableURLReturnsNilForPlainTextInHTML() {
+        let item = makeItem("<p>Hello</p>", .html)
+        XCTAssertNil(ClipboardCardView.openableURLForTesting(item),
+                     "HTML 纯文本不含链接不应返回 URL")
+    }
 }

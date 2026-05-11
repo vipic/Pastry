@@ -397,6 +397,14 @@ struct OverlayView: View {
             .buttonStyle(.plain)
             .onHover { hoverGear = $0 }
         }
+        .overlay(alignment: .leading) {
+            if selection.selectedIds.count > 1 {
+                Text("已选 \(selection.selectedIds.count) 项")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(.leading, 12)
+            }
+        }
         .padding(.horizontal, 8)
     }
 
