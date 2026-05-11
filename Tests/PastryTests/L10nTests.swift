@@ -26,7 +26,8 @@ final class L10nTests: XCTestCase {
         let keys = [
             "context.pin", "context.unpin",
             "context.open", "context.open_with", "context.open_with_other",
-            "context.preview", "context.share", "context.delete"
+            "context.preview", "context.share", "context.delete",
+            "context.show_in_finder"
         ]
         for key in keys {
             let value = L10n[key]

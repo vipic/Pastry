@@ -596,6 +596,23 @@
         }
       }
     },
+    "context.show_in_finder": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在访达中显示"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Finder"
+          }
+        }
+      }
+    },
     "card.extra_files": {
       "extractionState": "manual",
       "localizations": {

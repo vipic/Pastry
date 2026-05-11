@@ -456,6 +456,14 @@ final class ClipboardMonitor: ObservableObject {
         let fileURLs = urls.filter { $0.isFileURL }
         guard !fileURLs.isEmpty else { return nil }
         let paths = fileURLs.map(\.path).joined(separator: "\n")
+
+        // 所有文件都是图片 → 归为 .image，显示图片预览而非文件图标
+        let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "heic", "heif"]
+        let allImages = fileURLs.allSatisfy { imageExtensions.contains($0.pathExtension.lowercased()) }
+        if allImages {
+            return ClipboardItem(content: paths, sourceFormat: .image, appName: appName, isHandoff: isHandoff)
+        }
+
         return ClipboardItem(content: paths, sourceFormat: .fileURL, appName: appName, isHandoff: isHandoff)
     }
 

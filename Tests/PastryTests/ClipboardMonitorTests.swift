@@ -186,15 +186,54 @@ final class ClipboardMonitorTests: XCTestCase {
 
     // MARK: - readFileURLs isFileURL 过滤
 
-    /// pasteboard 上只有 file:// URL → 应识别为 fileURL
+    /// pasteboard 上只有图片文件 → 应识别为 image（优先于 fileURL）
     func testFileURLsOnlyFileScheme() {
         let pb = makeTestPasteboard("fileURLsOnly")
         pb.clearContents()
         pb.writeObjects([URL(fileURLWithPath: "/Users/test/photo.png") as NSURL])
         let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
         XCTAssertNotNil(item)
-        XCTAssertEqual(item?.sourceFormat, .fileURL)
+        XCTAssertEqual(item?.sourceFormat, .image)
         XCTAssertEqual(item?.content, "/Users/test/photo.png")
+    }
+
+    /// 多个图片文件 → 仍归为 image
+    func testMultipleImageFilesClassifiedAsImage() {
+        let pb = makeTestPasteboard("multiImages")
+        pb.clearContents()
+        let urls = [
+            URL(fileURLWithPath: "/tmp/a.jpg") as NSURL,
+            URL(fileURLWithPath: "/tmp/b.png") as NSURL,
+        ]
+        pb.writeObjects(urls)
+        let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
+        XCTAssertNotNil(item)
+        XCTAssertEqual(item?.sourceFormat, .image)
+        XCTAssertTrue(item?.content.contains("\n") ?? false, "多个文件应用换行分隔")
+    }
+
+    /// 非图片文件 → 仍归为 fileURL
+    func testNonImageFileClassifiedAsFileURL() {
+        let pb = makeTestPasteboard("nonImageFile")
+        pb.clearContents()
+        pb.writeObjects([URL(fileURLWithPath: "/tmp/report.pdf") as NSURL])
+        let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
+        XCTAssertNotNil(item)
+        XCTAssertEqual(item?.sourceFormat, .fileURL)
+    }
+
+    /// 混合：图片 + 非图片 → 归为 fileURL（不能全归图片）
+    func testMixedImageAndNonImageClassifiedAsFileURL() {
+        let pb = makeTestPasteboard("mixedFiles")
+        pb.clearContents()
+        let urls = [
+            URL(fileURLWithPath: "/tmp/photo.jpg") as NSURL,
+            URL(fileURLWithPath: "/tmp/doc.txt") as NSURL,
+        ]
+        pb.writeObjects(urls)
+        let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
+        XCTAssertNotNil(item)
+        XCTAssertEqual(item?.sourceFormat, .fileURL)
     }
 
     /// pasteboard 上只有 web URL（模拟 Handoff 同步） → 不应识别为 fileURL

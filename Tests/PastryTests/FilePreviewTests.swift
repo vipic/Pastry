@@ -59,7 +59,7 @@ final class FilePreviewTests: XCTestCase {
         NSPasteboard(name: NSPasteboard.Name("test.hermes.pastry.\(name)"))
     }
 
-    func testFileURLTakesPriorityOverImage() {
+    func testImageFileClassifiedAsImage() {
         let pb = makeTestPasteboard("fileURL")
 
         let testDir = NSTemporaryDirectory()
@@ -68,8 +68,8 @@ final class FilePreviewTests: XCTestCase {
         pb.writeObjects([testURL as NSURL])
 
         let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
-        XCTAssertNotNil(item, "有文件 URL 时应返回 item")
-        XCTAssertEqual(item?.sourceFormat, .fileURL)
+        XCTAssertNotNil(item, "有图片文件 URL 时应返回 item")
+        XCTAssertEqual(item?.sourceFormat, .image)
     }
 
     func testImageReadsWhenNoFileURL() {
