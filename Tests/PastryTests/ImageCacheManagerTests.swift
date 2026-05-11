@@ -88,6 +88,36 @@ final class ImageCacheManagerTests: XCTestCase {
         XCTAssertNil(manager.originalPath(forThumbnail: thumbPath), "删除 .orig 后应返回 nil")
     }
 
+    // MARK: - 预览用高清 PNG 生成（orig → TIFF → PNG）
+
+    /// 验证 .orig 数据可转换为 PNG 格式供 Quick Look 预览
+    func testOrigDataConvertsToValidPNG() throws {
+        let originalData = generateTestTIFFData(width: 2400, height: 1600)
+        let image = NSImage(data: originalData)!
+        let thumbPath = manager.save(image: image, data: originalData)!
+        let origPath = manager.originalPath(forThumbnail: thumbPath)!
+
+        // 模拟 previewItem 中的转换管线
+        let origData = try Data(contentsOf: URL(fileURLWithPath: origPath))
+        let origImage = NSImage(data: origData)
+        XCTAssertNotNil(origImage, "orig 数据应可解码为 NSImage")
+
+        let tiff = origImage!.tiffRepresentation
+        XCTAssertNotNil(tiff, "NSImage 应可输出 TIFF")
+
+        let bitmap = NSBitmapImageRep(data: tiff!)
+        XCTAssertNotNil(bitmap, "TIFF 应可解码为 bitmap")
+
+        let png = bitmap!.representation(using: .png, properties: [:])
+        XCTAssertNotNil(png, "bitmap 应可编码为 PNG")
+
+        // 验证 PNG 是有效图片
+        let recovered = NSImage(data: png!)
+        XCTAssertNotNil(recovered, "生成的 PNG 应可重新解码")
+        XCTAssertEqual(recovered!.size.width, 2400, "宽度应保留")
+        XCTAssertEqual(recovered!.size.height, 1600, "高度应保留")
+    }
+
     // MARK: - 帮助函数
 
     /// 生成测试用 TIFF 数据
