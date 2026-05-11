@@ -139,8 +139,7 @@ struct ClipboardCardView: View {
         case .fileURL:
             return existingFileURLs.first
         case .image:
-            // 预览/打开时优先使用原始高清文件
-            let url = URL(fileURLWithPath: displayImagePath)
+            let url = URL(fileURLWithPath: item.content)
             guard FileManager.default.fileExists(atPath: url.path) else { return nil }
             return url
         case .text, .rtf, .html:
@@ -392,16 +391,11 @@ struct ClipboardCardView: View {
         }
     }
 
-    /// 图片展示用的路径：优先原始高清文件，无原始文件则用缩略图
-    private var displayImagePath: String {
-        ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
-    }
-
     @ViewBuilder
     private var imagePreview: some View {
         let nsImage: NSImage? = {
             // 缓存命中 (已在后台加载过)
-            let key = displayImagePath as NSString
+            let key = item.content as NSString
             if let cached = Self.imageCache.object(forKey: key) { return cached }
             // 异步加载中或失败 → 返回 nil，用 asyncFilePreview 的 placeholder
             return nil
@@ -515,9 +509,9 @@ struct ClipboardCardView: View {
 
     /// 异步加载文件预览 — 避免主线程同步 I/O 触发 TCC 权限弹窗死锁
     private func loadFilePreviewsIfNeeded() async {
-        // 图片类型 — 异步加载 NSImage（优先原始高清文件）
+        // 图片类型 — 异步加载 NSImage
         if item.sourceFormat == .image {
-            let path = displayImagePath
+            let path = item.content
             let key = path as NSString
             if let cached = Self.imageCache.object(forKey: key) {
                 await MainActor.run { asyncFilePreview = cached }
@@ -925,8 +919,22 @@ struct ClipboardCardView: View {
             case .image:
                 let fileName = (item.content as NSString).lastPathComponent
                 let ext = (fileName as NSString).pathExtension.uppercased()
+                // 尝试从原始文件生成高清临时预览（.orig 无扩展名，Quick Look 无法直接渲染）
+                let previewURL: URL = {
+                    guard let origPath = ImageCacheManager.shared.originalPath(forThumbnail: item.content),
+                          let origData = try? Data(contentsOf: URL(fileURLWithPath: origPath)),
+                          let origImage = NSImage(data: origData),
+                          let tiff = origImage.tiffRepresentation,
+                          let bitmap = NSBitmapImageRep(data: tiff),
+                          let png = bitmap.representation(using: .png, properties: [:])
+                    else { return url }
+                    let tmp = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("pastry_preview_\(UUID().uuidString.prefix(8)).png")
+                    try? png.write(to: tmp)
+                    return tmp
+                }()
                 metadata = QLPreviewHelper.PreviewMetadata(
-                    url: url, displayName: fileName,
+                    url: previewURL, displayName: fileName,
                     fileType: ext.isEmpty ? L10n["filetype.image"] : ext,
                     infoText: fileName, isLocalFile: true
                 )
@@ -1048,8 +1056,7 @@ struct ClipboardCardView: View {
             let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
             return urls.first { FileManager.default.fileExists(atPath: $0.path) }
         case .image:
-            let origPath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
-            let url = URL(fileURLWithPath: origPath)
+            let url = URL(fileURLWithPath: item.content)
             return FileManager.default.fileExists(atPath: url.path) ? url : nil
         case .text, .rtf, .html:
             return detectedLinkForTesting(in: item.content)
