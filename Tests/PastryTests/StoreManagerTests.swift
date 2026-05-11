@@ -19,7 +19,7 @@ final class StoreManagerTests: XCTestCase {
 
     // MARK: - 辅助方法
 
-    private func makeStoreWithItems(_ specs: [(content: String, type: ClipType, app: String?, pinned: Bool, daysAgo: Int)]) -> StoreManager {
+    private func makeStoreWithItems(_ specs: [(content: String, type: SourceFormat, app: String?, pinned: Bool, daysAgo: Int)]) -> StoreManager {
         let cal = Calendar.current
         let now = Date()
         let items: [ClipboardItem] = specs.map { spec in
@@ -27,7 +27,7 @@ final class StoreManagerTests: XCTestCase {
             return ClipboardItem(
                 timestamp: date,
                 content: spec.content,
-                contentType: spec.type,
+                sourceFormat: spec.type,
                 appName: spec.app,
                 isPinned: spec.pinned
             )
@@ -70,7 +70,7 @@ final class StoreManagerTests: XCTestCase {
 
         store.typeFilter = .text
         XCTAssertEqual(store.filteredItems.count, 2)
-        XCTAssertTrue(store.filteredItems.allSatisfy { $0.contentType == .text })
+        XCTAssertTrue(store.filteredItems.allSatisfy { $0.sourceFormat == .text })
     }
 
     func testTypeFilterImage() {
@@ -81,7 +81,7 @@ final class StoreManagerTests: XCTestCase {
 
         store.typeFilter = .image
         XCTAssertEqual(store.filteredItems.count, 1)
-        XCTAssertEqual(store.filteredItems[0].contentType, .image)
+        XCTAssertEqual(store.filteredItems[0].sourceFormat, .image)
     }
 
     func testTypeFilterNilShowsAll() {
@@ -304,31 +304,31 @@ final class StoreManagerTests: XCTestCase {
     // MARK: - dedupKey 含 textAnnotation
 
     func testDedupKeyIncludesTextAnnotation() {
-        let a = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "hello")
-        let b = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "world")
+        let a = ClipboardItem(content: "/tmp/img.png", sourceFormat: .image, textAnnotation: "hello")
+        let b = ClipboardItem(content: "/tmp/img.png", sourceFormat: .image, textAnnotation: "world")
         // 不同附注 → 不同 dedupKey
         XCTAssertNotEqual(a.dedupKey, b.dedupKey)
     }
 
     func testDedupKeySameWhenAnnotationSame() {
-        let a = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "same")
-        let b = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "same")
+        let a = ClipboardItem(content: "/tmp/img.png", sourceFormat: .image, textAnnotation: "same")
+        let b = ClipboardItem(content: "/tmp/img.png", sourceFormat: .image, textAnnotation: "same")
         XCTAssertEqual(a.dedupKey, b.dedupKey)
     }
 
     func testDedupKeyNilAnnotation() {
-        let a = ClipboardItem(content: "/tmp/img.png", contentType: .image)
-        let b = ClipboardItem(content: "/tmp/img.png", contentType: .image, textAnnotation: "has text")
+        let a = ClipboardItem(content: "/tmp/img.png", sourceFormat: .image)
+        let b = ClipboardItem(content: "/tmp/img.png", sourceFormat: .image, textAnnotation: "has text")
         XCTAssertNotEqual(a.dedupKey, b.dedupKey)
     }
 
     // MARK: - dedupKey 含 segments
 
     func testDedupKeyIncludesSegments() {
-        let a = ClipboardItem(content: "text", contentType: .html, segments: [
+        let a = ClipboardItem(content: "text", sourceFormat: .html, segments: [
             .image(url: "https://a.com/1.png"), .text("文字")
         ])
-        let b = ClipboardItem(content: "text", contentType: .html, segments: [
+        let b = ClipboardItem(content: "text", sourceFormat: .html, segments: [
             .image(url: "https://a.com/2.png"), .text("文字")
         ])
         // 不同图片 URL → 不同 dedupKey
@@ -337,14 +337,14 @@ final class StoreManagerTests: XCTestCase {
 
     func testDedupKeySameSegmentsSame() {
         let segs: [ContentSegment] = [.text("A"), .image(url: "https://a.com/pic.png")]
-        let a = ClipboardItem(content: "A", contentType: .html, segments: segs)
-        let b = ClipboardItem(content: "A", contentType: .html, segments: segs)
+        let a = ClipboardItem(content: "A", sourceFormat: .html, segments: segs)
+        let b = ClipboardItem(content: "A", sourceFormat: .html, segments: segs)
         XCTAssertEqual(a.dedupKey, b.dedupKey)
     }
 
     func testDedupKeySegmentsNilVsSome() {
-        let a = ClipboardItem(content: "text", contentType: .html, segments: nil)
-        let b = ClipboardItem(content: "text", contentType: .html, segments: [.text("text")])
+        let a = ClipboardItem(content: "text", sourceFormat: .html, segments: nil)
+        let b = ClipboardItem(content: "text", sourceFormat: .html, segments: [.text("text")])
         XCTAssertNotEqual(a.dedupKey, b.dedupKey)
     }
 

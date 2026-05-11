@@ -14,7 +14,7 @@ final class SelectionStateTests: XCTestCase {
             ClipboardItem(
                 timestamp: Date(),
                 content: "item \(i)",
-                contentType: .text,
+                sourceFormat: .text,
                 appName: nil,
                 isPinned: false
             )

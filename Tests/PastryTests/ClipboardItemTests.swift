@@ -2,40 +2,40 @@ import XCTest
 @testable import Pastry
 
 // MARK: - ClipboardItem 测试套件
-// 测试 ClipType 标签、dedupKey 等属性
+// 测试 SourceFormat 标签、dedupKey 等属性
 
 final class ClipboardItemTests: XCTestCase {
 
-    // MARK: - ClipType.label 本地化覆盖
+    // MARK: - SourceFormat.label 本地化覆盖
 
     /// 所有类型都有非空标签（L10n 键缺失时返回空字符串）
-    func testClipTypeAllLabelsNonEmpty() {
-        for type in ClipType.allCases {
+    func testSourceFormatAllLabelsNonEmpty() {
+        for type in SourceFormat.allCases {
             XCTAssertFalse(
                 type.label.isEmpty,
-                "ClipType.\(type) 的标签不应为空"
+                "SourceFormat.\(type) 的标签不应为空"
             )
         }
     }
 
     /// 所有类型标签互不相同
-    func testClipTypeLabelsAreUnique() {
-        let labels = Set(ClipType.allCases.map { $0.label })
+    func testSourceFormatLabelsAreUnique() {
+        let labels = Set(SourceFormat.allCases.map { $0.label })
         XCTAssertEqual(
             labels.count,
-            ClipType.allCases.count,
+            SourceFormat.allCases.count,
             "每种类型的标签应唯一"
         )
     }
 
-    // MARK: - ClipType.iconName 覆盖
+    // MARK: - SourceFormat.iconName 覆盖
 
     /// 所有类型都有图标名（fallback 依赖 SF Symbol 存在性）
-    func testClipTypeAllIconsNonEmpty() {
-        for type in ClipType.allCases {
+    func testSourceFormatAllIconsNonEmpty() {
+        for type in SourceFormat.allCases {
             XCTAssertFalse(
                 type.iconName.isEmpty,
-                "ClipType.\(type) 的图标名不应为空"
+                "SourceFormat.\(type) 的图标名不应为空"
             )
         }
     }
@@ -49,7 +49,7 @@ final class ClipboardItemTests: XCTestCase {
         let jsonStr = String(data: jsonData, encoding: .utf8)!
 
         let item = ClipboardItem(
-            content: "text", contentType: .html,
+            content: "text", sourceFormat: .html,
             segmentsJSON: jsonStr
         )
 
@@ -64,7 +64,7 @@ final class ClipboardItemTests: XCTestCase {
     func testSegmentsEncodedAsJSON() {
         let segs: [ContentSegment] = [.text("测试"), .image(url: "img://a")]
         let item = ClipboardItem(
-            content: "text", contentType: .html,
+            content: "text", sourceFormat: .html,
             segments: segs
         )
 
@@ -80,7 +80,7 @@ final class ClipboardItemTests: XCTestCase {
 
     /// segmentsJSON 为 nil 时 segments 返回 nil
     func testSegmentsNilWhenJSONNil() {
-        let item = ClipboardItem(content: "plain text", contentType: .text)
+        let item = ClipboardItem(content: "plain text", sourceFormat: .text)
 
         XCTAssertNil(item.segmentsJSON)
         XCTAssertNil(item.segments)
@@ -89,7 +89,7 @@ final class ClipboardItemTests: XCTestCase {
     /// 空 segments 数组 → segmentsJSON 为 nil
     func testEmptySegmentsProducesNilJSON() {
         let item = ClipboardItem(
-            content: "text", contentType: .html,
+            content: "text", sourceFormat: .html,
             segments: []
         )
         XCTAssertNil(item.segmentsJSON)
@@ -99,7 +99,7 @@ final class ClipboardItemTests: XCTestCase {
     /// segmentsJSON 为无效 JSON 时 segments 返回 nil（不崩溃）
     func testSegmentsHandlesInvalidJSON() {
         let item = ClipboardItem(
-            content: "text", contentType: .html,
+            content: "text", sourceFormat: .html,
             segmentsJSON: "not valid json {{{"
         )
         XCTAssertNil(item.segments)
