@@ -123,28 +123,30 @@ echo "━━━ 4/5 代码签名 ━━━"
 # 固定证书签名 = TCC 权限持久保留（更新不需要重新授权）
 # 首次运行需手动创建一次（30 秒）：
 #   Keychain Access → 证书助理 → 创建证书
-#   名称: Pastry Release, 身份类型: 自签名根, 证书类型: 代码签名
+#   名称: Pastry Release（或自定义），身份类型: 自签名根，证书类型: 代码签名
+#   分发正式签名：CODESIGN_IDENTITY='Developer ID Application: ...' ./release.sh
 CERT_OK=true
-if [ "$IDENTITY" = "Pastry Release" ]; then
-    if ! security find-identity -p codesigning 2>/dev/null | grep -q "Pastry Release"; then
-        echo "⚠️  未找到 \"Pastry Release\" 代码签名证书"
+if security find-identity -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
+    echo "   签名身份: $IDENTITY"
+else
+    echo "⚠️  未找到 \"$IDENTITY\" 代码签名证书"
+    if [ "$IDENTITY" = "Pastry Release" ]; then
         echo "   首次运行需创建一次（后续永久有效）："
         echo "   Keychain Access → 菜单「证书助理」→「创建证书」"
         echo "   名称: Pastry Release  |  类型: 代码签名"
-        echo "   本次回退到 ad-hoc 签名（TCC 不持久）"
-        CERT_OK=false
-    else
-        echo "   使用固定证书 Pastry Release（TCC 权限持久保留，更新不需重新授权）"
     fi
-    echo "   分发正式签名请设: CODESIGN_IDENTITY='Developer ID Application: ...' ./release.sh"
-else
-    echo "   签名身份: $IDENTITY"
+    echo "   本次回退到 ad-hoc 签名（TCC 不持久）"
+    CERT_OK=false
 fi
 
-if $CERT_OK && [ "$IDENTITY" = "Pastry Release" ]; then
-    codesign --force --deep --sign "Pastry Release" "$STAGING/$APP_NAME.app" 2>&1
-else
+# 公证提醒（需要付费开发者账号）
+# 有账号后加一行：
+#   xcrun notarytool submit "$DMG_PATH" --keychain-profile "AC_PASSWORD" --wait
+
+if $CERT_OK; then
     codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1
+else
+    codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
 fi
 
 # ── 5. DMG 打包 ──
