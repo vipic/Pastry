@@ -76,7 +76,7 @@ final class ImageCacheManager {
     }
 
     /// 配对文件路径：.png ↔ .orig
-    private func counterpartURL(for url: URL) -> URL? {
+    func counterpartURL(for url: URL) -> URL? {
         let stem = url.deletingPathExtension().lastPathComponent
         let ext = url.pathExtension
         switch ext {
@@ -127,6 +127,26 @@ final class ImageCacheManager {
             } catch {
                 // 无法删除的文件跳过，继续处理下一个
             }
+        }
+    }
+
+    /// 清理孤儿缓存文件：删除数据库中已不存在图片条目的 .png + .orig 文件对
+    func cleanupOrphans(activePaths: Set<String>) {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: cacheDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ) else { return }
+
+        var removed = 0
+        for file in files where file.pathExtension == "png" {
+            guard !activePaths.contains(file.path) else { continue }
+            try? FileManager.default.removeItem(at: file)
+            if let c = counterpartURL(for: file) {
+                try? FileManager.default.removeItem(at: c)
+            }
+            removed += 1
+        }
+        if removed > 0 {
+            log.info("清理了 \(removed) 个孤儿图片缓存")
         }
     }
 

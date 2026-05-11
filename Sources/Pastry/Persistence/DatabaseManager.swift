@@ -539,6 +539,21 @@ final class DatabaseManager {
         return items
     }
 
+    /// 查询所有 image 类型条目的 content 路径（供缓存孤儿清理）
+    func allImageContentPaths() -> Set<String> {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = "SELECT content FROM clips WHERE source_format = 'image';"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        var paths = Set<String>()
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            paths.insert(String(cString: sqlite3_column_text(stmt, 0)))
+        }
+        return paths
+    }
+
     /// 按需加载完整 content（列表查询只截断 256 字符，粘贴时取全文）
     func loadFullContent(id: UUID) -> String? {
         lock.lock()
