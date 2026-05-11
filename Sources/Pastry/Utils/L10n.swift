@@ -52,6 +52,12 @@ enum L10n {
         return key
     }
 
+    /// 参数化本地化字符串。占位符用 %@。
+    /// 用法：L10n["toolbar.selected_count", selection.selectedIds.count]
+    static subscript(_ key: String, _ args: CVarArg...) -> String {
+        String(format: self[key], arguments: args)
+    }
+
     private static func currentLanguage() -> String {
         if let lang = UserDefaults.standard.string(forKey: "PastryLanguage"), !lang.isEmpty {
             return lang

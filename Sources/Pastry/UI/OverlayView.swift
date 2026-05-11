@@ -399,7 +399,7 @@ struct OverlayView: View {
         }
         .overlay(alignment: .leading) {
             if selection.selectedIds.count > 1 {
-                Text("已选 \(selection.selectedIds.count) 项")
+                Text(L10n["toolbar.selected_count", selection.selectedIds.count])
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.5))
                     .padding(.leading, 12)
