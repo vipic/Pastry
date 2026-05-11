@@ -377,21 +377,21 @@ final class FilePreviewTests: XCTestCase {
         let item = makeItem("something.com", .text)
         let result = ClipboardCardView.openableURLForTesting(item)
         XCTAssertNotNil(result, "裸域名应通过 NSDataDetector 识别")
-        XCTAssertEqual(result?.absoluteString, "http://something.com")
+        XCTAssertEqual(result?.absoluteString, "https://something.com")
     }
 
     func testOpenableURLForBareDomainInRTF() {
         let item = makeItem("something.com", .rtf)
         let result = ClipboardCardView.openableURLForTesting(item)
         XCTAssertNotNil(result, "RTF 中的裸域名应通过 NSDataDetector 识别")
-        XCTAssertEqual(result?.absoluteString, "http://something.com")
+        XCTAssertEqual(result?.absoluteString, "https://something.com")
     }
 
     func testOpenableURLForBareDomainInHTML() {
         let item = makeItem("something.com", .html)
         let result = ClipboardCardView.openableURLForTesting(item)
         XCTAssertNotNil(result, "HTML 中的裸域名应通过 NSDataDetector 识别")
-        XCTAssertEqual(result?.absoluteString, "http://something.com")
+        XCTAssertEqual(result?.absoluteString, "https://something.com")
     }
 
     func testOpenableURLForFullURLInRTF() {
