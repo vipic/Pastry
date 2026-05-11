@@ -477,6 +477,23 @@
         }
       }
     },
+    "toolbar.selected_count": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选 %@ 项"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ selected"
+          }
+        }
+      }
+    },
     "context.open": {
       "extractionState": "manual",
       "localizations": {
