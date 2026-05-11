@@ -449,13 +449,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "钉选"
+            "value": "收藏"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pin"
+            "value": "Favorite"
           }
         }
       }
@@ -466,13 +466,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "取消钉选"
+            "value": "取消收藏"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unpin"
+            "value": "Unfavorite"
           }
         }
       }
@@ -806,13 +806,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已钉选"
+            "value": "已收藏"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pinned"
+            "value": "Favorites"
           }
         }
       }
@@ -823,13 +823,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "还没有钉选的内容"
+            "value": "还没有收藏的内容"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No pinned items yet"
+            "value": "No favorites yet"
           }
         }
       }
@@ -1979,13 +1979,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "右键卡片可钉选（pin）、预览、分享、删除。钉选的条目在「已钉选」标签页中始终可见，不受历史清理影响。"
+            "value": "右键卡片可收藏（favorite）、预览、分享、删除。收藏的条目在「已收藏」标签页中始终可见，不受历史清理影响。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Right-click cards to pin, preview, share, or delete. Pinned items remain visible in the Pinned tab, unaffected by history clearing."
+            "value": "Right-click cards to favorite, preview, share, or delete. Favorited items remain visible in the Favorites tab, unaffected by history clearing."
           }
         }
       }
@@ -2030,13 +2030,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cmd+点击多个卡片可批量 Pin 或删除"
+            "value": "Cmd+点击多个卡片可批量收藏或删除"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cmd+click multiple cards to batch pin or delete"
+            "value": "Cmd+click multiple cards to batch favorite or delete"
           }
         }
       }

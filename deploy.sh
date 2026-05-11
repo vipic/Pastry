@@ -56,7 +56,7 @@ cp "$PROJECT_DIR/Sources/Pastry/Resources/Localizable.xcstrings" "$RESOURCES_DIR
 
 # 5. 版本号（semver: tag-dev+hash）和 git hash
 DEPLOY_HASH=$(cd "$PROJECT_DIR" && git rev-parse --short HEAD)
-LATEST_TAG=$(cd "$PROJECT_DIR" && git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+LATEST_TAG=$(cd "$PROJECT_DIR" && git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
 DEV_VERSION="${LATEST_TAG}-dev+${DEPLOY_HASH}"
 
 # Info.plist — 首次创建模板，之后每次用 PlistBuddy 更新版本字段（不改变 inode → TCC 不丢）

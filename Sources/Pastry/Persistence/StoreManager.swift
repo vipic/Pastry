@@ -27,8 +27,13 @@ final class StoreManager: ObservableObject {
         didSet { performSearch() }
     }
 
-    /// 类型筛选（nil = 全部）
-    @Published var typeFilter: ClipType? = nil {
+    /// 类型筛选（nil = 全部，按来源格式过滤）
+    @Published var typeFilter: SourceFormat? = nil {
+        didSet { performSearchImmediate() }
+    }
+
+    /// URL 筛选（独立于类型，匹配 isURL 标签）
+    @Published var urlFilter: Bool = false {
         didSet { performSearchImmediate() }
     }
 
@@ -57,7 +62,7 @@ final class StoreManager: ObservableObject {
 
     enum PinTab: String, CaseIterable {
         case all    = "全部"
-        case pinned = "已钉选"
+        case pinned = "已收藏"
     }
 
     enum TimeFilter: String, CaseIterable {
@@ -153,15 +158,15 @@ final class StoreManager: ObservableObject {
 
         // 列表查询只取前 256 字符，粘贴前按需取完整内容
         let fullContent: String
-        switch item.contentType {
-        case .text, .url, .rtf, .html:
+        switch item.sourceFormat {
+        case .text, .rtf, .html:
             fullContent = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
         default:
             fullContent = item.content
         }
 
-        switch item.contentType {
-        case .text, .url:
+        switch item.sourceFormat {
+        case .text:
             pb.setString(fullContent, forType: .string)
         case .rtf, .html:
             pb.setString(fullContent, forType: .string)
@@ -283,7 +288,7 @@ final class StoreManager: ObservableObject {
 
     /// 是否有活跃的筛选条件
     var hasActiveFilters: Bool {
-        !(searchQuery.isEmpty && typeFilter == nil && appFilter == nil && timeFilter == .any && pinTab == .all)
+        !(searchQuery.isEmpty && typeFilter == nil && appFilter == nil && timeFilter == .any && pinTab == .all && !urlFilter)
     }
 
     /// 清除所有筛选条件
@@ -293,6 +298,7 @@ final class StoreManager: ObservableObject {
         appFilter = nil
         timeFilter = .any
         pinTab = .all
+        urlFilter = false
     }
 
     func refresh() {
@@ -309,7 +315,7 @@ final class StoreManager: ObservableObject {
         let truncatedContent = item.content.count > 256 ? String(item.content.prefix(256)) : item.content
         let listItem = ClipboardItem(
             id: item.id, timestamp: item.timestamp,
-            content: truncatedContent, contentType: item.contentType,
+            content: truncatedContent, sourceFormat: item.sourceFormat, tags: item.tags,
             appName: item.appName, isHandoff: item.isHandoff,
             textAnnotation: item.textAnnotation,
             segmentsJSON: item.segmentsJSON,
@@ -370,9 +376,14 @@ final class StoreManager: ObservableObject {
             }
         }
 
-        // 类型筛选
+        // 类型筛选（按来源格式）
         if let type = typeFilter {
-            base = base.filter { $0.contentType == type }
+            base = base.filter { $0.sourceFormat == type }
+        }
+
+        // URL 筛选（独立于类型）
+        if urlFilter {
+            base = base.filter { $0.tags.isURL }
         }
 
         // App 筛选

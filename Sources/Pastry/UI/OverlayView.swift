@@ -541,7 +541,7 @@ struct OverlayView: View {
                 // 多选拖拽：拼接所有选中条目的文本
                 let selected = visibleItems.filter { ids.contains($0.id) }
                 let text = selected.compactMap { it -> String? in
-                    switch it.contentType {
+                    switch it.sourceFormat {
                     case .text, .rtf, .html:
                         return DatabaseManager.shared.loadFullContent(id: it.id) ?? it.content
                     case .fileURL: return it.content
@@ -552,7 +552,7 @@ struct OverlayView: View {
                 return NSItemProvider(object: text as NSString)
             } else {
                 // 单选拖拽：按类型提供原生数据
-                switch item.contentType {
+                switch item.sourceFormat {
                 case .image:
                     let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
                     let imageURL = URL(fileURLWithPath: imagePath)
@@ -734,9 +734,9 @@ struct FilterPopoverContent: View {
 
             filterSection(title: L10n["filter.type"]) {
                 LazyVGrid(columns: gridColumns, spacing: 6) {
-                    ForEach(ClipType.allCases, id: \.storageKey) { type in
-                        filterChip(type.label, iconName: type.iconName, isSelected: store.typeFilter == type) {
-                            store.typeFilter = (store.typeFilter == type) ? nil : type
+                    ForEach(SourceFormat.allCases, id: \.rawValue) { format in
+                        filterChip(format.label, iconName: format.iconName, isSelected: store.typeFilter == format) {
+                            store.typeFilter = (store.typeFilter == format) ? nil : format
                             onFilterChange?()
                         }
                     }

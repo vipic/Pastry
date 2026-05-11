@@ -31,14 +31,14 @@ final class DatabaseManagerTests: XCTestCase {
 
     private func makeItem(
         content: String = "测试文本",
-        type: ClipType = .text,
+        type: SourceFormat = .text,
         app: String? = "Safari",
         pinned: Bool = false,
         isHandoff: Bool = false
     ) -> ClipboardItem {
         ClipboardItem(
             content: content,
-            contentType: type,
+            sourceFormat: type,
             appName: app,
             isHandoff: isHandoff,
             isPinned: pinned
@@ -55,7 +55,7 @@ final class DatabaseManagerTests: XCTestCase {
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
         XCTAssertEqual(items[0].content, "Hello World")
-        XCTAssertEqual(items[0].contentType, .text)
+        XCTAssertEqual(items[0].sourceFormat, .text)
         XCTAssertEqual(items[0].appName, "Safari")
     }
 
@@ -93,9 +93,9 @@ final class DatabaseManagerTests: XCTestCase {
 
         let items = db.recent()
         XCTAssertEqual(items.count, 3)
-        XCTAssertEqual(items[0].contentType, .fileURL)
-        XCTAssertEqual(items[1].contentType, .image)
-        XCTAssertEqual(items[2].contentType, .text)
+        XCTAssertEqual(items[0].sourceFormat, .fileURL)
+        XCTAssertEqual(items[1].sourceFormat, .image)
+        XCTAssertEqual(items[2].sourceFormat, .text)
     }
 
     // MARK: - 去重
@@ -290,7 +290,7 @@ final class DatabaseManagerTests: XCTestCase {
     func testTextAnnotationInsertAndRetrieve() {
         let item = ClipboardItem(
             content: "/tmp/img.png",
-            contentType: .image,
+            sourceFormat: .image,
             appName: "WeChat",
             textAnnotation: "这是附带的文字"
         )
@@ -315,7 +315,7 @@ final class DatabaseManagerTests: XCTestCase {
     func testTextAnnotationEmptyString() {
         let item = ClipboardItem(
             content: "/tmp/img2.png",
-            contentType: .image,
+            sourceFormat: .image,
             textAnnotation: ""
         )
         db.insert(item)
@@ -334,7 +334,7 @@ final class DatabaseManagerTests: XCTestCase {
         ]
         let item = ClipboardItem(
             content: "图片后的文字",
-            contentType: .html,
+            sourceFormat: .html,
             segments: segs
         )
         db.insert(item)
@@ -362,7 +362,7 @@ final class DatabaseManagerTests: XCTestCase {
     func testSegmentsEmptyArray() {
         let item = ClipboardItem(
             content: "无图 HTML",
-            contentType: .html,
+            sourceFormat: .html,
             segments: []
         )
         db.insert(item)
@@ -456,7 +456,7 @@ final class DatabaseManagerTests: XCTestCase {
         let raw = Data([0x7B, 0x5C, 0x72, 0x74, 0x66, 0x31])  // "{\\rtf1"
         let item = ClipboardItem(
             content: "hello",
-            contentType: .rtf,
+            sourceFormat: .rtf,
             rawFormatData: raw,
             rawFormatType: "public.rtf"
         )
@@ -473,7 +473,7 @@ final class DatabaseManagerTests: XCTestCase {
         let raw = Data("<p>hello</p>".utf8)
         let item = ClipboardItem(
             content: "hello",
-            contentType: .html,
+            sourceFormat: .html,
             rawFormatData: raw,
             rawFormatType: "public.html"
         )
@@ -515,7 +515,7 @@ final class DatabaseManagerTests: XCTestCase {
     /// loadFullContent 返回完整内容（未被截断）
     func testLoadFullContentReturnsFull() {
         let longText = String(repeating: "完整大文本", count: 40) // ~240 字符
-        let item = ClipboardItem(content: longText, contentType: .text)
+        let item = ClipboardItem(content: longText, sourceFormat: .text)
         db.insert(item)
 
         let items = db.recent()
@@ -537,7 +537,7 @@ final class DatabaseManagerTests: XCTestCase {
     /// segmentsJSON 被存储但 segments 在未访问时不解码
     func testSegmentsJSONStoredNotDecoded() {
         let segs: [ContentSegment] = [.text("A"), .image(url: "https://x.com/p.png")]
-        let item = ClipboardItem(content: "text", contentType: .html, segments: segs)
+        let item = ClipboardItem(content: "text", sourceFormat: .html, segments: segs)
         db.insert(item)
 
         let items = db.recent()

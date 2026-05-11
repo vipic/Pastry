@@ -308,15 +308,15 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         // 列表查询只取前 256 字符，粘贴前按需取完整内容
         let fullContent: String
-        switch item.contentType {
-        case .text, .url, .rtf, .html:
+        switch item.sourceFormat {
+        case .text, .rtf, .html:
             fullContent = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
         default:
             fullContent = item.content
         }
 
-        switch item.contentType {
-        case .text, .url:
+        switch item.sourceFormat {
+        case .text:
             pb.setString(fullContent, forType: .string)
         case .rtf, .html:
             pb.setString(fullContent, forType: .string)
@@ -400,8 +400,8 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         // 收集所有文本内容（文本类 + 文件路径），用换行拼接
         let lines = items.compactMap { item -> String? in
-            switch item.contentType {
-            case .text, .rtf, .html, .url:
+            switch item.sourceFormat {
+            case .text, .rtf, .html:
                 return DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
             case .fileURL:
                 return item.content  // 文件路径也是文本

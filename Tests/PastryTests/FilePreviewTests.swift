@@ -69,7 +69,7 @@ final class FilePreviewTests: XCTestCase {
 
         let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
         XCTAssertNotNil(item, "有文件 URL 时应返回 item")
-        XCTAssertEqual(item?.contentType, .fileURL)
+        XCTAssertEqual(item?.sourceFormat, .fileURL)
     }
 
     func testImageReadsWhenNoFileURL() {
@@ -123,17 +123,17 @@ final class FilePreviewTests: XCTestCase {
     // MARK: - 文本类型判断（isTextType）
 
     func testTextTypesReturnTrue() {
-        let textTypes: [ClipType] = [.text, .rtf, .html]
+        let textTypes: [SourceFormat] = [.text, .rtf, .html]
         for ct in textTypes {
-            XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: ct),
+            XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: ct),
                           "\(ct) 应为文本类")
         }
     }
 
     func testNonTextTypesReturnFalse() {
-        let nonTextTypes: [ClipType] = [.fileURL, .image]
+        let nonTextTypes: [SourceFormat] = [.fileURL, .image]
         for ct in nonTextTypes {
-            XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(contentType: ct),
+            XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(sourceFormat: ct),
                            "\(ct) 不应为文本类")
         }
     }
@@ -184,8 +184,8 @@ final class FilePreviewTests: XCTestCase {
 
     // MARK: - 多选文本拼接
 
-    private func makeItem(_ content: String, _ type: ClipType) -> ClipboardItem {
-        ClipboardItem(timestamp: Date(), content: content, contentType: type)
+    private func makeItem(_ content: String, _ type: SourceFormat) -> ClipboardItem {
+        ClipboardItem(timestamp: Date(), content: content, sourceFormat: type)
     }
 
     func testMultiSelectTextOnlyTextTypes() {
@@ -258,29 +258,29 @@ final class FilePreviewTests: XCTestCase {
     // MARK: - 预览条件覆盖（url 类型能预览）
 
     func testURLTypeCanPreview() {
-        // canPreview = canOpen || isTextType
-        // .url 属于 canOpen，应该能预览
-        let urlItem = makeItem("https://example.com", .url)
-        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: urlItem.contentType) == false,
-                      ".url 不应为文本类，但应通过 canOpen 能预览")
+        // URL 现在使用 sourceFormat = .text + tags.isURL = true
+        // isTextType 检查的是 sourceFormat，所以 URL 也属于文本类（可预览）
+        let urlItem = makeItem("https://example.com", .text)
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: urlItem.sourceFormat),
+                      "URL 条目的 sourceFormat 为 .text，应属文本类可预览")
     }
 
     func testTextTypeCanPreview() {
-        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: .text))
-        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: .rtf))
-        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(contentType: .html))
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .text))
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .rtf))
+        XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .html))
     }
 
     func testFileURLTypeCanPreview() {
         // .fileURL 属于 canOpen
         let item = makeItem("/tmp/test.pdf", .fileURL)
-        XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(contentType: item.contentType),
+        XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(sourceFormat: item.sourceFormat),
                        ".fileURL 不是文本类，但应通过 canOpen 能预览")
     }
 
     func testImageTypeCanPreview() {
         let item = makeItem("/tmp/photo.jpg", .image)
-        XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(contentType: item.contentType),
+        XCTAssertFalse(ClipboardCardView.isTextTypeForTesting(sourceFormat: item.sourceFormat),
                        ".image 不是文本类，但应通过 canOpen 能预览")
     }
 
@@ -288,22 +288,22 @@ final class FilePreviewTests: XCTestCase {
 
     func testIsMultiFileTrueForFileURLWithNewline() {
         XCTAssertTrue(ClipboardCardView.isMultiFileForTesting(
-            content: "/tmp/a.txt\n/tmp/b.txt", contentType: .fileURL
+            content: "/tmp/a.txt\n/tmp/b.txt", sourceFormat: .fileURL
         ), "多文件路径（换行分隔）应判断为多文件")
     }
 
     func testIsMultiFileFalseForSingleFileURL() {
         XCTAssertFalse(ClipboardCardView.isMultiFileForTesting(
-            content: "/tmp/only.txt", contentType: .fileURL
+            content: "/tmp/only.txt", sourceFormat: .fileURL
         ), "单文件路径不应判断为多文件")
     }
 
     func testIsMultiFileFalseForNonFileURL() {
         XCTAssertFalse(ClipboardCardView.isMultiFileForTesting(
-            content: "/tmp/a.txt\n/tmp/b.txt", contentType: .text
+            content: "/tmp/a.txt\n/tmp/b.txt", sourceFormat: .text
         ), "非 fileURL 类型即使含换行也不应判断为多文件")
         XCTAssertFalse(ClipboardCardView.isMultiFileForTesting(
-            content: "/tmp/a.txt\n/tmp/b.txt", contentType: .image
+            content: "/tmp/a.txt\n/tmp/b.txt", sourceFormat: .image
         ))
     }
 
@@ -365,7 +365,7 @@ final class FilePreviewTests: XCTestCase {
     }
 
     func testOpenableURLForHTTPURL() {
-        let item = makeItem("https://example.com", .url)
+        let item = makeItem("https://example.com", .text)
         let result = ClipboardCardView.openableURLForTesting(item)
         XCTAssertNotNil(result)
         XCTAssertEqual(result?.absoluteString, "https://example.com")

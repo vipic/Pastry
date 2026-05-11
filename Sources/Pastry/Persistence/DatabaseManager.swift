@@ -151,6 +151,11 @@ final class DatabaseManager {
             _ = execute("ALTER TABLE clips ADD COLUMN raw_format_type TEXT;")
             userVersion = 6
         }
+        if version < 7 {
+            _ = execute("ALTER TABLE clips ADD COLUMN is_url INTEGER DEFAULT 0;")
+            _ = execute("UPDATE clips SET content_type = 'text', is_url = 1 WHERE content_type = 'url';")
+            userVersion = 7
+        }
     }
 
     // MARK: - CRUD
@@ -165,8 +170,8 @@ final class DatabaseManager {
         if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return false }
 
         let sql = """
-        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -178,7 +183,7 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 1, (item.id.uuidString as NSString).utf8String, -1, nil)
         sqlite3_bind_double(stmt, 2, item.timestamp.timeIntervalSince1970)
         sqlite3_bind_text(stmt, 3, (item.content as NSString).utf8String, -1, nil)
-        sqlite3_bind_text(stmt, 4, (item.contentType.storageKey as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 4, (item.sourceFormat.storageKey as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 5, (item.appName as NSString?)?.utf8String ?? nil, -1, nil)
         sqlite3_bind_text(stmt, 6, (item.textAnnotation as NSString?)?.utf8String ?? nil, -1, nil)
         let imageURLsJSON = item.imageURLs.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) }
@@ -199,6 +204,7 @@ final class DatabaseManager {
         } else {
             sqlite3_bind_null(stmt, 13)
         }
+        sqlite3_bind_int(stmt, 14, item.tags.isURL ? 1 : 0)
 
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -285,7 +291,7 @@ final class DatabaseManager {
         lock.lock()
         defer { lock.unlock() }
         let sql = """
-        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type
+        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url
         FROM clips
         ORDER BY timestamp DESC
         LIMIT ?;
@@ -502,12 +508,22 @@ final class DatabaseManager {
                 guard let ptr = sqlite3_column_text(stmt, 12) else { return nil }
                 return String(cString: ptr)
             }()
+            let isURL = sqlite3_column_int(stmt, 13) != 0
+
+            let sourceFormat = SourceFormat(storageKey: typeStr)
+            let tags = ContentTags(
+                isURL: isURL,
+                hasSegments: segmentsJSON != nil,
+                isMultiFile: sourceFormat == .fileURL && content.contains("\n"),
+                isMissing: false
+            )
 
             let item = ClipboardItem(
                 id: UUID(uuidString: idStr) ?? UUID(),
                 timestamp: Date(timeIntervalSince1970: timestamp),
                 content: content,
-                contentType: ClipType(storageKey: typeStr),
+                sourceFormat: sourceFormat,
+                tags: tags,
                 appName: appName,
                 isHandoff: isHandoff,
                 textAnnotation: textAnnotation,

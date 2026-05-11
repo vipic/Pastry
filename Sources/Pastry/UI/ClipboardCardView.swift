@@ -123,14 +123,14 @@ struct ClipboardCardView: View {
 
     /// 可打开的 URL（文件路径或文本中的 URL）。多文件时返回第一个存在的文件，全缺失返回 nil。
     private var openableURL: URL? {
-        switch item.contentType {
+        switch item.sourceFormat {
         case .fileURL:
             return existingFileURLs.first
         case .image:
             let url = URL(fileURLWithPath: item.content)
             guard FileManager.default.fileExists(atPath: url.path) else { return nil }
             return url
-        case .text, .url:
+        case .text:
             if let url = URL(string: item.content),
                url.scheme == "http" || url.scheme == "https" {
                 return url
@@ -143,7 +143,7 @@ struct ClipboardCardView: View {
 
     /// 是否为文本类（text / rtf / html）—— 可预览、可分享
     private var isTextType: Bool {
-        item.contentType == .text || item.contentType == .rtf || item.contentType == .html || item.contentType == .url
+        item.sourceFormat == .text || item.sourceFormat == .rtf || item.sourceFormat == .html || item.tags.isURL
     }
 
     /// 用默认应用打开（多文件时逐个打开所有存在的文件）
@@ -240,7 +240,7 @@ struct ClipboardCardView: View {
 
     private var topBar: some View {
         HStack(spacing: 0) {
-            Image(systemName: item.contentType.iconName)
+            Image(systemName: item.sourceFormat.iconName)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.white.opacity(0.9))
                 .padding(.leading, 10)
@@ -283,7 +283,7 @@ struct ClipboardCardView: View {
 
     @ViewBuilder
     private var contentArea: some View {
-        switch item.contentType {
+        switch item.sourceFormat {
         case .image:   imagePreview
         case .fileURL: fileURLContent
         case .html:    htmlWithImagePreview
@@ -478,7 +478,7 @@ struct ClipboardCardView: View {
     /// 异步加载文件预览 — 避免主线程同步 I/O 触发 TCC 权限弹窗死锁
     private func loadFilePreviewsIfNeeded() async {
         // 图片类型 — 异步加载 NSImage
-        if item.contentType == .image {
+        if item.sourceFormat == .image {
             let path = item.content
             let key = path as NSString
             if let cached = Self.imageCache.object(forKey: key) {
@@ -496,7 +496,7 @@ struct ClipboardCardView: View {
         }
 
         // 文件 URL 类型 — 先检查存在性，缺失文件标记后跳过
-        if item.contentType == .fileURL {
+        if item.sourceFormat == .fileURL {
             let urls = fileURLs
             var newMissing: Set<URL> = []
             for url in urls {
@@ -730,13 +730,13 @@ struct ClipboardCardView: View {
 
     /// 所有实际存在于磁盘的文件 URL（已过滤删除/移动的文件）
     private var existingFileURLs: [URL] {
-        guard item.contentType == .fileURL || item.contentType == .image else { return [] }
+        guard item.sourceFormat == .fileURL || item.sourceFormat == .image else { return [] }
         return fileURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     /// 是否为多文件条目
     private var isMultiFile: Bool {
-        item.contentType == .fileURL && item.content.contains("\n")
+        item.sourceFormat == .fileURL && item.content.contains("\n")
     }
 
     private func loadAppInfo() {
@@ -798,12 +798,12 @@ struct ClipboardCardView: View {
         pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: nil)
         menu.addItem(pinItem)
 
-        let isFileBased = item.contentType == .fileURL || item.contentType == .image
+        let isFileBased = item.sourceFormat == .fileURL || item.sourceFormat == .image
         let hasAnyFile = isFileBased && !existingFileURLs.isEmpty
 
         // Open / Open With — 文件类始终显示（缺失时灰显）
-        let showOpenSection = isFileBased || item.contentType == .url
-            || (item.contentType == .text && openableURL != nil)
+        let showOpenSection = isFileBased || item.tags.isURL
+            || (item.sourceFormat == .text && openableURL != nil)
 
         if showOpenSection {
             menu.addItem(.separator())
@@ -863,7 +863,7 @@ struct ClipboardCardView: View {
         let metadata: QLPreviewHelper.PreviewMetadata
 
         if let url = openableURL {
-            switch item.contentType {
+            switch item.sourceFormat {
             case .fileURL:
                 let fileName = (item.content as NSString).lastPathComponent
                 let ext = (fileName as NSString).pathExtension.uppercased()
@@ -887,13 +887,6 @@ struct ClipboardCardView: View {
                     fileType: L10n["filetype.link"],
                     infoText: url.absoluteString, isLocalFile: false
                 )
-            case .url:
-                let host = url.host ?? ""
-                metadata = QLPreviewHelper.PreviewMetadata(
-                    url: url, displayName: host,
-                    fileType: L10n["filetype.link"],
-                    infoText: url.absoluteString, isLocalFile: false
-                )
             default:
                 return
             }
@@ -901,7 +894,7 @@ struct ClipboardCardView: View {
             // 纯文本 / RTF / HTML：写临时文件供 QLPreviewView 预览
             let ext: String
             let typeLabel: String
-            switch item.contentType {
+            switch item.sourceFormat {
             case .rtf:  ext = "rtf";  typeLabel = "RTF"
             case .html: ext = "html"; typeLabel = "HTML"
             default:    ext = "txt";  typeLabel = L10n["filetype.text"]
@@ -957,8 +950,8 @@ struct ClipboardCardView: View {
     static var imageExtensionsForTesting: Set<String> { imageExtensions }
 
     /// 供单元测试：contentType → 是否为文本类（.text / .rtf / .html）
-    static func isTextTypeForTesting(contentType: ClipType) -> Bool {
-        contentType == .text || contentType == .rtf || contentType == .html
+    static func isTextTypeForTesting(sourceFormat: SourceFormat) -> Bool {
+        sourceFormat == .text || sourceFormat == .rtf || sourceFormat == .html
     }
 
     /// 供单元测试：文本统计（字符数 / 单词数 / 行数）
@@ -972,7 +965,7 @@ struct ClipboardCardView: View {
     /// 供单元测试：多选条目 → 拼接文本（hideAndPasteMultiple 的核心逻辑）
     static func multiSelectTextForTesting(_ items: [ClipboardItem]) -> String {
         items.compactMap { item -> String? in
-            switch item.contentType {
+            switch item.sourceFormat {
             case .text, .rtf, .html, .fileURL: return item.content
             default: return nil
             }
@@ -981,7 +974,7 @@ struct ClipboardCardView: View {
 
     /// 供单元测试：单选拖拽 → 按类型返回 (isFile: Bool, content: String)
     static func dragPayloadForTesting(_ item: ClipboardItem) -> (isFile: Bool, content: String) {
-        switch item.contentType {
+        switch item.sourceFormat {
         case .image, .fileURL:
             return (true, item.content)
         default:
@@ -990,20 +983,20 @@ struct ClipboardCardView: View {
     }
 
     /// 供单元测试：content → 是否为多文件条目
-    static func isMultiFileForTesting(content: String, contentType: ClipType) -> Bool {
-        contentType == .fileURL && content.contains("\n")
+    static func isMultiFileForTesting(content: String, sourceFormat: SourceFormat) -> Bool {
+        sourceFormat == .fileURL && content.contains("\n")
     }
 
     /// 供单元测试：item → openableURL 计算（单文件/多文件兼容）
     static func openableURLForTesting(_ item: ClipboardItem) -> URL? {
-        switch item.contentType {
+        switch item.sourceFormat {
         case .fileURL:
             let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
             return urls.first { FileManager.default.fileExists(atPath: $0.path) }
         case .image:
             let url = URL(fileURLWithPath: item.content)
             return FileManager.default.fileExists(atPath: url.path) ? url : nil
-        case .text, .url:
+        case .text:
             if let url = URL(string: item.content),
                url.scheme == "http" || url.scheme == "https" {
                 return url

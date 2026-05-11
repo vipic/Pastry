@@ -1,22 +1,20 @@
 import Cocoa
 
-// MARK: - 剪贴板内容类型
-enum ClipType: Codable, CaseIterable {
+// MARK: - 来源格式（纯来源，不可变）
+enum SourceFormat: String, Codable, CaseIterable {
     case text
     case rtf
+    case html
     case image
     case fileURL
-    case url
-    case html
 
     var iconName: String {
         switch self {
         case .text:    return "text.alignleft"
         case .rtf:     return "doc.richtext"
+        case .html:    return "chevron.left.forwardslash.chevron.right"
         case .image:   return "photo"
         case .fileURL: return "folder"
-        case .url:     return "link"
-        case .html:    return "chevron.left.forwardslash.chevron.right"
         }
     }
 
@@ -24,47 +22,35 @@ enum ClipType: Codable, CaseIterable {
         switch self {
         case .text:    return L10n["filter.type.text"]
         case .rtf:     return L10n["filter.type.rtf"]
+        case .html:    return L10n["filter.type.html"]
         case .image:   return L10n["filter.type.image"]
         case .fileURL: return L10n["filter.type.fileURL"]
-        case .url:     return L10n["filter.type.url"]
-        case .html:    return L10n["filter.type.html"]
         }
     }
 
-    /// 数据库存储键（用于 Codable 和 SQLite）
-    var storageKey: String {
-        switch self {
-        case .text:    return "text"
-        case .rtf:     return "rtf"
-        case .image:   return "image"
-        case .fileURL: return "fileURL"
-        case .url:     return "url"
-        case .html:    return "html"
-        }
-    }
+    /// 数据库存储键
+    var storageKey: String { rawValue }
 
     init(storageKey: String) {
         switch storageKey {
         case "rtf":     self = .rtf
+        case "html":    self = .html
         case "image":   self = .image
         case "fileURL": self = .fileURL
-        case "url":     self = .url
-        case "html":    self = .html
+        case "url":     self = .text  // 存量 .url → .text
         default:        self = .text
         }
     }
+}
 
-    // Codable
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let key = try container.decode(String.self)
-        self = ClipType(storageKey: key)
-    }
+// MARK: - 语义标记
+struct ContentTags: Codable, Equatable {
+    var isURL: Bool = false
+    var hasSegments: Bool = false
+    var isMultiFile: Bool = false
+    var isMissing: Bool = false
 
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(storageKey)
-    }
+    static let empty = ContentTags()
 }
 
 // MARK: - HTML 内容段（保留原始 DOM 图文顺序）
@@ -103,7 +89,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let id: UUID
     let timestamp: Date
     let content: String         // 文本内容 / 图片缓存路径 / 文件URL拼接
-    let contentType: ClipType
+    let sourceFormat: SourceFormat
+    let tags: ContentTags
     let appName: String?        // 来源应用名
     let isHandoff: Bool          // 是否来自 Handoff（iPhone/iPad 通用剪贴板）
     let textAnnotation: String?       // 图片附带的文字（同时复制图文时保留）
@@ -111,7 +98,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let rawFormatData: Data?          // 原始格式数据（RTF/HTML 的原始字节，粘贴时写回）
     let rawFormatType: String?        // 原始格式的剪贴板类型（public.rtf / public.html）
     var displayCount: Int             // 被粘贴回的次数（可变，不计入 hash）
-    var isPinned: Bool                // 钉选（pin），批量删除时保留（可变，不计入 hash）
+    var isPinned: Bool                // 收藏（favorite），批量删除时保留（可变，不计入 hash）
 
     /// segments 按需解码（仅 .html 类型使用，大文本不复制时不解码）
     var segments: [ContentSegment]? {
@@ -137,7 +124,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         id: UUID = UUID(),
         timestamp: Date = Date(),
         content: String,
-        contentType: ClipType,
+        sourceFormat: SourceFormat,
+        tags: ContentTags = .empty,
         appName: String? = nil,
         isHandoff: Bool = false,
         textAnnotation: String? = nil,
@@ -151,7 +139,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.id = id
         self.timestamp = timestamp
         self.content = content
-        self.contentType = contentType
+        self.sourceFormat = sourceFormat
+        self.tags = tags
         self.appName = appName
         self.isHandoff = isHandoff
         self.textAnnotation = textAnnotation
@@ -175,7 +164,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         let segSig = segmentsJSON ?? "nil"
         // 只取前 64 字符避免超长 key
         let segPreview = segSig.count > 64 ? String(segSig.prefix(64)) : segSig
-        return "\(contentType.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? ""):\(segPreview)"
+        return "\(sourceFormat.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? ""):\(segPreview)"
     }
 }
 

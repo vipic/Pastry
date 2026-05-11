@@ -222,7 +222,7 @@ final class ClipboardMonitor: ObservableObject {
                     self.log.error("图片缓存写入失败")
                     return
                 }
-                let item = ClipboardItem(content: savedPath, contentType: .image, appName: appName, isHandoff: isHandoff, textAnnotation: textAnnotation)
+                let item = ClipboardItem(content: savedPath, sourceFormat: .image, appName: appName, isHandoff: isHandoff, textAnnotation: textAnnotation)
                 DispatchQueue.main.async {
                     self.latestItem = item
                     self.onNewItem?(item)
@@ -249,13 +249,13 @@ final class ClipboardMonitor: ObservableObject {
     private func readText(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
         // 标准纯文本
         if let text = pb.string(forType: .string), !text.isEmpty {
-            let type = isPlainURL(text) ? ClipType.url : ClipType.text
-            return ClipboardItem(content: text, contentType: type, appName: appName, isHandoff: isHandoff)
+            let isURL = isPlainURL(text)
+            return ClipboardItem(content: text, sourceFormat: .text, tags: ContentTags(isURL: isURL), appName: appName, isHandoff: isHandoff)
         }
         // 微信/QQ 自定义富文本（TencentAttributeStringType plist）
         if let text = readTencentText(from: pb), !text.isEmpty {
-            let type = isPlainURL(text) ? ClipType.url : ClipType.text
-            return ClipboardItem(content: text, contentType: type, appName: appName, isHandoff: isHandoff)
+            let isURL = isPlainURL(text)
+            return ClipboardItem(content: text, sourceFormat: .text, tags: ContentTags(isURL: isURL), appName: appName, isHandoff: isHandoff)
         }
         return nil
     }
@@ -295,7 +295,7 @@ final class ClipboardMonitor: ObservableObject {
         else { return nil }
         return ClipboardItem(
             content: attr.string,
-            contentType: .rtf,
+            sourceFormat: .rtf,
             appName: appName,
             isHandoff: isHandoff,
             rawFormatData: data,
@@ -325,7 +325,7 @@ final class ClipboardMonitor: ObservableObject {
 
         return ClipboardItem(
             content: content,
-            contentType: .html,
+            sourceFormat: .html,
             appName: appName,
             isHandoff: isHandoff,
             segments: segments.isEmpty ? nil : segments,
@@ -456,7 +456,7 @@ final class ClipboardMonitor: ObservableObject {
         let fileURLs = urls.filter { $0.isFileURL }
         guard !fileURLs.isEmpty else { return nil }
         let paths = fileURLs.map(\.path).joined(separator: "\n")
-        return ClipboardItem(content: paths, contentType: .fileURL, appName: appName, isHandoff: isHandoff)
+        return ClipboardItem(content: paths, sourceFormat: .fileURL, appName: appName, isHandoff: isHandoff)
     }
 
     /// 检测剪贴板中的 URL 链接（http/https），优于纯文本捕获
@@ -468,7 +468,7 @@ final class ClipboardMonitor: ObservableObject {
         let webURLs = urls.filter { $0.scheme == "http" || $0.scheme == "https" }
         guard !webURLs.isEmpty else { return nil }
         let urlStrings = webURLs.map(\.absoluteString).joined(separator: "\n")
-        return ClipboardItem(content: urlStrings, contentType: .url, appName: appName, isHandoff: isHandoff)
+        return ClipboardItem(content: urlStrings, sourceFormat: .text, tags: ContentTags(isURL: true), appName: appName, isHandoff: isHandoff)
     }
 
     // MARK: - 测试入口

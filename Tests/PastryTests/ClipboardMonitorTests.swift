@@ -193,7 +193,7 @@ final class ClipboardMonitorTests: XCTestCase {
         pb.writeObjects([URL(fileURLWithPath: "/Users/test/photo.png") as NSURL])
         let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
         XCTAssertNotNil(item)
-        XCTAssertEqual(item?.contentType, .fileURL)
+        XCTAssertEqual(item?.sourceFormat, .fileURL)
         XCTAssertEqual(item?.content, "/Users/test/photo.png")
     }
 
@@ -215,7 +215,7 @@ final class ClipboardMonitorTests: XCTestCase {
         pb.writeObjects([fileURL, webURL])
         let item = ClipboardMonitor.readFileURLsForTesting(from: pb)
         XCTAssertNotNil(item)
-        XCTAssertEqual(item?.contentType, .fileURL)
+        XCTAssertEqual(item?.sourceFormat, .fileURL)
         XCTAssertEqual(item?.content, "/tmp/actual-file.pdf")
     }
 
