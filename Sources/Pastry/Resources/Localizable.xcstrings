@@ -483,13 +483,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已选 %@ 项"
+            "value": "已选 %d 项"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ selected"
+            "value": "%d selected"
           }
         }
       }
