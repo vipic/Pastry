@@ -158,7 +158,7 @@ struct ClipboardCardView: View {
     var displayMode: DisplayMode {
         switch item.sourceFormat {
         case .image:
-            return item.tags.isMissing ? .missing : .image
+            return (!missingFileURLs.isEmpty || item.tags.isMissing) ? .missing : .image
         case .fileURL:
             if item.tags.isMultiFile { return .multiFile }
             return item.tags.isMissing ? .missing : .singleFile
@@ -217,6 +217,13 @@ struct ClipboardCardView: View {
             NSWorkspace.shared.open([url], withApplicationAt: appURL,
                                     configuration: NSWorkspace.OpenConfiguration())
         }
+    }
+
+    /// 在访达中显示文件所在位置
+    private func showInFinder() {
+        guard let url = openableURL else { return }
+        OverlayPanelManager.shared.hide()
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     /// 构建系统的"打开方式"子菜单
@@ -513,6 +520,17 @@ struct ClipboardCardView: View {
         if item.sourceFormat == .image {
             let path = item.content
             let key = path as NSString
+
+            // 文件已删除 → 清除缓存，显示缺失状态
+            if !FileManager.default.fileExists(atPath: path) {
+                Self.imageCache.removeObject(forKey: key)
+                await MainActor.run {
+                    missingFileURLs.insert(URL(fileURLWithPath: path))
+                    asyncFilePreview = nil
+                }
+                return
+            }
+
             if let cached = Self.imageCache.object(forKey: key) {
                 await MainActor.run { asyncFilePreview = cached }
                 return
@@ -815,6 +833,7 @@ struct ClipboardCardView: View {
                 case "pin":
                     onPin(item, selectedIds)
                 case "open":       openItem()
+                case "show_in_finder": showInFinder()
                 case "preview":    previewItem(from: view)
                 case "share":      shareItem(from: view)
                 case "delete":     onDelete(item)
@@ -861,6 +880,15 @@ struct ClipboardCardView: View {
                 menu.setSubmenu(submenu, for: owItem)
             }
             menu.addItem(owItem)
+
+            // 在访达中显示（仅文件类有效）
+            if isFileBased && hasAnyFile {
+                let finderItem = NSMenuItem(title: L10n["context.show_in_finder"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+                finderItem.target = handler
+                finderItem.representedObject = "show_in_finder" as NSString
+                finderItem.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+                menu.addItem(finderItem)
+            }
         }
 
         // Preview / Share — 文件/图片：按存在性；文本/RTF/HTML/链接：始终可用
