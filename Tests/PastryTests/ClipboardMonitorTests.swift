@@ -283,4 +283,42 @@ final class ClipboardMonitorTests: XCTestCase {
         XCTAssertFalse(ClipboardMonitor.isBundleIDExcludedForTesting("com.1password.1password"),
                        "排除名单为空时所有 App 都应允许")
     }
+
+    // MARK: - Pasteboard 类型过滤
+
+    /// ConcealedType 应被检测到
+    func testDetectsConcealedType() {
+        let pb = makeTestPasteboard("concealedType")
+        pb.declareTypes([.string, NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")], owner: nil)
+        pb.setString("secret", forType: .string)
+        XCTAssertTrue(ClipboardMonitor.hasConcealedTypeForTesting(from: pb),
+                      "含 ConcealedType 的 pasteboard 应返回 true")
+    }
+
+    /// 无 ConcealedType 的普通剪贴板
+    func testNoConcealedTypeOnNormalPasteboard() {
+        let pb = makeTestPasteboard("normalTypes")
+        pb.declareTypes([.string], owner: nil)
+        pb.setString("hello", forType: .string)
+        XCTAssertFalse(ClipboardMonitor.hasConcealedTypeForTesting(from: pb),
+                       "普通 pasteboard 不应被 ConcealedType 过滤")
+    }
+
+    /// 1Password 自定义类型检测
+    func testDetects1PasswordType() {
+        let pb = makeTestPasteboard("onePassword")
+        pb.declareTypes([.string, NSPasteboard.PasteboardType("com.agilebits.onepassword")], owner: nil)
+        pb.setString("username", forType: .string)
+        XCTAssertTrue(ClipboardMonitor.has1PasswordTypeForTesting(from: pb),
+                      "含 com.agilebits.onepassword 的 pasteboard 应返回 true")
+    }
+
+    /// 无 1Password 标记的普通剪贴板
+    func testNo1PasswordTypeOnNormalPasteboard() {
+        let pb = makeTestPasteboard("no1pType")
+        pb.declareTypes([.string], owner: nil)
+        pb.setString("hello", forType: .string)
+        XCTAssertFalse(ClipboardMonitor.has1PasswordTypeForTesting(from: pb),
+                       "普通 pasteboard 不应被识别为 1Password")
+    }
 }

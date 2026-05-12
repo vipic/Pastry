@@ -176,19 +176,11 @@ Button(action: { selectedItem = item }) { ... }
     .listRowBackground(selectedItem == item ? Color.accentColor.opacity(0.1) : Color.clear)
 ```
 
-### 8. 授权懒加载
+### 8. 授权懒加载（仅粘贴操作）
 
-`CGEvent.tapCreate` **不**在 `ClipboardMonitor.start()` 时调用。延迟到用户首次执行「粘贴」操作时才创建 event tap，避免启动时弹出辅助功能授权对话框。
+`CGEvent.tapCreate` **在 `ClipboardMonitor.start()` 时创建**（用于来源检测和 ⌘C/X 快速轮询），不会弹授权对话框——无权限时静默返回 nil。
 
-```swift
-// simulatePaste 首次调用时才初始化 CGEvent
-private static func simulatePaste() {
-    let source = CGEventSource(stateID: .privateState)
-    // postToPid + .privateState：直接投递给前台进程
-    CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true)?
-        .postToPid(pid)
-}
-```
+`simulatePaste()` 中的 `CGEventSource(stateID: .privateState)` + `postToPid` 在首次粘贴时触发辅助功能授权检查。但来源检测的 event tap 独立于此——它使用 `.cgSessionEventTap`，不涉及 `postToPid`，权限要求更宽松。
 
 ### 9. git restore . 会丢弃未提交改动
 
@@ -216,12 +208,16 @@ swift test -v 2>&1 | grep -E "(PASS|FAIL|test) "
 
 ## Key Design Patterns
 
-### App 来源检测（上下文优先）
+### App 来源检测（高频 AX 缓存 + CGEvent 四层兜底）
 
-记录剪贴板来源时，**用用户工作上下文而非触发进程**。三层兜底：
-1. `recentApps`（`didActivateApplicationNotification` 追踪，10s 窗口）
-2. `previousFrontApp`（上轮轮询记录的前台 App）
-3. `currentFront`（兜底）
+记录剪贴板来源时，四层策略（按优先级）：
+
+1. **高频 AX 焦点缓存**（0.1s 刷新，0.15s 窗口）：0.1s 间隔持续轮询 `kAXFocusedApplicationAttribute` 并缓存。浮动面板（1Password Quick Open）关闭后才触发 poll——此缓存保存关闭前的焦点
+2. **CGEvent 按键目标进程**（0.5s 窗口）：Event tap 在按键瞬间捕获 `eventTargetUnixProcessID`
+3. **实时 Accessibility 焦点**：poll 触发时浮动面板尚未关闭的兜底
+4. **前台 App**（`NSWorkspace.shared.frontmostApplication`）：终级回退
+
+核心创新是 Layer 1 的高频缓存——将 Accessibility 查询与剪贴板 poll 解耦，0.1s 间隔独立运行，在浮动面板存活期间捕获焦点。
 
 ### 剪贴板清除策略
 
