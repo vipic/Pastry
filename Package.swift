@@ -15,11 +15,29 @@ let package = Package(
     ],
     dependencies: [],
     targets: [
+        .target(
+            name: "CSQLCipher",
+            path: "Sources/CSQLCipher",
+            sources: ["include/shim.c"],
+            publicHeadersPath: "include",
+            cSettings: [
+                .define("SQLITE_HAS_CODEC"),
+                .define("SQLCIPHER_CRYPTO_CC"),
+            ],
+            linkerSettings: [
+                .unsafeFlags(["-LSources/CSQLCipher", "-lsqlcipher"]),
+                .linkedFramework("CoreFoundation"),
+                .linkedFramework("Security"),
+            ]
+        ),
         .executableTarget(
             name: "Pastry",
-            dependencies: [],
+            dependencies: ["CSQLCipher"],
             path: "Sources/Pastry",
-            resources: [.process("Resources")]
+            resources: [.process("Resources")],
+            linkerSettings: [
+                .linkedFramework("Security"),
+            ]
         ),
         .testTarget(
             name: "PastryTests",

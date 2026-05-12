@@ -1,9 +1,10 @@
+import CSQLCipher
 import Foundation
-import SQLite3
 import OSLog
+import Security
 
 // MARK: - SQLite 数据库管理
-// 使用原生 sqlite3 API，零外部依赖
+// 使用原生 sqlite3 API，SQLCipher 全库加密
 final class DatabaseManager {
 
     nonisolated(unsafe) static let shared = DatabaseManager()
@@ -12,6 +13,10 @@ final class DatabaseManager {
 
     private var db: OpaquePointer?
     private let dbPath: String
+
+    /// Keychain 服务标识
+    private static let keychainService = "com.nekutai.pastry.dbkey"
+    private static let keychainAccount = "clips.db"
 
     // 上次插入的去重 key + 时间，5 秒内连续相同才跳过
     private var lastKey: String?
@@ -38,10 +43,10 @@ final class DatabaseManager {
         runMigrations()
     }
 
-    /// 测试专用：使用临时数据库，不污染生产数据
+    /// 测试专用：使用临时数据库，不污染生产数据（跳过加密，无需 Keychain）
     init(dbPath: String) {
         self.dbPath = dbPath
-        openDatabase()
+        openDatabase(useEncryption: false)
         createTables()
         runMigrations()
     }
@@ -54,11 +59,201 @@ final class DatabaseManager {
 
     // MARK: - 数据库操作
 
-    private func openDatabase() {
+    /// 获取或创建 256-bit 加密密钥（存在 Keychain 中）
+    private func getOrCreateKey() -> Data {
+        // 先尝试读取 Keychain 中的已有密钥
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: Self.keychainAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: CFTypeRef?
+        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+           let keyData = result as? Data {
+            return keyData
+        }
+
+        // 密钥不存在 → 生成新的 256-bit 随机密钥并存入 Keychain
+        var keyBytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
+        let newKey = Data(keyBytes)
+
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: Self.keychainAccount,
+            kSecValueData as String: newKey,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
+        ]
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        if status != errSecSuccess {
+            log.error("Keychain 密钥写入失败: \(status)")
+        }
+        return newKey
+    }
+
+    /// 用 Keychain 密钥激活 SQLCipher 加密
+    private func applyEncryptionKey() {
+        let key = getOrCreateKey()
+        let rc = key.withUnsafeBytes { ptr in
+            sqlite3_key(db, ptr.baseAddress, Int32(key.count))
+        }
+        if rc != SQLITE_OK {
+            log.error("sqlite3_key 失败: \(self.lastError)")
+        }
+
+        // 验证密钥是否正确：执行简单查询检测文件是否可读
+        var testStmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT count(*) FROM sqlite_master;", -1, &testStmt, nil) == SQLITE_OK {
+            sqlite3_finalize(testStmt)
+        } else {
+            // 密钥不对或文件损坏 → 尝试迁移现有明文数据库
+            attemptMigrationFromPlaintext(key: key)
+        }
+    }
+
+    /// 检测到现有数据库是明文 → 导出 → 新建加密库 → 导入
+    private func attemptMigrationFromPlaintext(key: Data) {
+        // 关闭当前连接（打开时用了错误密钥，文件状态已损坏）
+        sqlite3_close(db)
+        db = nil
+
+        let plainPath = dbPath
+        let tempEncPath = dbPath + ".enc-migrate"
+
+        // 先删可能存在的残留临时文件
+        try? FileManager.default.removeItem(atPath: tempEncPath)
+
+        // Step 1: 用明文方式打开原数据库，导出全部内容到内存
+        var plainDB: OpaquePointer?
+        guard sqlite3_open_v2(plainPath, &plainDB, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
+              let plain = plainDB else {
+            log.error("迁移失败：无法打开明文数据库")
+            // 删除残留的损坏加密库，重建新的
+            try? FileManager.default.removeItem(atPath: plainPath)
+            sqlite3_open(plainPath, &db)
+            applyEncryptionKey()
+            createTables()
+            return
+        }
+
+        // 读取明文库的完整 SQL dump
+        var dumpSQL = ""
+        var dumpStmt: OpaquePointer?
+        if sqlite3_prepare_v2(plain, "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type, name;", -1, &dumpStmt, nil) == SQLITE_OK {
+            while sqlite3_step(dumpStmt) == SQLITE_ROW {
+                if let sql = sqlite3_column_text(dumpStmt, 0) {
+                    dumpSQL += String(cString: sql) + ";\n"
+                }
+            }
+            sqlite3_finalize(dumpStmt)
+        }
+
+        // 读取数据行
+        var dataSQL = ""
+        var tableStmt: OpaquePointer?
+        if sqlite3_prepare_v2(plain, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';", -1, &tableStmt, nil) == SQLITE_OK {
+            while sqlite3_step(tableStmt) == SQLITE_ROW {
+                if let tableName = sqlite3_column_text(tableStmt, 0) {
+                    let name = String(cString: tableName)
+                    var rowStmt: OpaquePointer?
+                    if sqlite3_prepare_v2(plain, "SELECT * FROM \(name);", -1, &rowStmt, nil) == SQLITE_OK {
+                        let colCount = sqlite3_column_count(rowStmt)
+                        while sqlite3_step(rowStmt) == SQLITE_ROW {
+                            var values: [String] = []
+                            for i in 0..<colCount {
+                                if let val = sqlite3_column_text(rowStmt, i) {
+                                    values.append("'\(String(cString: val).replacingOccurrences(of: "'", with: "''"))'")
+                                } else if sqlite3_column_type(rowStmt, i) == SQLITE_NULL {
+                                    values.append("NULL")
+                                } else if let blob = sqlite3_column_blob(rowStmt, i) {
+                                    let len = Int(sqlite3_column_bytes(rowStmt, i))
+                                    let data = Data(bytes: blob, count: len)
+                                    let hex = data.map { String(format: "%02x", $0) }.joined()
+                                    values.append("X'\(hex)'")
+                                } else {
+                                    values.append("NULL")
+                                }
+                            }
+                            dataSQL += "INSERT INTO \(name) VALUES (\(values.joined(separator: ", ")));\n"
+                        }
+                        sqlite3_finalize(rowStmt)
+                    }
+                }
+            }
+            sqlite3_finalize(tableStmt)
+        }
+
+        sqlite3_close(plain)
+
+        // Step 2: 创建新的加密数据库，执行 schema + 数据导入
+        let newPath = (plainPath as NSString).deletingLastPathComponent + "/clips.db"
+        try? FileManager.default.removeItem(atPath: plainPath)  // 删明文
+        try? FileManager.default.removeItem(atPath: newPath)    // 删损坏
+
+        var encDB: OpaquePointer?
+        guard sqlite3_open(plainPath, &encDB) == SQLITE_OK, let enc = encDB else {
+            log.error("迁移失败：无法创建加密数据库")
+            db = nil
+            return
+        }
+
+        _ = key.withUnsafeBytes { ptr in
+            sqlite3_key(enc, ptr.baseAddress, Int32(key.count))
+        }
+
+        // 执行 schema
+        for statement in dumpSQL.components(separatedBy: ";\n") {
+            let trimmed = statement.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+            _ = executeRaw(trimmed, on: enc)
+        }
+
+        // 导入数据
+        for statement in dataSQL.components(separatedBy: ";\n") {
+            let trimmed = statement.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+            _ = executeRaw(trimmed, on: enc)
+        }
+
+        sqlite3_close(enc)
+        db = nil
+
+        // Step 3: 重新打开加密数据库
+        guard sqlite3_open(plainPath, &db) == SQLITE_OK else {
+            log.error("迁移后无法打开加密数据库")
+            return
+        }
+        _ = key.withUnsafeBytes { ptr in
+            sqlite3_key(db, ptr.baseAddress, Int32(key.count))
+        }
+
+        log.info("明文数据库迁移完成 → 加密")
+    }
+
+    /// 在指定 db 上执行裸 SQL（不检查结果）
+    @discardableResult
+    private func executeRaw(_ sql: String, on targetDB: OpaquePointer) -> Bool {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(targetDB, sql, -1, &stmt, nil) == SQLITE_OK else {
+            sqlite3_finalize(stmt)
+            return false
+        }
+        sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        return true
+    }
+
+    private func openDatabase(useEncryption: Bool = true) {
         if sqlite3_open(dbPath, &db) != SQLITE_OK {
             log.error("无法打开数据库: \(self.dbPath)")
             db = nil
         } else {
+            if useEncryption {
+                applyEncryptionKey()
+            }
             // 开启 WAL 模式，提升并发性能
             execute("PRAGMA journal_mode=WAL")
             execute("PRAGMA synchronous=NORMAL")
