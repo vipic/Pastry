@@ -4,7 +4,11 @@ import SwiftUI
 // MARK: - 应用常量
 
 enum Constants {
+    #if DEBUG
+    static let appName = "Pastry Dev"
+    #else
     static let appName = "Pastry"
+    #endif
 }
 
 // MARK: - SF Symbols 封装
