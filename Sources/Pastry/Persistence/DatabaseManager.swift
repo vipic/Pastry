@@ -59,39 +59,74 @@ final class DatabaseManager {
 
     // MARK: - 数据库操作
 
-    /// 获取或创建 256-bit 加密密钥（存在 Keychain 中）
+    /// Keychain 密钥文件回退路径（Keychain 静默失败时使用）
+    private var keyFilePath: String { dbPath + ".key" }
+
+    /// 获取或创建 256-bit 加密密钥（Keychain 优先，静默失败回退文件）
     private func getOrCreateKey() -> Data {
-        // 先尝试读取 Keychain 中的已有密钥
+        // 1. 先尝试静默读 Keychain（不弹授权对话框）
+        if let key = readKeyFromKeychain() { return key }
+
+        // 2. Keychain 不可用 → 尝试文件回退
+        if let key = readKeyFromFile() { return key }
+
+        // 3. 都不存在 → 生成新密钥
+        var keyBytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
+        let newKey = Data(keyBytes)
+
+        // 4. 尝试静默写入 Keychain
+        if writeKeyToKeychain(newKey) { return newKey }
+
+        // 5. Keychain 写入失败 → 回退到文件
+        writeKeyToFile(newKey)
+        return newKey
+    }
+
+    // MARK: Keychain 操作（静默模式）
+
+    private func readKeyFromKeychain() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
         ]
         var result: CFTypeRef?
-        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-           let keyData = result as? Data {
-            return keyData
-        }
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let keyData = result as? Data else { return nil }
+        return keyData
+    }
 
-        // 密钥不存在 → 生成新的 256-bit 随机密钥并存入 Keychain
-        var keyBytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
-        let newKey = Data(keyBytes)
-
+    private func writeKeyToKeychain(_ key: Data) -> Bool {
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
-            kSecValueData as String: newKey,
+            kSecValueData as String: key,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
         ]
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
-        if status != errSecSuccess {
-            log.error("Keychain 密钥写入失败: \(status)")
+        return SecItemAdd(addQuery as CFDictionary, nil) == errSecSuccess
+    }
+
+    // MARK: 文件回退（Keychain 不可用时，0600 权限）
+
+    private func readKeyFromFile() -> Data? {
+        guard FileManager.default.fileExists(atPath: keyFilePath) else { return nil }
+        return try? Data(contentsOf: URL(fileURLWithPath: keyFilePath))
+    }
+
+    private func writeKeyToFile(_ key: Data) {
+        do {
+            try key.write(to: URL(fileURLWithPath: keyFilePath), options: .atomic)
+            // 设置 0600 权限（仅 owner 可读写）
+            chmod(keyFilePath, 0o600)
+        } catch {
+            log.error("密钥文件写入失败: \(error.localizedDescription)")
         }
-        return newKey
     }
 
     /// 用 Keychain 密钥激活 SQLCipher 加密
