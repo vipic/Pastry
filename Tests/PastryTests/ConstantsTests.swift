@@ -29,7 +29,11 @@ final class ConstantsTests: XCTestCase {
     // MARK: - AppName
 
     func testAppName() {
+        #if DEBUG
+        XCTAssertEqual(Constants.appName, "Pastry Dev")
+        #else
         XCTAssertEqual(Constants.appName, "Pastry")
+        #endif
     }
 
     // MARK: - Colors
