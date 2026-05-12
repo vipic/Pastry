@@ -1,5 +1,8 @@
 import CSQLCipher
+import CryptoKit
 import Foundation
+import IOKit
+import LocalAuthentication
 import OSLog
 import Security
 
@@ -86,13 +89,15 @@ final class DatabaseManager {
     // MARK: Keychain 操作（静默模式）
 
     private func readKeyFromKeychain() -> Data? {
+        let context = LAContext()
+        context.interactionNotAllowed = true
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
+            kSecUseAuthenticationContext as String: context,
         ]
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
@@ -101,28 +106,67 @@ final class DatabaseManager {
     }
 
     private func writeKeyToKeychain(_ key: Data) -> Bool {
+        let context = LAContext()
+        context.interactionNotAllowed = true
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
             kSecValueData as String: key,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
-            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecUseAuthenticationContext as String: context,
         ]
         return SecItemAdd(addQuery as CFDictionary, nil) == errSecSuccess
     }
 
-    // MARK: 文件回退（Keychain 不可用时，0600 权限）
+    // MARK: 文件回退（Keychain 不可用时，设备派生 KEK 包裹密钥）
+
+    /// 从设备硬件标识派生密钥加密密钥（同一设备永远相同，跨设备无法复现）
+    private static func deviceKEK() -> SymmetricKey {
+        let salt = "com.nekutai.pastry.kek".data(using: .utf8)!
+        let material = deviceIdentity().data(using: .utf8)!
+        return HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: SymmetricKey(data: material),
+            salt: salt,
+            info: "pastry-db-key".data(using: .utf8)!,
+            outputByteCount: 32
+        )
+    }
+
+    /// 收集设备唯一标识（IOPlatformUUID——硬件标识，重装系统不变）
+    private static func deviceIdentity() -> String {
+        let platformExpert = IOServiceGetMatchingService(
+            kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice")
+        )
+        defer { if platformExpert != 0 { IOObjectRelease(platformExpert) } }
+
+        guard platformExpert != 0,
+              let uuid = IORegistryEntryCreateCFProperty(
+                platformExpert, kIOPlatformUUIDKey as CFString,
+                kCFAllocatorDefault, 0
+              )?.takeRetainedValue() as? String
+        else { return "pastry-fallback-identity" }
+
+        return uuid
+    }
 
     private func readKeyFromFile() -> Data? {
-        guard FileManager.default.fileExists(atPath: keyFilePath) else { return nil }
-        return try? Data(contentsOf: URL(fileURLWithPath: keyFilePath))
+        guard FileManager.default.fileExists(atPath: keyFilePath),
+              let sealed = try? Data(contentsOf: URL(fileURLWithPath: keyFilePath)),
+              let box = try? AES.GCM.SealedBox(combined: sealed),
+              let key = try? AES.GCM.open(box, using: Self.deviceKEK())
+        else { return nil }
+        return Data(key)
     }
 
     private func writeKeyToFile(_ key: Data) {
         do {
-            try key.write(to: URL(fileURLWithPath: keyFilePath), options: .atomic)
-            // 设置 0600 权限（仅 owner 可读写）
+            let box = try AES.GCM.seal(key, using: Self.deviceKEK())
+            guard let sealed = box.combined else {
+                log.error("AES-GCM seal 失败")
+                return
+            }
+            try sealed.write(to: URL(fileURLWithPath: keyFilePath), options: .atomic)
             chmod(keyFilePath, 0o600)
         } catch {
             log.error("密钥文件写入失败: \(error.localizedDescription)")
