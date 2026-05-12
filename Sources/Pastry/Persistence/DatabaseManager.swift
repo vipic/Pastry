@@ -2,7 +2,6 @@ import CSQLCipher
 import CryptoKit
 import Foundation
 import IOKit
-import LocalAuthentication
 import OSLog
 import Security
 
@@ -16,10 +15,6 @@ final class DatabaseManager {
 
     private var db: OpaquePointer?
     private let dbPath: String
-
-    /// Keychain 服务标识
-    private static let keychainService = "com.nekutai.pastry.dbkey"
-    private static let keychainAccount = "clips.db"
 
     // 上次插入的去重 key + 时间，5 秒内连续相同才跳过
     private var lastKey: String?
@@ -62,42 +57,36 @@ final class DatabaseManager {
 
     // MARK: - 数据库操作
 
-    /// Keychain 密钥文件回退路径（Keychain 静默失败时使用）
+    /// 密钥文件路径（数据库同目录）
     private var keyFilePath: String { dbPath + ".key" }
 
-    /// 获取或创建 256-bit 加密密钥（Keychain 优先，静默失败回退文件）
+    /// 获取或创建 256-bit 加密密钥（设备派生 KEK 加密存文件，零弹窗）
     private func getOrCreateKey() -> Data {
-        // 1. 先尝试静默读 Keychain（不弹授权对话框）
-        if let key = readKeyFromKeychain() { return key }
-
-        // 2. Keychain 不可用 → 尝试文件回退
+        // 读已有密钥文件
         if let key = readKeyFromFile() { return key }
 
-        // 3. 都不存在 → 生成新密钥
+        // 一次性 Keychain 迁移（仅在无文件时尝试，之后永不再碰）
+        if let legacyKey = migrateFromKeychain() {
+            writeKeyToFile(legacyKey)
+            return legacyKey
+        }
+
+        // 全新安装 → 生成新密钥，加密存文件
         var keyBytes = [UInt8](repeating: 0, count: 32)
         _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
         let newKey = Data(keyBytes)
-
-        // 4. 尝试静默写入 Keychain
-        if writeKeyToKeychain(newKey) { return newKey }
-
-        // 5. Keychain 写入失败 → 回退到文件
         writeKeyToFile(newKey)
         return newKey
     }
 
-    // MARK: Keychain 操作（静默模式）
-
-    private func readKeyFromKeychain() -> Data? {
-        let context = LAContext()
-        context.interactionNotAllowed = true
+    /// 一次性：尝试从 Keychain 读取旧版密钥（可能弹一次系统授权对话框）
+    private func migrateFromKeychain() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
-            kSecAttrAccount as String: Self.keychainAccount,
+            kSecAttrService as String: "com.nekutai.pastry.dbkey",
+            kSecAttrAccount as String: "clips.db",
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseAuthenticationContext as String: context,
         ]
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
@@ -105,21 +94,7 @@ final class DatabaseManager {
         return keyData
     }
 
-    private func writeKeyToKeychain(_ key: Data) -> Bool {
-        let context = LAContext()
-        context.interactionNotAllowed = true
-        let addQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
-            kSecAttrAccount as String: Self.keychainAccount,
-            kSecValueData as String: key,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            kSecUseAuthenticationContext as String: context,
-        ]
-        return SecItemAdd(addQuery as CFDictionary, nil) == errSecSuccess
-    }
-
-    // MARK: 文件回退（Keychain 不可用时，设备派生 KEK 包裹密钥）
+    // MARK: 文件密钥存储（设备派生 KEK，AES-256-GCM 加密）
 
     /// 从设备硬件标识派生密钥加密密钥（同一设备永远相同，跨设备无法复现）
     private static func deviceKEK() -> SymmetricKey {

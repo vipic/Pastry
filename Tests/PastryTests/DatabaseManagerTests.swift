@@ -401,9 +401,9 @@ final class DatabaseManagerTests: XCTestCase {
         let file = makeItem(content: "/tmp/file.pdf", type: .fileURL, isHandoff: false)
 
         db.insert(text)
-        Thread.sleep(forTimeInterval: 0.01)
+        Thread.sleep(forTimeInterval: 0.1)
         db.insert(img)
-        Thread.sleep(forTimeInterval: 0.01)
+        Thread.sleep(forTimeInterval: 0.1)
         db.insert(file)
 
         let items = db.recent()
