@@ -1,3 +1,4 @@
+import ApplicationServices
 import Cocoa
 import Combine
 import OSLog
@@ -23,7 +24,18 @@ final class ClipboardMonitor: ObservableObject {
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
 
     /// CGEvent tap：监听 ⌘C/⌘X/截图 按键，立即触发轮询（不等 timer，降低延迟）
+    /// 同时追踪所有按键事件的目标进程 PID，用于精确来源检测（解决浮动面板场景）
     private var eventTap: CFMachPort?
+
+    /// 最近一次按键事件的目标进程（由 CGEvent tap 在事件瞬间捕获，线程通过 DispatchQueue.main 保护）
+    private var lastEventTargetPID: pid_t?
+    private var lastEventTime: Date?
+
+    /// 高频 Accessibility 焦点缓存（0.1s 间隔刷新）——在 poll 触发前持续记录焦点，
+    /// 解决浮动面板（1Password Quick Open）在 poll 时已关闭导致焦点丢失的问题
+    private var cachedAXBundleID: String?
+    private var cachedAXFocusTime: Date?
+    private var focusTrackingTimer: Timer?
 
     // 防止同一内容重复触发
     private var lastDedupKey = ""
@@ -78,6 +90,18 @@ final class ClipboardMonitor: ObservableObject {
         RunLoop.main.add(t, forMode: .common)
         timer = t
 
+        // 高频 Accessibility 焦点追踪：0.1s 间隔刷新缓存。
+        // 浮动面板（1Password Quick Open）在 poll 触发时可能已关闭——此缓存保存关闭前的焦点。
+        let ft = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+            self?.refreshAXFocusCache()
+        }
+        RunLoop.main.add(ft, forMode: .common)
+        focusTrackingTimer = ft
+
+        // 立即启动 CGEvent tap——用于来源检测（按键目标进程）和 ⌘C/X 快速轮询。
+        // CGEvent.tapCreate 不会弹权限对话框（静默返回 nil），安全的在 start 中调用。
+        setupEventTap()
+
         log.info("剪贴板监听已启动 (interval: \(self.pollInterval)s)")
     }
 
@@ -93,17 +117,25 @@ final class ClipboardMonitor: ObservableObject {
             eventsOfInterest: eventMask,
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
                 if type == .keyUp {
+                    let monitor = Unmanaged<ClipboardMonitor>
+                        .fromOpaque(refcon!).takeUnretainedValue()
                     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
                     let flags = event.flags
+                    let targetPID = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
+
                     let isCopy       = keyCode == 8  && flags.contains(.maskCommand)                           // C
                     let isCut        = keyCode == 7  && flags.contains(.maskCommand)                           // X
                     let isScreenshot = (keyCode == 20 || keyCode == 21 || keyCode == 23)                       // 3/4/5
                                         && flags.contains(.maskCommand) && flags.contains(.maskShift)
                     let isCtrlCmdA   = keyCode == 0 && flags.contains(.maskCommand) && flags.contains(.maskControl)  // A
-                    if isCopy || isCut || isScreenshot || isCtrlCmdA {
-                        let monitor = Unmanaged<ClipboardMonitor>
-                            .fromOpaque(refcon!).takeUnretainedValue()
-                        DispatchQueue.main.async {
+
+                    DispatchQueue.main.async {
+                        // 追踪按键目标进程（用于精确来源检测：1Password Quick Open 等浮动面板）
+                        if targetPID > 0 {
+                            monitor.lastEventTargetPID = targetPID
+                            monitor.lastEventTime = Date()
+                        }
+                        if isCopy || isCut || isScreenshot || isCtrlCmdA {
                             monitor.poll()
                         }
                     }
@@ -131,6 +163,8 @@ final class ClipboardMonitor: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        focusTrackingTimer?.invalidate()
+        focusTrackingTimer = nil
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             CFMachPortInvalidate(tap)
@@ -140,7 +174,59 @@ final class ClipboardMonitor: ObservableObject {
         log.info("剪贴板监听已停止")
     }
 
+    // MARK: - 辅助功能焦点 App
+
+    /// 通过 Accessibility API 获取当前拥有键盘焦点的进程。
+    /// 能正确检测 1Password Quick Open、Alfred 等浮动面板——它们的键盘焦点在面板进程，
+    /// 但 `frontmostApplication` 仍返回后台主 App（因为没有激活面板进程的菜单栏）。
+    /// 返回 nil 表示辅助功能权限未授予或当前无焦点进程，调用方应回退到 `frontmostApplication`。
+    private func focusedAppViaAccessibility() -> (name: String, bundleID: String)? {
+        let systemWide = AXUIElementCreateSystemWide()
+        var focusedApp: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(
+            systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp
+        )
+        guard result == .success, let app = focusedApp else { return nil }
+
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(app as! AXUIElement, &pid) == .success, pid > 0 else { return nil }
+        guard let runningApp = NSRunningApplication(processIdentifier: pid),
+              let bundleID = runningApp.bundleIdentifier
+        else { return nil }
+
+        return (runningApp.localizedName ?? "", bundleID)
+    }
+
+    /// 高频刷新 Accessibility 焦点缓存（0.1s 间隔调用）。
+    /// 当浮动面板（1Password Quick Open）获取焦点时立即记录，不依赖 poll 时机。
+    private func refreshAXFocusCache() {
+        guard let ax = focusedAppViaAccessibility() else { return }
+        cachedAXBundleID = ax.bundleID
+        cachedAXFocusTime = Date()
+    }
+
     // MARK: - 轮询
+
+    /// 来源检测（按优先级）：
+    /// 1. 高频 AX 缓存（0.1s 刷新，0.15s 窗口）— 捕获浮动面板关闭前的焦点
+    /// 2. 前台 App（`NSWorkspace.shared.frontmostApplication`）
+    private func resolveSourceApp() -> (name: String?, bundleID: String?) {
+        let frontApp = NSWorkspace.shared.frontmostApplication
+
+        // Layer 1: 高频 AX 焦点缓存（独立 0.1s 轮询，与剪贴板 poll 解耦）
+        if let cachedBundleID = cachedAXBundleID,
+           let cachedTime = cachedAXFocusTime,
+           Date().timeIntervalSince(cachedTime) < 0.15,
+           cachedBundleID != frontApp?.bundleIdentifier,
+           let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == cachedBundleID }),
+           let bundleID = app.bundleIdentifier {
+            log.debug("来源覆盖(高频AX): 前台=\(frontApp?.localizedName ?? "nil"), 缓存焦点=\(app.localizedName ?? "?")")
+            return (app.localizedName, bundleID)
+        }
+
+        // Layer 2: 前台 App
+        return (frontApp?.localizedName, frontApp?.bundleIdentifier)
+    }
 
     private func poll() {
         guard !isSuspended else { return }
@@ -151,15 +237,14 @@ final class ClipboardMonitor: ObservableObject {
         guard currentChange != lastChangeCount else { return }
         lastChangeCount = currentChange
 
-        // 检测到剪贴板变化 → 立即播提示音
-        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
-            Self.copySound?.play()
-        }
+        var (capturedApp, capturedBundleID) = resolveSourceApp()
 
-        // 来源 = 当前前台 App
-        let frontApp = NSWorkspace.shared.frontmostApplication
-        let capturedApp = frontApp?.localizedName
-        let capturedBundleID = frontApp?.bundleIdentifier
+        // 1Password Quick Open 在 pasteboard 上写 com.agilebits.onepassword 自定义类型。
+        // 用它覆写来源——比 AX 缓存和 frontmostApplication 更可靠。
+        if let types = pb.types, types.contains(where: { $0.rawValue == "com.agilebits.onepassword" }) {
+            capturedApp = "1Password"
+            capturedBundleID = "com.agilebits.onepassword"
+        }
 
         DispatchQueue.main.async {
             [weak self] in
@@ -167,24 +252,66 @@ final class ClipboardMonitor: ObservableObject {
         }
     }
 
+    /// 调试日志输出到文件（避免 Console.app 不生效）
+    private func debugLog(_ msg: String) {
+        let line = "\(Date()) [Pastry] \(msg)\n"
+        if let data = line.data(using: .utf8) {
+            let url = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Documents/Luigi/pastry-debug.log")
+            if let fh = try? FileHandle(forWritingTo: url) {
+                fh.seekToEndOfFile()
+                fh.write(data)
+                fh.closeFile()
+            } else {
+                try? data.write(to: url, options: .atomic)
+            }
+        }
+    }
+
     // MARK: - 处理剪贴板变化
 
     private func processChange(capturedApp: String?, capturedBundleID: String?) {
         let dedup = currentDedupKey
-        guard dedup != lastDedupKey else { return }
+        guard dedup != lastDedupKey else {
+            debugLog("来源=\(capturedApp ?? "nil") → 去重跳过 (dedup=\(dedup.prefix(20)), last=\(lastDedupKey.prefix(20)))")
+            return
+        }
 
         // 排除名单：密码管理器等敏感应用不保存剪贴板历史
         if let bundleID = capturedBundleID {
             let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
             if excluded.contains(bundleID) {
-                lastDedupKey = dedup  // 更新去重 key，避免下次误判为变化
+                debugLog("来源=\(capturedApp ?? "nil")(\(bundleID)) → 排除名单跳过")
+                lastDedupKey = dedup
                 return
             }
         }
 
         let pb = NSPasteboard.general
+        let pbTypesRaw = pb.types?.map(\.rawValue) ?? []
+        debugLog("来源=\(capturedApp ?? "nil")(\(capturedBundleID ?? "nil")) pbTypes=\(pbTypesRaw)")
 
-        guard let types = pb.types, !types.isEmpty else { return }
+        // 排除敏感 pasteboard 类型
+        if let pbTypes = pb.types {
+            let ignoredRawTypes: Set<String> = [
+                "org.nspasteboard.ConcealedType",
+            ]
+            let hasIgnored = pbTypes.contains(where: { ignoredRawTypes.contains($0.rawValue) })
+            if hasIgnored {
+                debugLog("pbType 过滤: ConcealedType 命中 → 跳过")
+                lastDedupKey = dedup
+                return
+            }
+        }
+
+        guard let types = pb.types, !types.isEmpty else {
+            debugLog("pb.types 为空 → 跳过")
+            return
+        }
+
+        // 所有过滤检查通过 → 播复制提示音
+        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
+            Self.copySound?.play()
+        }
 
         // 检测 Handoff/通用剪贴板来源
         let isRemoteClipboard = types.contains(where: { $0.rawValue == "com.apple.is-remote-clipboard" })
@@ -502,6 +629,18 @@ final class ClipboardMonitor: ObservableObject {
     static func isBundleIDExcludedForTesting(_ bundleID: String) -> Bool {
         let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
         return excluded.contains(bundleID)
+    }
+
+    /// 供单元测试：检测 pasteboard types 是否含 ConcealedType
+    static func hasConcealedTypeForTesting(from pb: NSPasteboard) -> Bool {
+        guard let types = pb.types else { return false }
+        return types.contains(where: { $0.rawValue == "org.nspasteboard.ConcealedType" })
+    }
+
+    /// 供单元测试：检测 pasteboard types 是否含 1Password 标记
+    static func has1PasswordTypeForTesting(from pb: NSPasteboard) -> Bool {
+        guard let types = pb.types else { return false }
+        return types.contains(where: { $0.rawValue == "com.agilebits.onepassword" })
     }
 
     // MARK: - 去重
