@@ -63,8 +63,13 @@ Sources/Pastry/                    （~4550 行）
 │   ├── ClipboardItem.swift        # Codable 数据模型 (ClipType enum)
 │   └── ClipboardMonitor.swift     # NSPasteboard 轮询引擎 (588 行)
 ├── Persistence/
-│   ├── DatabaseManager.swift      # SQLite3 C API + FTS5 全文搜索
+│   ├── DatabaseManager.swift      # SQLite3 C API + FTS5 全文搜索 + SQLCipher 全库加密
 │   └── StoreManager.swift         # @MainActor ObservableObject 桥接
+├── CSQLCipher/                    # SQLCipher 静态库（vendored，零外部依赖）
+│   ├── libsqlcipher.a             # 预编译静态库（CommonCrypto 后端）
+│   ├── include/shim.h             # 定义 SQLITE_HAS_CODEC + SQLCIPHER_CRYPTO_CC
+│   ├── include/module.modulemap   # SPM module 定义
+│   └── include/sqlite3.h          # SQLCipher 头文件
 ├── UI/
 │   ├── OverlayPanelManager.swift  # NSPanel 全屏 overlay 管理
 │   ├── OverlayView.swift          # SwiftUI 内容层（透明底 + 卡片托盘）
@@ -185,6 +190,61 @@ Button(action: { selectedItem = item }) { ... }
 ### 9. git restore . 会丢弃未提交改动
 
 `git restore .` 会丢弃所有未跟踪改动，包括之前特意保留的修复。需要先确认是否有需要保留的部分。
+
+## SQLCipher 全库加密
+
+### 架构
+
+`clips.db` 使用 SQLCipher 全库加密，保护剪贴板历史不被直接读取。密钥存在 macOS Keychain 中（service: `com.nekutai.pastry.dbkey`）。
+
+- **密钥生成**：首次启动时 `SecRandomCopyBytes` 生成 256-bit 随机密钥，存入 Keychain
+- **密钥读取**：后续启动从 Keychain 读取
+- **加密激活**：`sqlite3_key()` 在打开数据库后立即调用
+- **透明性**：FTS5 全文搜索正常工作，查询逻辑无变化
+- **测试跳过**：`init(dbPath:)` 构造函数通过 `openDatabase(useEncryption: false)` 跳过加密
+
+### 迁移流程
+
+升级安装时，如果检测到旧明文数据库（`sqlite3_key` 后 SELECT 失败），自动执行：
+
+1. 以只读方式打开明文数据库
+2. 导出 schema + 全部数据为 SQL dump
+3. 创建新加密数据库
+4. 执行 schema + 数据导入
+5. 删除明文数据库，重新打开加密数据库
+
+迁移日志输出 `明文数据库迁移完成 → 加密`。
+
+### 重新编译 libsqlcipher.a
+
+当需要更新 SQLCipher 版本或启用新扩展时，重新编译静态库：
+
+```bash
+# 下载 SQLCipher 源码
+curl -sL "https://github.com/sqlcipher/sqlcipher/archive/refs/tags/v4.6.1.tar.gz" -o sqlcipher.tar.gz
+tar xzf sqlcipher.tar.gz && cd sqlcipher-4.6.1
+
+# 配置（CommonCrypto 后端 + FTS5）
+./configure --with-crypto-lib=commoncrypto \
+  CFLAGS="-DSQLITE_HAS_CODEC -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_FTS5_PARENTHESIS -DSQLITE_TEMP_STORE=2 -DSQLCIPHER_CRYPTO_CC -O2"
+
+# 编译对象文件
+make -j8 2>&1  # 链接 CLI 工具会失败（缺少 framework 链接），但 sqlite3.o 已生成
+
+# 打包静态库
+ar rcs libsqlcipher.a sqlite3.o
+
+# 复制到项目
+cp libsqlcipher.a Sources/CSQLCipher/libsqlcipher.a
+cp sqlite3.h sqlite3ext.h sqlite_cfg.h Sources/CSQLCipher/include/
+```
+
+编译标志说明：
+- `SQLITE_HAS_CODEC`：启用加密 API（sqlite3_key）
+- `SQLITE_ENABLE_FTS5`：启用 FTS5 全文搜索
+- `SQLITE_ENABLE_FTS5_PARENTHESIS`：FTS5 支持括号分组查询
+- `SQLCIPHER_CRYPTO_CC`：使用 Apple CommonCrypto（无外部依赖）
+- `SQLITE_TEMP_STORE=2`：临时表存内存
 
 ## Testing Strategy
 
