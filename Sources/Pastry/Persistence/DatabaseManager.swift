@@ -405,28 +405,57 @@ final class DatabaseManager {
             _ = execute("UPDATE clips SET content_type = 'text', is_url = 1 WHERE content_type = 'url';")
             userVersion = 7
         }
+        if version < 8 {
+            _ = execute("ALTER TABLE clips ADD COLUMN dedup_key TEXT;")
+            _ = execute("CREATE INDEX IF NOT EXISTS idx_clips_dedup ON clips(dedup_key);")
+            userVersion = 8
+        }
     }
 
     // MARK: - CRUD
 
-    /// 插入新项（去重）
+    enum InsertResult: Equatable {
+        case inserted
+        case replaced(oldID: String)
+        case skippedDuplicate
+        case skipped
+    }
+
+    /// 插入新项（去重）。重复内容会删除旧记录并置顶（新时间戳 + 新来源）。
     @discardableResult
-    func insert(_ item: ClipboardItem) -> Bool {
+    func insert(_ item: ClipboardItem) -> InsertResult {
         lock.lock()
         defer { lock.unlock() }
         let key = item.dedupKey
         let now = Date()
-        if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return false }
+        if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return .skippedDuplicate }
+
+        // 跨历史去重：查找相同 dedupKey 的旧记录
+        var oldID: String?
+        let findSQL = "SELECT id FROM clips WHERE dedup_key = ? LIMIT 1;"
+        var findStmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, findSQL, -1, &findStmt, nil) == SQLITE_OK {
+            sqlite3_bind_text(findStmt, 1, (key as NSString).utf8String, -1, nil)
+            if sqlite3_step(findStmt) == SQLITE_ROW {
+                oldID = String(cString: sqlite3_column_text(findStmt, 0))
+            }
+            sqlite3_finalize(findStmt)
+        }
+
+        // 有旧记录 → 删除（FTS 由触发器自动清理），用新 id 重新插入
+        if let old = oldID {
+            _ = delete(id: old)
+        }
 
         let sql = """
-        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, dedup_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             log.error("INSERT prepare 失败: \(self.lastError)")
-            return false
+            return .skipped
         }
 
         sqlite3_bind_text(stmt, 1, (item.id.uuidString as NSString).utf8String, -1, nil)
@@ -438,7 +467,7 @@ final class DatabaseManager {
         let imageURLsJSON = item.imageURLs.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) }
         sqlite3_bind_text(stmt, 7, (imageURLsJSON as NSString?)?.utf8String ?? nil, -1, nil)
         sqlite3_bind_text(stmt, 8, (item.segmentsJSON as NSString?)?.utf8String ?? nil, -1, nil)
-        sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0)  // is_favorite
+        sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0)
         sqlite3_bind_int(stmt, 10, Int32(item.displayCount))
         sqlite3_bind_int(stmt, 11, item.isHandoff ? 1 : 0)
         if let rawData = item.rawFormatData {
@@ -454,11 +483,12 @@ final class DatabaseManager {
             sqlite3_bind_null(stmt, 13)
         }
         sqlite3_bind_int(stmt, 14, item.tags.isURL ? 1 : 0)
+        sqlite3_bind_text(stmt, 15, (key as NSString).utf8String, -1, nil)
 
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
 
-        guard rc == SQLITE_DONE else { return false }
+        guard rc == SQLITE_DONE else { return .skipped }
 
         // 同步到 FTS 索引
         syncFTS(item)
@@ -467,7 +497,7 @@ final class DatabaseManager {
         lastKey = key
         lastKeyTime = now
 
-        return true
+        return oldID != nil ? .replaced(oldID: oldID!) : .inserted
     }
 
     /// 搜索（优先 FTS，fallback LIKE）

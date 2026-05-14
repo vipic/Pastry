@@ -309,7 +309,18 @@ final class StoreManager: ObservableObject {
     // MARK: - 内部
 
     private func handleNewItem(_ item: ClipboardItem) {
-        guard DatabaseManager.shared.insert(item) else { return }
+        let result = DatabaseManager.shared.insert(item)
+        switch result {
+        case .skippedDuplicate, .skipped:
+            return
+        case .replaced(let oldID):
+            // 去重置顶：删内存中的旧条目
+            if let oldUUID = UUID(uuidString: oldID) {
+                items.removeAll { $0.id == oldUUID }
+            }
+        case .inserted:
+            break
+        }
 
         // 内存中的 items 数组截断 content 至 256 字符（DB 保留完整内容用于粘贴和 FTS）
         let truncatedContent = item.content.count > 256 ? String(item.content.prefix(256)) : item.content

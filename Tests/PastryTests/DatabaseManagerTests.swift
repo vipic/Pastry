@@ -45,12 +45,38 @@ final class DatabaseManagerTests: XCTestCase {
         )
     }
 
+    /// 断言插入成功（.inserted 或 .replaced 均可）
+    private func assertInserted(
+        _ item: ClipboardItem,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let result = db.insert(item)
+        switch result {
+        case .inserted, .replaced: break
+        default: XCTFail("Expected .inserted or .replaced, got \(result)", file: file, line: line)
+        }
+    }
+
+    /// 断言插入被去重跳过
+    private func assertSkipped(
+        _ item: ClipboardItem,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let result = db.insert(item)
+        switch result {
+        case .skippedDuplicate, .skipped: break
+        default: XCTFail("Expected .skippedDuplicate or .skipped, got \(result)", file: file, line: line)
+        }
+    }
+
     // MARK: - 基本 CRUD
 
     /// 插入一条 → recent() 应包含它
     func testInsertAndRetrieve() {
         let item = makeItem(content: "Hello World")
-        XCTAssertTrue(db.insert(item))
+        assertInserted(item)
 
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
@@ -103,10 +129,10 @@ final class DatabaseManagerTests: XCTestCase {
     /// 相同 dedupKey 的条目第二次插入应被拒绝
     func testDedupRejectsDuplicate() {
         let item1 = makeItem(content: "相同内容")
-        XCTAssertTrue(db.insert(item1))
+        assertInserted(item1)
 
         let item2 = makeItem(content: "相同内容")
-        XCTAssertFalse(db.insert(item2), "重复条目应被拒绝")
+        assertSkipped(item2)
 
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
@@ -114,9 +140,88 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 不同 dedupKey 应正常插入
     func testDedupAllowsDifferent() {
-        XCTAssertTrue(db.insert(makeItem(content: "内容A")))
-        XCTAssertTrue(db.insert(makeItem(content: "内容B")))
+        assertInserted(makeItem(content: "内容A"))
+        assertInserted(makeItem(content: "内容B"))
         XCTAssertEqual(db.recent().count, 2)
+    }
+
+    // MARK: - 去重置顶
+
+    /// 跨历史去重：复制 A → B → 再次 A，A 应被移到最前且不出现重复
+    func testDedupReplaceMovesToTop() {
+        let a1 = makeItem(content: "内容A")
+        assertInserted(a1)
+        Thread.sleep(forTimeInterval: 0.1)
+
+        let b = makeItem(content: "内容B")
+        assertInserted(b)
+        Thread.sleep(forTimeInterval: 0.1)
+
+        // 再次复制 A（新 id），应替换旧的 A 并置顶
+        let a2 = makeItem(content: "内容A")
+        assertInserted(a2)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 2, "应只有 2 条，不能出现重复")
+        XCTAssertEqual(items[0].content, "内容A", "A 应排到最前")
+        XCTAssertEqual(items[1].content, "内容B")
+    }
+
+    /// .replaced 返回被替换的旧条目 UUID
+    func testDedupReplaceReturnsOldID() {
+        let a1 = makeItem(content: "替换测试")
+        _ = db.insert(a1)
+        Thread.sleep(forTimeInterval: 0.1)
+
+        let b = makeItem(content: "中间内容")
+        _ = db.insert(b)
+        Thread.sleep(forTimeInterval: 0.1)
+
+        let a2 = makeItem(content: "替换测试")
+        let result = db.insert(a2)
+
+        switch result {
+        case .replaced(let oldID):
+            XCTAssertEqual(oldID, a1.id.uuidString, "应返回被替换的旧条目 id")
+        default:
+            XCTFail("Expected .replaced, got \(result)")
+        }
+    }
+
+    /// 去重置顶不影响其他无关条目
+    func testDedupReplacePreservesOtherItems() {
+        let a = makeItem(content: "AAA")
+        let b = makeItem(content: "BBB")
+        let c = makeItem(content: "CCC")
+        assertInserted(a)
+        Thread.sleep(forTimeInterval: 0.1)
+        assertInserted(b)
+        Thread.sleep(forTimeInterval: 0.1)
+        assertInserted(c)
+
+        // 再次复制 B
+        let b2 = makeItem(content: "BBB")
+        assertInserted(b2)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items[0].content, "BBB")
+        XCTAssertEqual(items[1].content, "CCC")
+        XCTAssertEqual(items[2].content, "AAA")
+    }
+
+    /// 不同类型相同内容 → dedupKey 不同，应独立保留
+    func testDedupReplaceDoesNotCrossTypes() {
+        let textItem = makeItem(content: "hello", type: .text)
+        assertInserted(textItem)
+        Thread.sleep(forTimeInterval: 0.1)
+
+        let htmlItem = makeItem(content: "hello", type: .html)
+        assertInserted(htmlItem)
+
+        // text 类型的 hello 不应被 html 类型的 hello 替换
+        let items = db.recent()
+        XCTAssertEqual(items.count, 2)
     }
 
     /// 不同内容类型 + 相同内容 = 不同 dedupKey
@@ -124,8 +229,8 @@ final class DatabaseManagerTests: XCTestCase {
         let textItem = makeItem(content: "hello", type: .text)
         let htmlItem = makeItem(content: "hello", type: .html)
 
-        XCTAssertTrue(db.insert(textItem))
-        XCTAssertTrue(db.insert(htmlItem))
+        assertInserted(textItem)
+        assertInserted(htmlItem)
         XCTAssertEqual(db.recent().count, 2)
     }
 
@@ -294,7 +399,7 @@ final class DatabaseManagerTests: XCTestCase {
             appName: "WeChat",
             textAnnotation: "这是附带的文字"
         )
-        XCTAssertTrue(db.insert(item))
+        assertInserted(item)
 
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
@@ -376,7 +481,7 @@ final class DatabaseManagerTests: XCTestCase {
     /// 插入带 isHandoff 的条目 → 读回应保留标记
     func testIsHandoffInsertAndRetrieve() {
         let item = makeItem(content: "来自 iPhone 的文本", app: nil, isHandoff: true)
-        XCTAssertTrue(db.insert(item))
+        assertInserted(item)
 
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
