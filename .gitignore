@@ -13,6 +13,7 @@ Package.resolved
 *.dmg
 Pastry
 Info.plist
+.release_staging/
 
 # ── Generated source (release.sh 注入版本号) ──
 Sources/Pastry/Generated/
