@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - 关于窗口
 struct AboutView: View {
+    @AppStorage("PastryLanguage") private var language = ""
     var body: some View {
         VStack(spacing: 0) {
             Image(nsImage: NSApp.applicationIconImage)
@@ -36,6 +37,7 @@ struct AboutView: View {
                 .padding(.bottom, 20)
         }
         .frame(width: 360, height: 340)
+        .id(language)  // 触发语言切换时重渲染
     }
 
     private var appDisplayName: String {

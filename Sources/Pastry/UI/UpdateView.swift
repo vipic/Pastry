@@ -12,6 +12,7 @@ enum UpdateState {
 // MARK: - 更新窗口视图（Up-to-date / Update Available 两态共用）
 
 struct UpdateView: View {
+    @AppStorage("PastryLanguage") private var language = ""
     let state: UpdateState
     var onUpdate: (() -> Void)?
     var onCancel: (() -> Void)?
@@ -107,7 +108,13 @@ struct UpdateView: View {
         let formatter = RelativeDateTimeFormatter()
         let lang = UserDefaults.standard.string(forKey: "PastryLanguage") ?? ""
         formatter.locale = lang.hasPrefix("zh") ? Locale(identifier: "zh-Hans") : Locale(identifier: "en")
-        let relative = formatter.localizedString(for: date, relativeTo: Date())
+        let delta = Date().timeIntervalSince(date)
+        let relative: String
+        if abs(delta) < 3 {
+            relative = lang.hasPrefix("zh") ? "刚刚" : "just now"
+        } else {
+            relative = formatter.localizedString(for: date, relativeTo: Date())
+        }
 
         return Text(String(format: L10n["update.last_checked"], relative))
             .font(.system(size: 12))
