@@ -194,11 +194,10 @@ mkdir -p "$VOLUME/.background"
 cp "$PROJECT_DIR/Resources/dmg-background.png" "$VOLUME/.background/background.png"
 cp "$PROJECT_DIR/Resources/dmg-background@2x.png" "$VOLUME/.background/background@2x.png"
 
-# 用 AppleScript 设置窗口属性
-osascript << APPLESCRIPT
+# 用 AppleScript 设置窗口属性（不打开窗口，避免闪现）
+osascript << 'APPLESCRIPT'
 tell application "Finder"
-    tell disk "$APP_NAME"
-        open
+    tell disk "Pastry"
         set current view of container window to icon view
         set toolbar visible of container window to false
         set statusbar visible of container window to false
@@ -207,19 +206,15 @@ tell application "Finder"
         set arrangement of viewOptions to not arranged
         set icon size of viewOptions to 96
         set background picture of viewOptions to file ".background:background.png"
-        set position of item "$APP_NAME.app" of container window to {48, 124}
+        set position of item "Pastry.app" of container window to {48, 124}
         set position of item "Applications" of container window to {394, 124}
-        close
-        open
         update without registering applications
-        delay 1
-        close
     end tell
 end tell
 APPLESCRIPT
 
 # 等待 Finder 写入 .DS_Store
-sleep 2
+sleep 0.5
 
 # 卸载
 hdiutil detach "$VOLUME" -quiet
@@ -266,10 +261,8 @@ if $PUBLISH; then
         echo "   📦 创建 Release $TAG..."
 
         # 生成更新日志：从上一个 tag 到 HEAD 的 Conventional Commits
-        last_tag
         last_tag=$(git describe --tags --abbrev=0 HEAD~ 2>/dev/null || echo "")
         if [[ -n "$last_tag" ]]; then
-            changelog
             changelog=$(git log "${last_tag}..HEAD" --pretty=format:"- %s" --no-merges 2>/dev/null)
             if [[ -z "$changelog" ]]; then
                 changelog="- $APP_NAME $VERSION 发布"
