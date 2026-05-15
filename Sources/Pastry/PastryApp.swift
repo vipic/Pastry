@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var aboutWindow: NSWindow?
     private var helpWindow: NSWindow?
+    private var updateWindow: NSWindow?
 
     override init() {
         super.init()
@@ -42,6 +43,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     helpItem.action = #selector(showHelpWindow)
                     helpItem.target = self
                 }
+            }
+
+            // 在 app 菜单中插入"检查更新…"
+            if let afterAbout = appMenu.items.firstIndex(where: {
+                $0.action == #selector(showAboutWindow)
+            }) {
+                let updateItem = NSMenuItem(
+                    title: L10n["menu.check_updates"],
+                    action: #selector(showUpdateWindow),
+                    keyEquivalent: ""
+                )
+                updateItem.target = self
+                appMenu.insertItem(updateItem, at: afterAbout + 1)
             }
         }
 
@@ -152,6 +166,93 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    @objc func showUpdateWindow() {
+        if let existing = updateWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let savedPolicy = NSApp.activationPolicy()
+        NSApp.setActivationPolicy(.regular)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 360),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Pastry"
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.center()
+        window.isReleasedWhenClosed = false
+
+        // 初始显示"检查中"状态
+        let hostingView = NSHostingView(rootView: UpdateView(state: .checking, onCancel: { [weak window] in
+            window?.close()
+        }))
+        window.contentView = hostingView
+
+        let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy)
+        window.delegate = delegate
+        delegate.selfRetain()
+        updateWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        // 异步检查更新
+        Task { @MainActor in
+            if let result = await UpdateChecker.shared.checkForUpdate(force: true) {
+                hostingView.rootView = UpdateView(
+                    state: .updateAvailable(result: result),
+                    onUpdate: { [weak window] in
+                        Task {
+                            await self.performUpdate(result)
+                        }
+                        window?.close()
+                    },
+                    onCancel: { [weak window] in
+                        window?.close()
+                    }
+                )
+            } else {
+                let version = AppVersion.current == "0.0.0-dev"
+                    ? (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                    : AppVersion.current
+                let build = AppVersion.build == "0"
+                    ? (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
+                    : AppVersion.build
+                let lastCheck = UserDefaults.standard.object(forKey: "PastryLastUpdateCheck") as? Date
+                let cachedNotes = UpdateChecker.shared.cachedReleaseNotes()
+                hostingView.rootView = UpdateView(
+                    state: .upToDate(
+                        version: version,
+                        build: build,
+                        lastCheckDate: lastCheck,
+                        lastReleaseNotes: cachedNotes
+                    ),
+                    onCancel: { [weak window] in
+                        window?.close()
+                    }
+                )
+            }
+        }
+    }
+
+    /// 执行更新：下载 → 替换二进制 → 重启
+    private func performUpdate(_ result: UpdateChecker.UpdateResult) async {
+        do {
+            let tempURL = try await UpdateChecker.shared.downloadBinary(from: result.downloadURL)
+            try UpdateChecker.shared.applyUpdate(binaryAt: tempURL)
+        } catch {
+            Logger(subsystem: "com.nekutai.pastry", category: "update")
+                .error("更新失败: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - 默认排除名单
