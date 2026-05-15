@@ -70,6 +70,7 @@ final class UpdateChecker {
         guard let release = await fetchLatestRelease() else { return nil }
 
         UserDefaults.standard.set(now, forKey: lastCheckKey)
+        cacheResult(release)
 
         let currentVersion = currentVersionString()
         guard isNewer(tag: release.tag_name, than: currentVersion) else {
@@ -90,6 +91,22 @@ final class UpdateChecker {
             downloadURL: binary.browser_download_url,
             htmlURL: release.html_url
         )
+    }
+
+    // MARK: - 缓存上次检查结果
+
+    private let lastReleaseNotesKey = "PastryLastReleaseNotes"
+    private let lastCheckedVersionKey = "PastryLastCheckedVersion"
+
+    /// 缓存成功的检查结果（供 upToDate 页显示上次更新日志）
+    private func cacheResult(_ result: ReleaseInfo) {
+        UserDefaults.standard.set(result.body, forKey: lastReleaseNotesKey)
+        UserDefaults.standard.set(result.tag_name, forKey: lastCheckedVersionKey)
+    }
+
+    /// 读取缓存的 release notes
+    func cachedReleaseNotes() -> String? {
+        UserDefaults.standard.string(forKey: lastReleaseNotesKey)
     }
 
     /// 下载二进制到临时目录，返回文件路径

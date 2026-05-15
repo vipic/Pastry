@@ -148,28 +148,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
 
     @MainActor
     @objc private func checkUpdateAction() {
-        let progressWindow = UpdateWindow.showProgress()
-
-        Task {
-            let result = await UpdateChecker.shared.checkForUpdate(force: true)
-            progressWindow.close()
-
-            if let update = result {
-                UpdateWindow.showUpdateAvailable(update) { [weak progressWindow] in
-                    Task {
-                        do {
-                            let binaryURL = try await UpdateChecker.shared.downloadBinary(from: update.downloadURL)
-                            try UpdateChecker.shared.applyUpdate(binaryAt: binaryURL)
-                        } catch {
-                            progressWindow?.close()
-                            UpdateWindow.showError(error.localizedDescription)
-                        }
-                    }
-                }
-            } else {
-                UpdateWindow.showUpToDate()
-            }
-        }
+        AppDelegate.shared?.showUpdateWindow()
     }
 
     @MainActor

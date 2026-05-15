@@ -1,192 +1,276 @@
 import SwiftUI
 
-// MARK: - 更新窗口
-enum UpdateWindow {
-    private static var window: NSWindow?
+// MARK: - 更新状态
 
-    /// 显示「已是新版本」
-    static func showUpToDate() {
-        showWindow {
-            UpToDateView()
-        }
-    }
-
-    /// 显示更新提示
-    static func showUpdateAvailable(_ result: UpdateChecker.UpdateResult,
-                                    onUpdate: @escaping () -> Void) {
-        showWindow {
-            UpdateAvailableView(result: result, onUpdate: onUpdate)
-        }
-    }
-
-    /// 显示下载/安装进度
-    static func showProgress() -> NSWindow {
-        let w = createWindow()
-        w.contentView = NSHostingView(rootView: UpdateProgressView())
-        w.makeKeyAndOrderFront(nil)
-        return w
-    }
-
-    /// 显示错误
-    static func showError(_ message: String) {
-        showWindow {
-            UpdateErrorView(message: message)
-        }
-    }
-
-    // MARK: - Private
-
-    private static func showWindow<Content: View>(content: @escaping () -> Content) {
-        if let existing = window {
-            existing.contentView = NSHostingView(rootView: content())
-            existing.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        let w = createWindow()
-        w.contentView = NSHostingView(rootView: content())
-        w.makeKeyAndOrderFront(nil)
-        window = w
-    }
-
-    private static func createWindow() -> NSWindow {
-        let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 240),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        w.title = L10n["update.title"]
-        w.isReleasedWhenClosed = false
-        w.center()
-        return w
-    }
+enum UpdateState {
+    case upToDate(version: String, build: String, lastCheckDate: Date?, lastReleaseNotes: String?)
+    case updateAvailable(result: UpdateChecker.UpdateResult)
+    case checking
+    case error(String)
 }
 
-// MARK: - 已是新版本
+// MARK: - 更新窗口视图（Up-to-date / Update Available 两态共用）
 
-private struct UpToDateView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 40))
-                .foregroundColor(.green)
-
-            Text(L10n["update.uptodate"])
-                .font(.system(size: 14, weight: .semibold))
-
-            Text("Pastry \(appVersion)")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(20)
-    }
-
-    private var appVersion: String {
-        AppVersion.current
-    }
-}
-
-// MARK: - 有更新
-
-private struct UpdateAvailableView: View {
-    let result: UpdateChecker.UpdateResult
-    let onUpdate: () -> Void
-
-    @State private var isUpdating = false
+struct UpdateView: View {
+    let state: UpdateState
+    var onUpdate: (() -> Void)?
+    var onCancel: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "arrow.down.circle.fill")
-                .font(.system(size: 36))
-                .foregroundColor(.blue)
+        VStack(spacing: 0) {
+            // App 图标
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 64, height: 64)
+                .padding(.top, 28)
+                .padding(.bottom, 16)
 
-            Text(L10n["update.available"])
-                .font(.system(size: 14, weight: .semibold))
+            // 标题行（状态文字 + 指示器）
+            headingRow
+                .padding(.bottom, 4)
 
-            HStack(spacing: 16) {
-                VersionBadge(label: L10n["update.current"], version: result.currentVersion)
-                VersionBadge(label: L10n["update.latest"], version: result.latestVersion)
-            }
+            // 版本信息
+            versionRow
+                .padding(.bottom, 8)
 
-            if !result.releaseNotes.isEmpty {
-                Text(result.releaseNotes)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .lineLimit(4)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 280)
-            }
-
-            if isUpdating {
-                ProgressView()
-                    .scaleEffect(0.8)
+            // 上次检查时间（仅 upToDate 显示）
+            if case .upToDate(_, _, let lastCheck, _) = state, let date = lastCheck {
+                lastCheckedRow(date)
+                    .padding(.bottom, 16)
             } else {
-                Button(L10n["update.download_and_install"]) {
-                    isUpdating = true
-                    onUpdate()
+                Color.clear.frame(height: 0)
+                    .padding(.bottom, 16)
+            }
+
+            // 更新日志
+            if case .updateAvailable(let result) = state {
+                changelogSection(result.releaseNotes)
+                    .padding(.bottom, 24)
+            }
+            if case .upToDate(_, _, _, let notes) = state, let notes = notes, !notes.isEmpty {
+                changelogSection(notes)
+                    .padding(.bottom, 24)
+            }
+
+            // 按钮区
+            buttonRow
+        }
+        .padding(.horizontal, 40)
+        .padding(.bottom, 28)
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - 标题行
+
+    @ViewBuilder
+    private var headingRow: some View {
+        HStack(spacing: 8) {
+            switch state {
+            case .upToDate:
+                Text(L10n["update.up_to_date"])
+                    .font(.system(size: 17, weight: .semibold))
+                ZStack {
+                    Circle()
+                        .fill(Color(red: 0.188, green: 0.82, blue: 0.345))
+                        .frame(width: 18, height: 18)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+
+            case .updateAvailable:
+                Text(L10n["update.update_available"])
+                    .font(.system(size: 17, weight: .semibold))
+                Circle()
+                    .fill(Color(red: 0.188, green: 0.82, blue: 0.345))
+                    .frame(width: 8, height: 8)
+                    .shadow(color: Color(red: 0.188, green: 0.82, blue: 0.345).opacity(0.5), radius: 6)
+
+            case .checking:
+                Text(L10n["update.checking"])
+                    .font(.system(size: 17, weight: .semibold))
+                ProgressView()
+                    .scaleEffect(0.7)
+                    .frame(width: 18, height: 18)
+
+            case .error:
+                Text(L10n["update.check_failed"])
+                    .font(.system(size: 17, weight: .semibold))
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(20)
     }
-}
 
-private struct VersionBadge: View {
-    let label: String
-    let version: String
+    // MARK: - 上次检查时间
 
-    var body: some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.system(size: 10))
+    private func lastCheckedRow(_ date: Date) -> some View {
+        let formatter = RelativeDateTimeFormatter()
+        let lang = UserDefaults.standard.string(forKey: "PastryLanguage") ?? ""
+        formatter.locale = lang.hasPrefix("zh") ? Locale(identifier: "zh-Hans") : Locale(identifier: "en")
+        let relative = formatter.localizedString(for: date, relativeTo: Date())
+
+        return Text(String(format: L10n["update.last_checked"], relative))
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+    }
+
+    // MARK: - 版本行
+
+    @ViewBuilder
+    private var versionRow: some View {
+        switch state {
+        case .upToDate(let version, let build, _, _):
+            Text("v\(version) · Build \(build)")
+                .font(.system(size: 13))
                 .foregroundColor(.secondary)
-            Text(version)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-        }
-    }
-}
 
-// MARK: - 下载中
+        case .updateAvailable(let result):
+            HStack(spacing: 6) {
+                Text("v\(result.currentVersion)")
+                    .foregroundColor(.secondary)
+                Text("→")
+                    .foregroundColor(.secondary.opacity(0.5))
+                Text("v\(result.latestVersion)")
+                    .fontWeight(.medium)
+            }
+            .font(.system(size: 13))
 
-private struct UpdateProgressView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
+        case .checking:
+            Text("Connecting to GitHub...")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
 
-            Text(L10n["update.downloading"])
+        case .error(let message):
+            Text(message)
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(20)
+    }
+
+    // MARK: - 更新日志
+
+    private func changelogSection(_ notes: String) -> some View {
+        let items = parseChangelog(notes)
+
+        return Group {
+            if !items.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n["update.whats_new"])
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .textCase(.uppercase)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(items, id: \.self) { item in
+                            HStack(alignment: .top, spacing: 10) {
+                                Circle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: 6, height: 6)
+                                    .padding(.top, 5)
+                                Text(item)
+                                    .font(.system(size: 13))
+                                    .lineSpacing(2)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.primary.opacity(0.04))
+                )
+            }
+        }
+    }
+
+    // MARK: - 按钮行
+
+    @ViewBuilder
+    private var buttonRow: some View {
+        switch state {
+        case .upToDate:
+            HStack {
+                Spacer()
+                Button(L10n["update.ok"]) { onCancel?() }
+                    .buttonStyle(SecondaryButtonStyle())
+            }
+
+        case .updateAvailable:
+            HStack(spacing: 10) {
+                Spacer()
+                Button(L10n["update.cancel"]) { onCancel?() }
+                    .buttonStyle(SecondaryButtonStyle())
+                Button(L10n["update.update_btn"]) { onUpdate?() }
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+
+        case .checking:
+            EmptyView()
+
+        case .error:
+            HStack {
+                Spacer()
+                Button(L10n["update.ok"]) { onCancel?() }
+                    .buttonStyle(SecondaryButtonStyle())
+            }
+        }
+    }
+
+    // MARK: - 解析更新日志
+
+    /// 将 GitHub Release body 解析为要点列表
+    private func parseChangelog(_ body: String) -> [String] {
+        let lines = body
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("-") || $0.hasPrefix("*") }
+            .map { line -> String in
+                var s = line
+                // 去掉前缀 "- " / "* "
+                if let idx = s.firstIndex(where: { $0 != "-" && $0 != "*" && $0 != " " }) {
+                    s = String(s[idx...])
+                }
+                return s.trimmingCharacters(in: .whitespaces)
+            }
+            .filter { !$0.isEmpty }
+
+        // 至少 2 条才显示列表，否则返回空（不显示日志区）
+        return lines.count >= 2 ? lines : []
     }
 }
 
-// MARK: - 错误
+// MARK: - 按钮样式
 
-private struct UpdateErrorView: View {
-    let message: String
+private struct PrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .medium))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .background(Color.accentColor)
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .shadow(color: Color.accentColor.opacity(0.2), radius: 3, y: 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
 
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 36))
-                .foregroundColor(.red)
-
-            Text(L10n["update.failed"])
-                .font(.system(size: 13, weight: .semibold))
-
-            Text(message)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(20)
+private struct SecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .medium))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .background(Color.primary.opacity(0.06))
+            .foregroundColor(.primary)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
