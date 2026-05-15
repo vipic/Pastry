@@ -252,27 +252,11 @@ final class ClipboardMonitor: ObservableObject {
         }
     }
 
-    /// 调试日志输出到文件（避免 Console.app 不生效）
-    private func debugLog(_ msg: String) {
-        let line = "\(Date()) [Pastry] \(msg)\n"
-        if let data = line.data(using: .utf8) {
-            let url = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Documents/Luigi/pastry-debug.log")
-            if let fh = try? FileHandle(forWritingTo: url) {
-                fh.seekToEndOfFile()
-                fh.write(data)
-                fh.closeFile()
-            } else {
-                try? data.write(to: url, options: .atomic)
-            }
-        }
-    }
-
     // MARK: - 处理剪贴板变化
 
     private func processChange(capturedApp: String?, capturedBundleID: String?) {
         let dedup = currentDedupKey
         guard dedup != lastDedupKey else {
-            debugLog("来源=\(capturedApp ?? "nil") → 去重跳过 (dedup=\(dedup.prefix(20)), last=\(lastDedupKey.prefix(20)))")
             return
         }
 
@@ -280,15 +264,12 @@ final class ClipboardMonitor: ObservableObject {
         if let bundleID = capturedBundleID {
             let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
             if excluded.contains(bundleID) {
-                debugLog("来源=\(capturedApp ?? "nil")(\(bundleID)) → 排除名单跳过")
                 lastDedupKey = dedup
                 return
             }
         }
 
         let pb = NSPasteboard.general
-        let pbTypesRaw = pb.types?.map(\.rawValue) ?? []
-        debugLog("来源=\(capturedApp ?? "nil")(\(capturedBundleID ?? "nil")) pbTypes=\(pbTypesRaw)")
 
         // 排除敏感 pasteboard 类型
         if let pbTypes = pb.types {
@@ -297,14 +278,12 @@ final class ClipboardMonitor: ObservableObject {
             ]
             let hasIgnored = pbTypes.contains(where: { ignoredRawTypes.contains($0.rawValue) })
             if hasIgnored {
-                debugLog("pbType 过滤: ConcealedType 命中 → 跳过")
                 lastDedupKey = dedup
                 return
             }
         }
 
         guard let types = pb.types, !types.isEmpty else {
-            debugLog("pb.types 为空 → 跳过")
             return
         }
 
