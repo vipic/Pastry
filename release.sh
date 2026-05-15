@@ -246,8 +246,7 @@ if $PUBLISH; then
         exit 1
     fi
     
-    # 兼容 v 前缀：用户可传 "1.3.1" 或 "v1.3.1"
-    if [[ "$VERSION" == v* ]]; then TAG="$VERSION"; else TAG="v$VERSION"; fi
+    TAG="$VERSION"
     
     # 创建 tag 并推送
     if git rev-parse "$TAG" &>/dev/null; then
