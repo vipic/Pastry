@@ -70,11 +70,12 @@ final class UpdateChecker {
         guard let release = await fetchLatestRelease() else { return nil }
 
         UserDefaults.standard.set(now, forKey: lastCheckKey)
-        cacheResult(release)
 
         let currentVersion = currentVersionString()
         guard isNewer(tag: release.tag_name, than: currentVersion) else {
             log.info("已是最新版本: \(currentVersion)")
+            // 仍缓存 release notes（供 upToDate 页显示上次更新日志）
+            cacheResult(release)
             return nil
         }
 
