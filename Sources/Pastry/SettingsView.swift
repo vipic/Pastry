@@ -12,7 +12,6 @@ struct SettingsSceneView: View {
     @AppStorage(UserDefaultsKeys.soundEnabled)
     private var soundEnabled = false
 
-    // 快捷键
     @AppStorage(UserDefaultsKeys.hotkeyKeyCode)
     private var hotkeyKeyCode = Int(GlobalHotkeyManager.defaultKeyCode)
     @AppStorage(UserDefaultsKeys.hotkeyModifiers)
@@ -28,9 +27,7 @@ struct SettingsSceneView: View {
         case system
         case zhHans = "zh-Hans"
         case en
-
         var id: String { rawValue }
-
         var label: String {
             switch self {
             case .system: return L10n["lang.system"]
@@ -41,19 +38,14 @@ struct SettingsSceneView: View {
     }
 
     init() {
-        // Clean up stale AppleLanguages from previous version (would pollute Locale.preferredLanguages)
         UserDefaults.standard.removeObject(forKey: "AppleLanguages")
         let pref = UserDefaults.standard.string(forKey: "PastryLanguage") ?? ""
         _selectedLanguage = State(initialValue: Language(rawValue: pref) ?? .system)
     }
 
     enum SettingsTab: String, CaseIterable, Identifiable {
-        case general
-        case shortcut
-        case security
-
+        case general, shortcut, security
         var id: String { rawValue }
-
         var label: String {
             switch self {
             case .general:  return L10n["settings.tab.general"]
@@ -61,7 +53,6 @@ struct SettingsSceneView: View {
             case .security: return L10n["settings.tab.security"]
             }
         }
-
         var icon: String {
             switch self {
             case .general:  return "gearshape"
@@ -74,16 +65,13 @@ struct SettingsSceneView: View {
     var body: some View {
         NavigationSplitView {
             List(SettingsTab.allCases, selection: $selectedTab) { tab in
-                Label(tab.label, systemImage: tab.icon)
-                    .tag(tab)
+                Label(tab.label, systemImage: tab.icon).tag(tab)
             }
             .navigationSplitViewColumnWidth(min: 160, ideal: 180)
         } detail: {
-            if let tab = selectedTab {
-                detail(for: tab)
-            }
+            if let tab = selectedTab { detail(for: tab) }
         }
-        .id(selectedLanguage.rawValue) // force full re-render on language change
+        .id(selectedLanguage.rawValue)
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
@@ -95,92 +83,103 @@ struct SettingsSceneView: View {
     @ViewBuilder
     private func detail(for tab: SettingsTab) -> some View {
         switch tab {
-        case .general:
-            Form {
-                Section {
-                    Picker(L10n["lang.label"], selection: Binding<Language>(
-                        get: { selectedLanguage },
-                        set: { lang in
-                            selectedLanguage = lang
-                            switch lang {
-                            case .system:
-                                UserDefaults.standard.removeObject(forKey: "PastryLanguage")
-                            default:
-                                UserDefaults.standard.set(lang.rawValue, forKey: "PastryLanguage")
-                            }
-                        }
-                    )) {
-                        ForEach(Language.allCases) { lang in
-                            Text(lang.label).tag(lang)
+        case .general:  generalTab
+        case .shortcut: shortcutTab
+        case .security: securityTab
+        }
+    }
+
+    // MARK: - 通用 Tab
+
+    private var generalTab: some View {
+        Form {
+            Section {
+                Picker(L10n["lang.label"], selection: Binding<Language>(
+                    get: { selectedLanguage },
+                    set: { lang in
+                        selectedLanguage = lang
+                        switch lang {
+                        case .system: UserDefaults.standard.removeObject(forKey: "PastryLanguage")
+                        default:      UserDefaults.standard.set(lang.rawValue, forKey: "PastryLanguage")
                         }
                     }
-                    Toggle(L10n["settings.launch_at_login"], isOn: $launchAtLogin)
-                        .onChange(of: launchAtLogin) { _, enabled in
-                            do {
-                                if enabled {
-                                    try SMAppService.mainApp.register()
-                                } else {
-                                    try SMAppService.mainApp.unregister()
-                                }
-                            } catch {
-                                Logger(subsystem: "com.nekutai.pastry", category: "settings")
-                                    .error("开机启动切换失败: \\(error.localizedDescription)")
-                            }
-                        }
-                    Toggle(L10n["settings.sound_enabled"], isOn: $soundEnabled)
+                )) {
+                    ForEach(Language.allCases) { Text($0.label).tag($0) }
                 }
-                Section(L10n["settings.accessibility_section"]) {
-                    HStack {
-                        Image(systemName: accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
-                            .foregroundColor(accessibilityTrusted ? .green : .orange)
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(accessibilityTrusted ? L10n["settings.accessibility_granted"] : L10n["settings.accessibility_denied"])
-                                .font(.body)
-                            Text(accessibilityTrusted
-                                 ? L10n["settings.accessibility_paste_ok"]
-                                 : L10n["settings.accessibility_paste_need"])
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                Toggle(L10n["settings.launch_at_login"], isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, enabled in
+                        do {
+                            if enabled { try SMAppService.mainApp.register() }
+                            else       { try SMAppService.mainApp.unregister() }
+                        } catch {
+                            Logger(subsystem: "com.nekutai.pastry", category: "settings")
+                                .error("开机启动切换失败: \(error.localizedDescription)")
                         }
-                        Spacer()
-                        if !accessibilityTrusted {
-                            Button(L10n["settings.accessibility_grant_btn"]) {
-                                guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
-                                    Logger(subsystem: "com.nekutai.pastry", category: "settings").error("无法构造系统偏好设置 URL")
-                                    return
-                                }
+                    }
+                Toggle(L10n["settings.sound_enabled"], isOn: $soundEnabled)
+            }
+
+            Section {
+                HStack {
+                    Image(systemName: accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
+                        .foregroundColor(accessibilityTrusted ? .green : .orange).font(.title3)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(accessibilityTrusted ? L10n["settings.accessibility_granted"] : L10n["settings.accessibility_denied"]).font(.body)
+                        Text(accessibilityTrusted ? L10n["settings.accessibility_paste_ok"] : L10n["settings.accessibility_paste_need"])
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if !accessibilityTrusted {
+                        Button(L10n["settings.accessibility_grant_btn"]) {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                                 NSWorkspace.shared.open(url)
                             }
                         }
                     }
-                    .padding(.vertical, 4)
                 }
-                Section {
-                    Button(role: .destructive) {
-                        showingClearConfirm = true
+                .padding(.vertical, 4)
+            }
+
+            // 版本条目
+            Section {
+                HStack {
+                    Text(L10n["menu.about"])
+                    Spacer()
+                    Button {
+                        AppDelegate.shared?.showAboutWindow()
                     } label: {
-                        Label(L10n["settings.clear_all"], systemImage: "trash")
+                        Text("v\(AppVersion.current)")
+                            .foregroundColor(.accentColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(versionHovered ? Color.primary.opacity(0.06) : Color.clear)
+                            )
                     }
-                    .alert(L10n["settings.clear_confirm_title"], isPresented: $showingClearConfirm) {
-                        Button(L10n["settings.clear_cancel"], role: .cancel) {}
-                        Button(L10n["settings.clear_btn"], role: .destructive) {
-                            StoreManager.shared.clearAll()
-                        }
-                    } message: {
-                        Text(L10n["settings.clear_warning"])
-                    }
+                    .buttonStyle(.plain)
+                    .onHover { versionHovered = $0 }
                 }
             }
-            .formStyle(.grouped)
-            .padding(20)
 
-        case .shortcut:
-            shortcutTab
-
-        case .security:
-            securityTab
+            // 清空全部记录（左文案右按钮）
+            Section {
+                HStack {
+                    Text(L10n["settings.clear_all"]).font(.system(size: 12)).foregroundColor(.red)
+                    Spacer()
+                    Button(L10n["settings.clear_btn"]) { showingClearConfirm = true }
+                        .buttonStyle(.borderedProminent).tint(.red).controlSize(.small)
+                }
+                .alert(L10n["settings.clear_confirm_title"], isPresented: $showingClearConfirm) {
+                    Button(L10n["settings.clear_cancel"], role: .cancel) {}
+                    Button(L10n["settings.clear_btn"], role: .destructive) { StoreManager.shared.clearAll() }
+                } message: {
+                    Text(L10n["settings.clear_warning"])
+                }
+            }
         }
+        .formStyle(.grouped)
+        .padding(20)
     }
 
     // MARK: - 快捷键 Tab
@@ -190,99 +189,100 @@ struct SettingsSceneView: View {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text(L10n["shortcut.label"])
-                            .font(.body)
+                        Text(L10n["shortcut.label"]).font(.body)
                         Spacer()
-
                         HotkeyRecorderView(
-                            keyCode: $hotkeyKeyCode,
-                            modifiers: $hotkeyModifiers,
-                            onChange: {
-                                GlobalHotkeyManager.shared.reregister()
-                            },
-                            onStartRecording: {
-                                GlobalHotkeyManager.shared.unregister()
-                            },
-                            onCancelRecording: {
-                                GlobalHotkeyManager.shared.reregister()
-                            }
+                            keyCode: $hotkeyKeyCode, modifiers: $hotkeyModifiers,
+                            onChange: { GlobalHotkeyManager.shared.reregister() },
+                            onStartRecording: { GlobalHotkeyManager.shared.unregister() },
+                            onCancelRecording: { GlobalHotkeyManager.shared.reregister() }
                         )
                         .frame(width: 160, height: 28)
                     }
-
-                    Text(hotkeyKeyCode >= 0
-                         ? L10n["shortcut.hint_set"]
-                         : L10n["shortcut.hint_empty"])
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
+                    Text(hotkeyKeyCode >= 0 ? L10n["shortcut.hint_set"] : L10n["shortcut.hint_empty"])
+                        .font(.caption).foregroundColor(.secondary)
                     Divider()
-
                     HStack {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
-                        Text(L10n["shortcut.effective_immediately"])
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        Image(systemName: "info.circle").foregroundColor(.secondary).font(.caption)
+                        Text(L10n["shortcut.effective_immediately"]).font(.caption).foregroundColor(.secondary)
                     }
                 }
                 .padding(.vertical, 4)
-            } header: {
-                Text(L10n["shortcut.section_title"])
             }
         }
         .formStyle(.grouped)
         .padding(20)
     }
+
+    @State private var versionHovered = false
 
     // MARK: - 安全 Tab
 
     private var securityTab: some View {
         Form {
-            Section(L10n["settings.excluded_apps"]) {
-                excludedAppsContent
+            Section {
+                if installedExcludedBundleIDs.isEmpty {
+                    Text(L10n["settings.excluded_empty"])
+                        .font(.caption).foregroundColor(.secondary)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(installedExcludedBundleIDs.indices, id: \.self) { idx in
+                        HStack(spacing: 10) {
+                            appIcon(for: installedExcludedBundleIDs[idx])
+                                .resizable().frame(width: 28, height: 28)
+                                .clipShape(RoundedRectangle(cornerRadius: 7))
+                            Text(displayName(for: installedExcludedBundleIDs[idx])).font(.body)
+                            Spacer()
+                            Button(action: { removeExcludedApp(installedExcludedBundleIDs[idx]) }) {
+                                Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                Button(action: addExcludedApp) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus").font(.system(size: 12))
+                        Text(L10n["settings.excluded_add"]).font(.system(size: 13))
+                    }
+                }
+                .buttonStyle(.plain).foregroundColor(.secondary)
+            } header: {
+                Text(L10n["settings.excluded_apps"])
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+            } footer: {
+                Text(L10n["settings.excluded_hint"])
+                    .font(.caption).foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)
         .padding(20)
+        .onAppear {
+            excludedBundleIDs = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+        }
     }
+
+    // MARK: - 辅助
 
     private func refreshAccessibilityStatus() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
         accessibilityTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
 
-    // MARK: - 排除应用
-
-    /// 从 bundleID 取 App 名称
-    private func displayName(for bundleID: String) -> String {
-        if let path = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-            return FileManager.default.displayName(atPath: path.path)
-                .replacingOccurrences(of: ".app", with: "")
-        }
-        return bundleID
-    }
+    // MARK: - 排除应用数据
 
     private func addExcludedApp() {
         let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.applicationBundle]
+        panel.canChooseFiles = true; panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false; panel.allowedContentTypes = [.applicationBundle]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.prompt = L10n["settings.excluded_add"]
         panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            if let bundle = Bundle(url: url),
-               let id = bundle.bundleIdentifier {
-                var current = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
-                if !current.contains(id) {
-                    current.append(id)
-                    UserDefaults.standard.set(current, forKey: UserDefaultsKeys.excludedBundleIDs)
-                    excludedBundleIDs = current
-                }
-            }
+            guard response == .OK, let url = panel.url,
+                  let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else { return }
+            var current = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
+            if !current.contains(id) { current.append(id); UserDefaults.standard.set(current, forKey: UserDefaultsKeys.excludedBundleIDs); excludedBundleIDs = current }
         }
     }
 
@@ -293,58 +293,29 @@ struct SettingsSceneView: View {
         excludedBundleIDs = current
     }
 
-    /// 检查 bundleID 对应的 App 是否已安装
     private func isAppInstalled(bundleID: String) -> Bool {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
-            return false
-        }
-        var isDir: ObjCBool = false
-        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID),
+              FileManager.default.fileExists(atPath: url.path) else { return false }
+        return true
     }
 
-    /// 当前已安装的排除应用（从未安装的不显示）
     private var installedExcludedBundleIDs: [String] {
         excludedBundleIDs.filter { isAppInstalled(bundleID: $0) }
     }
-
-    private var excludedAppsContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if installedExcludedBundleIDs.isEmpty {
-                Text(L10n["settings.excluded_empty"])
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(installedExcludedBundleIDs, id: \.self) { bundleID in
-                    HStack {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile:
-                            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)?.path ?? ""))
-                            .resizable()
-                            .frame(width: 20, height: 20)
-                        Text(displayName(for: bundleID))
-                            .font(.body)
-                        Spacer()
-                        Button {
-                            removeExcludedApp(bundleID)
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            Button(action: addExcludedApp) {
-                Label(L10n["settings.excluded_add"], systemImage: "plus")
-            }
-
-            Text(L10n["settings.excluded_hint"])
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.top, 2)
-        }
-        .onAppear {
-            excludedBundleIDs = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
-        }
-    }
 }
+
+    private func appIcon(for bundleID: String) -> Image {
+        if let path = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)?.path {
+            return Image(nsImage: NSWorkspace.shared.icon(forFile: path))
+        }
+        return Image(systemName: "questionmark.app")
+    }
+
+    private func displayName(for bundleID: String) -> String {
+        if let path = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+            return FileManager.default.displayName(atPath: path.path).replacingOccurrences(of: ".app", with: "")
+        }
+        return bundleID
+    }
+
+    // MARK: - 辅助
