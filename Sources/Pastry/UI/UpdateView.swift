@@ -60,6 +60,7 @@ struct UpdateView: View {
         .padding(.bottom, 28)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+        .id(language)
     }
 
     // MARK: - 标题行
