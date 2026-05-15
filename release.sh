@@ -157,7 +157,7 @@ fi
 
 # ── 5. DMG 打包 ──
 echo ""
-echo "━━━ 5/5 DMG 打包 ━━━"
+echo "━━━ 5/6 DMG 打包 ━━━"
 DMG_PATH="$PROJECT_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
 
@@ -167,11 +167,43 @@ mkdir -p "$DMG_SRC"
 cp -R "$STAGING/$APP_NAME.app" "$DMG_SRC/"
 ln -s /Applications "$DMG_SRC/Applications" 2>/dev/null || true
 
-# 直接创建只读压缩 DMG（无背景、无 AppleScript、无 Finder 闪现）
+# 计算 DMG 大小
+APP_SIZE_KB=$(du -sk "$DMG_SRC/$APP_NAME.app" | cut -f1)
+DMG_SIZE_MB=$(( (APP_SIZE_KB / 1024) + 4 ))
+
 hdiutil create -volname "$APP_NAME" \
     -srcfolder "$DMG_SRC" \
-    -ov -format UDZO \
-    "$DMG_PATH" 2>&1 | tail -1
+    -ov -format UDRW \
+    -size ${DMG_SIZE_MB}m \
+    "$STAGING/tmp.dmg" 2>&1 | tail -1
+
+# ── 6. DMG 美化（静默：挂载→拷背景+DS_Store→卸载，无 Finder 闪现）───
+echo ""
+echo "━━━ 6/6 DMG 美化 ━━━"
+
+# 挂载（-noautoopen 不打开 Finder 窗口）
+hdiutil attach -readwrite -noverify -noautoopen "$STAGING/tmp.dmg" > /dev/null 2>&1
+VOLUME="/Volumes/$APP_NAME"
+if [ ! -d "$VOLUME" ]; then
+    echo "❌ 挂载失败"
+    exit 1
+fi
+
+# 复制背景图（含 Retina @2x）
+mkdir -p "$VOLUME/.background"
+cp "$PROJECT_DIR/Resources/dmg-background.png" "$VOLUME/.background/background.png"
+cp "$PROJECT_DIR/Resources/dmg-background@2x.png" "$VOLUME/.background/background@2x.png"
+SetFile -a V "$VOLUME/.background"
+
+# 复制预制的 .DS_Store 模板（窗口大小、图标位置、背景图引用）
+cp "$PROJECT_DIR/Resources/dmg-dsstore" "$VOLUME/.DS_Store"
+
+# 卸载
+hdiutil detach "$VOLUME" -quiet
+
+# 转换为只读压缩 DMG
+hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" 2>&1 | tail -1
+rm -f "$STAGING/tmp.dmg"
 
 # 清理
 rm -rf "$STAGING"
@@ -179,7 +211,7 @@ rm -rf "$STAGING"
 # ── 6. 发布到 GitHub Releases（可选） ──
 if $PUBLISH; then
     echo ""
-    echo "━━━ 5/5 发布到 GitHub Releases ━━━"
+    echo "━━━ 6/6 发布到 GitHub Releases ━━━"
     
     if ! command -v gh &>/dev/null; then
         echo "❌ 未安装 gh CLI，请先运行: brew install gh && gh auth login"
