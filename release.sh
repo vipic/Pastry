@@ -13,6 +13,7 @@ BUILD_DIR="$PROJECT_DIR/.build/release"
 STAGING="$PROJECT_DIR/.release_staging"
 BUNDLE_ID="com.nekutai.pastry"
 VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
+VERSION="${VERSION#v}"   # 统一剥掉 v 前缀，内部只用裸版本号
 BUILD=$(git rev-list --count HEAD)
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 IDENTITY="${CODESIGN_IDENTITY:-Pastry Release}"  # 默认固定证书（TCC 持久），用 CODESIGN_IDENTITY 环境变量覆盖
@@ -245,7 +246,8 @@ if $PUBLISH; then
         exit 1
     fi
     
-    TAG="v$VERSION"
+    # 兼容 v 前缀：用户可传 "1.3.1" 或 "v1.3.1"
+    if [[ "$VERSION" == v* ]]; then TAG="$VERSION"; else TAG="v$VERSION"; fi
     
     # 创建 tag 并推送
     if git rev-parse "$TAG" &>/dev/null; then
@@ -265,10 +267,10 @@ if $PUBLISH; then
         echo "   📦 创建 Release $TAG..."
 
         # 生成更新日志：从上一个 tag 到 HEAD 的 Conventional Commits
-        local last_tag
+        last_tag
         last_tag=$(git describe --tags --abbrev=0 HEAD~ 2>/dev/null || echo "")
         if [[ -n "$last_tag" ]]; then
-            local changelog
+            changelog
             changelog=$(git log "${last_tag}..HEAD" --pretty=format:"- %s" --no-merges 2>/dev/null)
             if [[ -z "$changelog" ]]; then
                 changelog="- $APP_NAME $VERSION 发布"
