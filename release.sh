@@ -26,9 +26,13 @@ done
 echo "🏭 Building $APP_NAME $VERSION (release)..."
 echo ""
 
-# ── 检查：是否有新代码 ──
+# ── 检查：是否有新代码（--force 跳过）───
+FORCE=false
+for arg in "$@"; do
+    [[ "$arg" == "--force" ]] && FORCE=true
+done
 EXISTING_TAG=$(git tag --points-at HEAD | head -1)
-if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" != "v$VERSION" ]; then
+if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" != "v$VERSION" ] && ! $FORCE; then
     echo "❌ 当前 commit 已有 tag \"$EXISTING_TAG\"，没有新代码"
     echo "   如需强制重新发布：先 commit 改动后再运行"
     exit 1
@@ -149,9 +153,9 @@ else
     codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
 fi
 
-# ── 5. DMG 打包 ──
+# ── 5. DMG 打包（含自定义背景 + 图标布局）───
 echo ""
-echo "━━━ 5/5 DMG 打包 ━━━"
+echo "━━━ 5/6 DMG 打包 ━━━"
 DMG_PATH="$PROJECT_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
 
@@ -161,10 +165,66 @@ mkdir -p "$DMG_SRC"
 cp -R "$STAGING/$APP_NAME.app" "$DMG_SRC/"
 ln -s /Applications "$DMG_SRC/Applications" 2>/dev/null || true
 
+# 计算 DMG 大小（.app 大小 + 背景图 + 余量）
+APP_SIZE_KB=$(du -sk "$DMG_SRC/$APP_NAME.app" | cut -f1)
+DMG_SIZE_MB=$(( (APP_SIZE_KB / 1024) + 20 ))  # +20MB 留给背景和余量
+
 hdiutil create -volname "$APP_NAME" \
     -srcfolder "$DMG_SRC" \
-    -ov -format UDZO \
-    "$DMG_PATH" 2>&1 | grep -E "created|failed" || true
+    -ov -format UDRW \
+    -size ${DMG_SIZE_MB}m \
+    "$STAGING/tmp.dmg" 2>&1 | grep -E "created|failed" || true
+
+# ── 6. DMG 美化（背景图 + 图标位置）───
+echo ""
+echo "━━━ 6/6 DMG 美化 ━━━"
+
+# 挂载
+hdiutil attach -readwrite -noverify -noautoopen "$STAGING/tmp.dmg" > /dev/null 2>&1
+VOLUME="/Volumes/$APP_NAME"
+if [ ! -d "$VOLUME" ]; then
+    echo "❌ 挂载失败"
+    exit 1
+fi
+
+# 复制背景图（含 Retina @2x）
+mkdir -p "$VOLUME/.background"
+cp "$PROJECT_DIR/Resources/dmg-background.png" "$VOLUME/.background/background.png"
+cp "$PROJECT_DIR/Resources/dmg-background@2x.png" "$VOLUME/.background/background@2x.png"
+
+# 用 AppleScript 设置窗口属性
+osascript << APPLESCRIPT
+tell application "Finder"
+    tell disk "$APP_NAME"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {400, 200, 940, 578}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 96
+        set background picture of viewOptions to file ".background:background.png"
+        set position of item "$APP_NAME.app" of container window to {48, 124}
+        set position of item "Applications" of container window to {394, 124}
+        close
+        open
+        update without registering applications
+        delay 1
+        close
+    end tell
+end tell
+APPLESCRIPT
+
+# 等待 Finder 写入 .DS_Store
+sleep 2
+
+# 卸载
+hdiutil detach "$VOLUME" -quiet
+
+# 转换为只读压缩 DMG
+hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" 2>&1 | tail -1
+rm -f "$STAGING/tmp.dmg"
 
 # 清理
 rm -rf "$STAGING"
