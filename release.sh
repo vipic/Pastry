@@ -155,9 +155,9 @@ else
     codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
 fi
 
-# ── 5. DMG 打包（含自定义背景 + 图标布局）───
+# ── 5. DMG 打包 ──
 echo ""
-echo "━━━ 5/6 DMG 打包 ━━━"
+echo "━━━ 5/5 DMG 打包 ━━━"
 DMG_PATH="$PROJECT_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
 
@@ -167,61 +167,11 @@ mkdir -p "$DMG_SRC"
 cp -R "$STAGING/$APP_NAME.app" "$DMG_SRC/"
 ln -s /Applications "$DMG_SRC/Applications" 2>/dev/null || true
 
-# 计算 DMG 大小（.app 大小 + 背景图 + 余量）
-APP_SIZE_KB=$(du -sk "$DMG_SRC/$APP_NAME.app" | cut -f1)
-DMG_SIZE_MB=$(( (APP_SIZE_KB / 1024) + 20 ))  # +20MB 留给背景和余量
-
+# 直接创建只读压缩 DMG（无背景、无 AppleScript、无 Finder 闪现）
 hdiutil create -volname "$APP_NAME" \
     -srcfolder "$DMG_SRC" \
-    -ov -format UDRW \
-    -size ${DMG_SIZE_MB}m \
-    "$STAGING/tmp.dmg" 2>&1 | grep -E "created|failed" || true
-
-# ── 6. DMG 美化（背景图 + 图标位置）───
-echo ""
-echo "━━━ 6/6 DMG 美化 ━━━"
-
-# 挂载
-hdiutil attach -readwrite -noverify -noautoopen "$STAGING/tmp.dmg" > /dev/null 2>&1
-VOLUME="/Volumes/$APP_NAME"
-if [ ! -d "$VOLUME" ]; then
-    echo "❌ 挂载失败"
-    exit 1
-fi
-
-# 复制背景图（含 Retina @2x）
-mkdir -p "$VOLUME/.background"
-cp "$PROJECT_DIR/Resources/dmg-background.png" "$VOLUME/.background/background.png"
-cp "$PROJECT_DIR/Resources/dmg-background@2x.png" "$VOLUME/.background/background@2x.png"
-
-# 用 AppleScript 设置窗口属性（不打开窗口，避免闪现）
-osascript << 'APPLESCRIPT'
-tell application "Finder"
-    tell disk "Pastry"
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set the bounds of container window to {400, 200, 940, 578}
-        set viewOptions to the icon view options of container window
-        set arrangement of viewOptions to not arranged
-        set icon size of viewOptions to 96
-        set background picture of viewOptions to file ".background:background.png"
-        set position of item "Pastry.app" of container window to {48, 124}
-        set position of item "Applications" of container window to {394, 124}
-        update without registering applications
-    end tell
-end tell
-APPLESCRIPT
-
-# 等待 Finder 写入 .DS_Store
-sleep 0.5
-
-# 卸载
-hdiutil detach "$VOLUME" -quiet
-
-# 转换为只读压缩 DMG
-hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" 2>&1 | tail -1
-rm -f "$STAGING/tmp.dmg"
+    -ov -format UDZO \
+    "$DMG_PATH" 2>&1 | tail -1
 
 # 清理
 rm -rf "$STAGING"
@@ -229,7 +179,7 @@ rm -rf "$STAGING"
 # ── 6. 发布到 GitHub Releases（可选） ──
 if $PUBLISH; then
     echo ""
-    echo "━━━ 6/6 发布到 GitHub Releases ━━━"
+    echo "━━━ 5/5 发布到 GitHub Releases ━━━"
     
     if ! command -v gh &>/dev/null; then
         echo "❌ 未安装 gh CLI，请先运行: brew install gh && gh auth login"
