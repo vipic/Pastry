@@ -243,8 +243,8 @@ struct UpdateView: View {
             }
             .filter { !$0.isEmpty }
 
-        // 至少 2 条才显示列表，否则返回空（不显示日志区）
-        return lines.count >= 2 ? lines : []
+        // 至少 1 条就显示
+        return lines.count >= 1 ? lines : []
     }
 }
 
