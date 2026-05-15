@@ -54,14 +54,46 @@ final class HotkeyRecorderField: NSControl {
     private var state: RecorderState = .unset
     private var displayKeyCode: Int = -1
     private var displayModifiers: Int = 0
+    private var isHovered = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp],
+            owner: self,
+            userInfo: nil
+        ))
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas {
+            removeTrackingArea(area)
+        }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp],
+            owner: self,
+            userInfo: nil
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        isHovered = true
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isHovered = false
+        needsDisplay = true
     }
 
     func configure(keyCode: Int, modifiers: Int) {
@@ -166,7 +198,12 @@ final class HotkeyRecorderField: NSControl {
         case .recording:
             NSColor.controlAccentColor.withAlphaComponent(0.15).setFill()
         default:
-            NSColor.controlBackgroundColor.setFill()
+            if isHovered {
+                NSColor.controlBackgroundColor.blended(withFraction: 0.06, of: .secondaryLabelColor)?.setFill()
+                    ?? NSColor.controlBackgroundColor.setFill()
+            } else {
+                NSColor.controlBackgroundColor.setFill()
+            }
         }
         bgPath.fill()
 
