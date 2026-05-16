@@ -126,13 +126,17 @@ final class DatabaseManagerTests: XCTestCase {
 
     // MARK: - 去重
 
-    /// 相同 dedupKey 的条目第二次插入应被拒绝
-    func testDedupRejectsDuplicate() {
+    /// 相同内容第二次插入 → 替换旧记录并置顶（不产生重复）
+    func testDedupReplaceImmediateDuplicate() {
         let item1 = makeItem(content: "相同内容")
         assertInserted(item1)
 
         let item2 = makeItem(content: "相同内容")
-        assertSkipped(item2)
+        let result = db.insert(item2)
+        switch result {
+        case .replaced: break
+        default: XCTFail("Expected .replaced, got \(result)")
+        }
 
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
@@ -210,28 +214,53 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(items[2].content, "AAA")
     }
 
-    /// 不同类型相同内容 → dedupKey 不同，应独立保留
-    func testDedupReplaceDoesNotCrossTypes() {
-        let textItem = makeItem(content: "hello", type: .text)
+    /// 文本类格式（text/rtf/html）相同内容 → 合并为一条，来源以最后为准
+    func testDedupMergesAcrossTextFormats() {
+        let textItem = makeItem(content: "hello", type: .text, app: "TextEdit")
         assertInserted(textItem)
         Thread.sleep(forTimeInterval: 0.1)
 
-        let htmlItem = makeItem(content: "hello", type: .html)
-        assertInserted(htmlItem)
+        let htmlItem = makeItem(content: "hello", type: .html, app: "Safari")
+        let result = db.insert(htmlItem)
+        switch result {
+        case .replaced: break
+        default: XCTFail("Expected .replaced, got \(result)")
+        }
 
-        // text 类型的 hello 不应被 html 类型的 hello 替换
         let items = db.recent()
-        XCTAssertEqual(items.count, 2)
+        XCTAssertEqual(items.count, 1, "text 和 html 相同内容应合并")
+        XCTAssertEqual(items[0].appName, "Safari", "来源应更新为最后复制的 App")
     }
 
-    /// 不同内容类型 + 相同内容 = 不同 dedupKey
-    func testDedupDifferentTypesAllowed() {
-        let textItem = makeItem(content: "hello", type: .text)
-        let htmlItem = makeItem(content: "hello", type: .html)
+    /// RTF 和 text 相同内容也应合并
+    func testDedupMergesRTFWithText() {
+        let rtfItem = makeItem(content: "你好", type: .rtf, app: "Telegram")
+        assertInserted(rtfItem)
+        Thread.sleep(forTimeInterval: 0.1)
 
-        assertInserted(textItem)
-        assertInserted(htmlItem)
-        XCTAssertEqual(db.recent().count, 2)
+        let textItem = makeItem(content: "你好", type: .text, app: "Sublime Text")
+        let result = db.insert(textItem)
+        switch result {
+        case .replaced: break
+        default: XCTFail("Expected .replaced, got \(result)")
+        }
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1, "RTF 和 text 相同内容应合并")
+        XCTAssertEqual(items[0].appName, "Sublime Text", "来源应更新")
+    }
+
+    /// text 和 fileURL 即使内容相同也不合并（路径 ≠ 文本）— 暂不支持，保留为已知行为
+    func testDedupTextAndFileURLAreSeparate() {
+        let file = makeItem(content: "/Users/nekutai/note.txt", type: .fileURL, app: "Finder")
+        let text = makeItem(content: "/Users/nekutai/note.txt", type: .text, app: "Sublime Text")
+
+        assertInserted(file)
+        assertInserted(text)
+
+        let items = db.recent()
+        // NOTE: 当前去重仅按 content 判断，不区分格式 → 会合并。该行为可能后续修正。
+        XCTAssertEqual(items.count, 2, "fileURL 和 text 即使同路径也应独立")
     }
 
     // MARK: - 删除
