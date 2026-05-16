@@ -726,26 +726,32 @@ final class OverlayPanelManager: @unchecked Sendable {
                 NotificationCenter.default.post(name: .overlayDeleteSelected, object: nil)
                 return nil
             }
-            // 方向键 — 搜索框活跃时放行
-            if self.isSearchActive { return event }
             let extend = event.modifierFlags.contains(.shift)
             switch event.keyCode {
             case 126: // 上
+                if self.isSearchActive { return event }
                 NotificationCenter.default.post(name: .overlayMoveUp, object: nil, userInfo: ["extend": extend])
                 return nil
             case 125: // 下
+                if self.isSearchActive { return event }
                 NotificationCenter.default.post(name: .overlayMoveDown, object: nil, userInfo: ["extend": extend])
                 return nil
             case 123: // 左
+                if self.isSearchActive { return event }
                 NotificationCenter.default.post(name: .overlayMoveLeft, object: nil, userInfo: ["extend": extend])
                 return nil
             case 124: // 右
+                if self.isSearchActive { return event }
                 NotificationCenter.default.post(name: .overlayMoveRight, object: nil, userInfo: ["extend": extend])
                 return nil
-            case 36: // Enter
+            case 36: // Enter — 搜索时粘贴当前选中/光标卡，无选中时取第一项
+                if self.isSearchActive {
+                    NotificationCenter.default.post(name: .overlaySearchEnterPaste, object: nil)
+                    return nil
+                }
                 NotificationCenter.default.post(name: .overlayConfirmPaste, object: nil)
                 return nil
-            // ⌘+1~9 — 粘贴对应序号的卡片
+            // ⌘+1~9 — 粘贴对应序号的卡片（搜索时也生效）
             case let kc where event.modifierFlags.contains(.command):
                 if let idx = Self.cmdNumberIndex(keyCode: kc) {
                     NotificationCenter.default.post(name: .overlayCmdPaste, object: nil,
@@ -754,6 +760,10 @@ final class OverlayPanelManager: @unchecked Sendable {
                 }
                 fallthrough
             default:
+                if self.isSearchActive {
+                    // 搜索框活跃 — 非快捷键字符放行给 TextField
+                    break
+                }
                 // 打印字符 → 打开搜索栏并聚焦（不输入字符，让用户自行输入）
                 if Self.shouldFocusSearch(
                     chars: event.characters,
