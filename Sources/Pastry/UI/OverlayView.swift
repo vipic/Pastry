@@ -18,6 +18,7 @@ extension Notification.Name {
     static let overlayAlertConfirm   = Notification.Name("overlayAlertConfirm")
     static let overlayCmdPaste       = Notification.Name("overlayCmdPaste")
     static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
+    static let overlaySearchEnterPaste = Notification.Name("overlaySearchEnterPaste")
     static let overlayToggleFilterPopover = Notification.Name("overlayToggleFilterPopover")
     static let filterPopoverStateChanged  = Notification.Name("filterPopoverStateChanged")
 }
@@ -160,6 +161,11 @@ struct OverlayView: View {
                           idx > 0, idx <= visibleItems.count else { return }
                     let item = visibleItems[idx - 1]
                     OverlayPanelManager.shared.hideAndPaste(item)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlaySearchEnterPaste)) { _ in
+                    // 搜索栏聚焦时按 Enter → 粘贴第一条可见卡片
+                    guard let first = visibleItems.first else { return }
+                    OverlayPanelManager.shared.hideAndPaste(first)
                 }
                 .onChange(of: showSearch) { onShowSearchChanged() }
         )
