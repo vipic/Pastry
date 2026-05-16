@@ -428,7 +428,6 @@ final class DatabaseManager {
         defer { lock.unlock() }
         let key = item.dedupKey
         let now = Date()
-        if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 { return .skippedDuplicate }
 
         // 跨历史去重：查找相同 dedupKey 的旧记录
         var oldID: String?
@@ -442,9 +441,12 @@ final class DatabaseManager {
             sqlite3_finalize(findStmt)
         }
 
-        // 有旧记录 → 删除（FTS 由触发器自动清理），用新 id 重新插入
+        // 有旧记录 → 删除后重新插入（更新时间戳 + 来源）
         if let old = oldID {
             _ = delete(id: old)
+        } else if key == lastKey, now.timeIntervalSince(lastKeyTime) < 5 {
+            // 5 秒内同 key 且无历史记录 → 真正的快速重复，跳过
+            return .skippedDuplicate
         }
 
         let sql = """

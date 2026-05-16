@@ -37,9 +37,6 @@ final class ClipboardMonitor: ObservableObject {
     private var cachedAXFocusTime: Date?
     private var focusTrackingTimer: Timer?
 
-    // 防止同一内容重复触发
-    private var lastDedupKey = ""
-
     /// 自定义复制提示音
     private static let copySound: NSSound? = {
         guard let path = Bundle.main.path(forResource: "Copy", ofType: "aiff") else {
@@ -70,7 +67,6 @@ final class ClipboardMonitor: ObservableObject {
     /// 清空剪贴板后同步计数器，避免监听器误检
     func syncChangeCount() {
         lastChangeCount = NSPasteboard.general.changeCount
-        lastDedupKey = currentDedupKey
     }
 
     private init() {}
@@ -82,7 +78,6 @@ final class ClipboardMonitor: ObservableObject {
         isRunning = true
 
         lastChangeCount = NSPasteboard.general.changeCount
-        lastDedupKey = currentDedupKey
 
         let t = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
@@ -237,6 +232,11 @@ final class ClipboardMonitor: ObservableObject {
         guard currentChange != lastChangeCount else { return }
         lastChangeCount = currentChange
 
+        // changeCount 变化即播提示音 — 不管后续要不要记录，用户需要知道 ⌘C 生效了
+        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
+            Self.copySound?.play()
+        }
+
         var (capturedApp, capturedBundleID) = resolveSourceApp()
 
         // 1Password Quick Open 在 pasteboard 上写 com.agilebits.onepassword 自定义类型。
@@ -255,16 +255,10 @@ final class ClipboardMonitor: ObservableObject {
     // MARK: - 处理剪贴板变化
 
     private func processChange(capturedApp: String?, capturedBundleID: String?) {
-        let dedup = currentDedupKey
-        guard dedup != lastDedupKey else {
-            return
-        }
-
         // 排除名单：密码管理器等敏感应用不保存剪贴板历史
         if let bundleID = capturedBundleID {
             let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
             if excluded.contains(bundleID) {
-                lastDedupKey = dedup
                 return
             }
         }
@@ -278,7 +272,6 @@ final class ClipboardMonitor: ObservableObject {
             ]
             let hasIgnored = pbTypes.contains(where: { ignoredRawTypes.contains($0.rawValue) })
             if hasIgnored {
-                lastDedupKey = dedup
                 return
             }
         }
@@ -287,18 +280,12 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
-        // 所有过滤检查通过 → 播复制提示音
-        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
-            Self.copySound?.play()
-        }
-
         // 检测 Handoff/通用剪贴板来源
         let isRemoteClipboard = types.contains(where: { $0.rawValue == "com.apple.is-remote-clipboard" })
         let effectiveApp = isRemoteClipboard ? nil : capturedApp  // Handoff 时不给 appName，之后 UI 层特殊处理
 
         // 文件 URL 优先：Finder 复制文件时剪贴板同时有图片数据，fileURL 更能代表用户意图
         if let item = readFileURLs(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
-            lastDedupKey = dedup
             DispatchQueue.main.async {
                 self.latestItem = item
                 self.onNewItem?(item)
@@ -308,7 +295,6 @@ final class ClipboardMonitor: ObservableObject {
 
         // URL 链接：在图片之前检测，避免 http 字符串被当作纯文本
         if let item = readURL(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
-            lastDedupKey = dedup
             DispatchQueue.main.async {
                 self.latestItem = item
                 self.onNewItem?(item)
@@ -318,7 +304,6 @@ final class ClipboardMonitor: ObservableObject {
 
         // 图片处理：主线程读取数据，后台队列生成缩略图并写入磁盘
         if let (image, data) = readImageData(from: pb) {
-            lastDedupKey = dedup
             let appName = effectiveApp
             let isHandoff = isRemoteClipboard
             let textAnnotation = readText(from: pb, appName: nil)?.content
@@ -341,7 +326,6 @@ final class ClipboardMonitor: ObservableObject {
             ?? readRTF(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
             ?? readText(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
 
-            lastDedupKey = dedup
 
             DispatchQueue.main.async {
                 self.latestItem = item
@@ -622,34 +606,4 @@ final class ClipboardMonitor: ObservableObject {
         return types.contains(where: { $0.rawValue == "com.agilebits.onepassword" })
     }
 
-    // MARK: - 去重
-
-    /// 用于去重的 key：内容 + 内容类型
-    var currentDedupKey: String {
-        let pb = NSPasteboard.general
-        guard let types = pb.types, !types.isEmpty else { return "" }
-
-        var key = ""
-
-        // 文件 URL
-        if let paths = pb.string(forType: .fileURL) ?? pb.propertyList(forType: .fileURL) as? String,
-           !paths.isEmpty {
-            key += "f:\(paths.hashValue)"
-        }
-
-        // 图片
-        if let tiff = pb.data(forType: .tiff) {
-            key += "i:\(tiff.hashValue)"
-        }
-
-        // 文本（包括 RTF 转换后的纯文本）
-        if let text = pb.string(forType: .string) {
-            key += "t:\(text.hashValue)"
-        }
-
-        if key.isEmpty, let first = types.first {
-            key += "o:\(first.rawValue)"
-        }
-        return key
-    }
 }

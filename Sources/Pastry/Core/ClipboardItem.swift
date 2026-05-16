@@ -159,12 +159,16 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.isPinned = isPinned
     }
 
-    /// 去重用的内容摘要（足够长以避免长文本误判）
+    /// 去重用的内容摘要（文本类格式统一前缀，文件/图片保留独立类型）
     var dedupKey: String {
+        let typePrefix: String = switch sourceFormat {
+        case .text, .rtf, .html: "text"
+        default: sourceFormat.storageKey
+        }
         let segSig = segmentsJSON ?? "nil"
         // 只取前 64 字符避免超长 key
         let segPreview = segSig.count > 64 ? String(segSig.prefix(64)) : segSig
-        return "\(sourceFormat.storageKey):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? ""):\(segPreview)"
+        return "\(typePrefix):\(content):\(textAnnotation ?? ""):\(imageURLs?.joined(separator: ",") ?? ""):\(segPreview)"
     }
 }
 
