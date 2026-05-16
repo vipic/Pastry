@@ -110,11 +110,14 @@ final class UpdateChecker {
         UserDefaults.standard.string(forKey: lastReleaseNotesKey)
     }
 
-    /// 下载二进制到临时目录，返回文件路径
-    func downloadBinary(from urlString: String) async throws -> URL {
+    /// 下载二进制到临时目录，返回文件路径。onProgress 在主线程回调 0.0~1.0。
+    func downloadBinary(from urlString: String, onProgress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         guard let url = URL(string: urlString) else {
             throw UpdateError.invalidURL
         }
+
+        let delegate = ProgressDownloadDelegate(onProgress: onProgress)
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: .main)
 
         let (tempURL, response) = try await session.download(from: url)
 
@@ -240,5 +243,33 @@ final class UpdateChecker {
             case .cannotReplace: return "无法替换应用二进制"
             }
         }
+    }
+}
+
+// MARK: - 下载进度代理
+private final class ProgressDownloadDelegate: NSObject, URLSessionDownloadDelegate {
+
+    private let onProgress: (@Sendable (Double) -> Void)?
+
+    init(onProgress: (@Sendable (Double) -> Void)?) {
+        self.onProgress = onProgress
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        onProgress?(progress)
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {
+        // no-op — async/await 会处理
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    didCompleteWithError error: Error?) {
+        // no-op — async/await 会处理
     }
 }

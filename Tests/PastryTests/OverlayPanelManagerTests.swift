@@ -213,4 +213,35 @@ final class OverlayPanelManagerTests: XCTestCase {
         let manager = OverlayPanelManager.shared
         XCTAssertNotNil(manager)
     }
+
+    // MARK: - ⌘+数字快捷键映射
+
+    func testCmdNumberIndexMapping() {
+        // keyCode 18 = 1, 19 = 2, ..., 25 = 9
+        let pairs: [(UInt16, Int)] = [
+            (18, 1), (19, 2), (20, 3), (21, 4),
+            (23, 5), (22, 6), (26, 7), (28, 8), (25, 9)
+        ]
+        for (keyCode, expected) in pairs {
+            XCTAssertEqual(OverlayPanelManager.cmdNumberIndex(keyCode: keyCode), expected,
+                           "keyCode \(keyCode) should map to index \(expected)")
+        }
+    }
+
+    func testCmdNumberIndexInvalidKeys() {
+        // 非数字键返回 nil
+        XCTAssertNil(OverlayPanelManager.cmdNumberIndex(keyCode: 0))   // A
+        XCTAssertNil(OverlayPanelManager.cmdNumberIndex(keyCode: 36))  // Enter
+        XCTAssertNil(OverlayPanelManager.cmdNumberIndex(keyCode: 53))  // Esc
+        XCTAssertNil(OverlayPanelManager.cmdNumberIndex(keyCode: 48))  // Tab
+    }
+
+    // MARK: - 搜索栏 Enter 粘贴通知
+
+    func testOverlaySearchEnterPasteNotificationExists() {
+        XCTAssertEqual(
+            Notification.Name.overlaySearchEnterPaste.rawValue,
+            "overlaySearchEnterPaste"
+        )
+    }
 }

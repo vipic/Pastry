@@ -192,7 +192,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.isReleasedWhenClosed = false
 
         // 初始显示"检查中"状态
-        let hostingView = NSHostingView(rootView: UpdateView(state: .checking, onCancel: { [weak window] in
+        let hostingView = NSHostingView(rootView: UpdateView(state: .checking, releaseNotes: nil, currentVersion: nil, latestVersion: nil, onCancel: { [weak window] in
             window?.close()
         }))
         window.contentView = hostingView
@@ -208,13 +208,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 异步检查更新
         Task { @MainActor in
             if let result = await UpdateChecker.shared.checkForUpdate(force: true) {
+                let notes = result.releaseNotes
                 hostingView.rootView = UpdateView(
                     state: .updateAvailable(result: result),
-                    onUpdate: { [weak window] in
-                        Task {
-                            await self.performUpdate(result)
+                    releaseNotes: notes,
+                    currentVersion: result.currentVersion,
+                    latestVersion: result.latestVersion,
+                    onUpdate: { [weak window, weak hostingView] in
+                        guard let window, let hostingView else { return }
+                        Task { @MainActor in
+                            await self.performUpdateFlow(result: result, notes: notes, curVersion: result.currentVersion, latVersion: result.latestVersion, hostingView: hostingView, window: window)
                         }
-                        window?.close()
                     },
                     onCancel: { [weak window] in
                         window?.close()
@@ -236,6 +240,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         lastCheckDate: lastCheck,
                         lastReleaseNotes: cachedNotes
                     ),
+                    releaseNotes: cachedNotes,
+                    currentVersion: nil,
+                    latestVersion: nil,
                     onCancel: { [weak window] in
                         window?.close()
                     }
@@ -244,14 +251,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 执行更新：下载 → 替换二进制 → 重启
-    private func performUpdate(_ result: UpdateChecker.UpdateResult) async {
+    /// 下载 → 安装 → 重启，全程窗口保持可见并更新进度
+    @MainActor
+    private func performUpdateFlow(result: UpdateChecker.UpdateResult,
+                                   notes: String,
+                                   curVersion: String,
+                                   latVersion: String,
+                                   hostingView: NSHostingView<UpdateView>,
+                                   window: NSWindow) async {
+        // 切换到下载中
+        hostingView.rootView = UpdateView(
+            state: .downloading(progress: 0),
+            releaseNotes: notes,
+            currentVersion: curVersion,
+            latestVersion: latVersion,
+            onCancel: { [weak window] in
+                window?.close()
+            }
+        )
+
         do {
-            let tempURL = try await UpdateChecker.shared.downloadBinary(from: result.downloadURL)
+            let tempURL = try await UpdateChecker.shared.downloadBinary(
+                from: result.downloadURL,
+                onProgress: { [weak hostingView, notes, curVersion, latVersion] progress in
+                    DispatchQueue.main.async {
+                        hostingView?.rootView = UpdateView(
+                            state: .downloading(progress: progress),
+                            releaseNotes: notes,
+                            currentVersion: curVersion,
+                            latestVersion: latVersion,
+                            onCancel: { [weak window] in window?.close() }
+                        )
+                    }
+                }
+            )
+
+            // 切换到安装中
+            hostingView.rootView = UpdateView(
+                state: .installing,
+                releaseNotes: notes,
+                currentVersion: curVersion,
+                latestVersion: latVersion,
+                onCancel: nil
+            )
+
             try UpdateChecker.shared.applyUpdate(binaryAt: tempURL)
         } catch {
-            Logger(subsystem: "com.nekutai.pastry", category: "update")
-                .error("更新失败: \(error.localizedDescription)")
+            let log = Logger(subsystem: "com.nekutai.pastry", category: "update")
+            log.error("更新失败: \(error.localizedDescription)")
+            hostingView.rootView = UpdateView(
+                state: .error(error.localizedDescription),
+                releaseNotes: nil,
+                currentVersion: nil,
+                latestVersion: nil,
+                onCancel: { [weak window] in window?.close() }
+            )
         }
     }
 
