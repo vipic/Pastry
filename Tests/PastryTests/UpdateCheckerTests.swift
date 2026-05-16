@@ -1,0 +1,70 @@
+import XCTest
+@testable import Pastry
+import Foundation
+
+// MARK: - UpdateChecker 测试套件
+
+final class UpdateCheckerTests: XCTestCase {
+
+    // MARK: - downloadBinary 进度回调
+
+    /// onProgress 在下载过程中被调用，提供 0.0~1.0 范围内的进度值
+    func testDownloadBinaryProgressCallback() async throws {
+        let checker = UpdateChecker.shared
+
+        guard let result = await checker.checkForUpdate(force: true) else {
+            throw XCTSkip("无可用更新或网络不可达，跳过下载测试")
+        }
+
+        var progressValues = [Double]()
+        let lock = NSLock()
+
+        let url = try await checker.downloadBinary(
+            from: result.downloadURL,
+            onProgress: { progress in
+                lock.withLock { progressValues.append(progress) }
+            }
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+
+        lock.lock()
+        let values = progressValues
+        lock.unlock()
+
+        // 小文件可能一次回调完成，也可能因 CDN 响应不带 Content-Length 无回调
+        // 只要文件下载成功即可
+        if !values.isEmpty {
+            if let last = values.last {
+                XCTAssertEqual(last, 1.0, accuracy: 0.01, "最终进度应接近 1.0")
+            }
+            if let first = values.first {
+                XCTAssertGreaterThanOrEqual(first, 0.0, "起始进度应 ≥ 0")
+            }
+        }
+
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// onProgress 为 nil 时不应崩溃
+    func testDownloadBinaryNilProgress() async throws {
+        let checker = UpdateChecker.shared
+
+        guard let result = await checker.checkForUpdate(force: true) else {
+            throw XCTSkip("无可用更新或网络不可达，跳过下载测试")
+        }
+
+        let url = try await checker.downloadBinary(from: result.downloadURL, onProgress: nil)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    // MARK: - isDevBuild
+
+    func testIsDevBuildDetection() {
+        let checker = UpdateChecker.shared
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let isDev = version.contains("-dev")
+        XCTAssertEqual(checker.isDevBuild, isDev)
+    }
+}

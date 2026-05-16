@@ -6,6 +6,8 @@ enum UpdateState {
     case upToDate(version: String, build: String, lastCheckDate: Date?, lastReleaseNotes: String?)
     case updateAvailable(result: UpdateChecker.UpdateResult)
     case checking
+    case downloading(progress: Double)   // 0.0 ~ 1.0
+    case installing
     case error(String)
 }
 
@@ -14,6 +16,9 @@ enum UpdateState {
 struct UpdateView: View {
     @AppStorage("PastryLanguage") private var language = ""
     let state: UpdateState
+    let releaseNotes: String?
+    let currentVersion: String?
+    let latestVersion: String?
     var onUpdate: (() -> Void)?
     var onCancel: (() -> Void)?
 
@@ -44,11 +49,7 @@ struct UpdateView: View {
             }
 
             // 更新日志
-            if case .updateAvailable(let result) = state {
-                changelogSection(result.releaseNotes)
-                    .padding(.bottom, 24)
-            }
-            if case .upToDate(_, _, _, let notes) = state, let notes = notes, !notes.isEmpty {
+            if let notes = releaseNotes, !notes.isEmpty {
                 changelogSection(notes)
                     .padding(.bottom, 24)
             }
@@ -81,7 +82,7 @@ struct UpdateView: View {
                         .foregroundColor(.white)
                 }
 
-            case .updateAvailable:
+            case .updateAvailable, .downloading, .installing:
                 Text(L10n["update.update_available"])
                     .font(.system(size: 17, weight: .semibold))
                 Circle()
@@ -145,6 +146,24 @@ struct UpdateView: View {
 
         case .checking:
             Text("Connecting to GitHub...")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+
+        case .downloading:
+            // 保留版本箭头（由 currentVersion/latestVersion 提供）
+            if let cur = currentVersion, let lat = latestVersion {
+                HStack(spacing: 6) {
+                    Text("v\(cur)").foregroundColor(.secondary)
+                    Text("→").foregroundColor(.secondary.opacity(0.5))
+                    Text("v\(lat)").fontWeight(.medium)
+                }
+                .font(.system(size: 13))
+            } else {
+                EmptyView()
+            }
+
+        case .installing:
+            Text(L10n["update.installing_msg"])
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
 
@@ -213,6 +232,22 @@ struct UpdateView: View {
                     .buttonStyle(PrimaryButtonStyle())
             }
 
+        case .downloading:
+            VStack(spacing: 10) {
+                progressBar
+                Text(L10n["update.downloading"])
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                HStack {
+                    Spacer()
+                    Button(L10n["update.cancel"]) { onCancel?() }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+            }
+
+        case .installing:
+            EmptyView()
+
         case .checking:
             EmptyView()
 
@@ -245,6 +280,31 @@ struct UpdateView: View {
 
         // 至少 1 条就显示
         return lines.count >= 1 ? lines : []
+    }
+
+    // MARK: - 进度条
+
+    private var progressBar: some View {
+        VStack(spacing: 6) {
+            if case .downloading(let progress) = state {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.primary.opacity(0.1))
+                            .frame(height: 6)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.accentColor)
+                            .frame(width: geo.size.width * CGFloat(progress), height: 6)
+                    }
+                }
+                .frame(height: 6)
+
+                Text("\(Int(progress * 100))%")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+            }
+        }
     }
 }
 
