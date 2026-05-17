@@ -152,7 +152,7 @@ final class StoreManager: ObservableObject {
         log.info("Store 启动")
     }
 
-    func pasteItem(_ item: ClipboardItem) {
+    func pasteItem(_ item: ClipboardItem) async {
         let pb = NSPasteboard.general
         pb.clearContents()
 
@@ -179,7 +179,9 @@ final class StoreManager: ObservableObject {
                 .map { URL(fileURLWithPath: String($0)) }
             pb.writeObjects(urls as [NSURL])
         case .image:
-            if let image = NSImage(contentsOfFile: item.content) {
+            if let image = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+                NSImage(contentsOfFile: item.content)
+            }.value {
                 pb.writeObjects([image])
             }
         }
@@ -380,11 +382,9 @@ final class StoreManager: ObservableObject {
             base = items.filter { $0.isPinned }
         }
 
-        // 精确文本匹配（大小写不敏感）
+        // 文本搜索：content + appName 大小写不敏感子串匹配
         if !query.isEmpty {
-            base = base.filter { item in
-                item.content.localizedCaseInsensitiveContains(query)
-            }
+            base = base.filtered(by: query)
         }
 
         // 类型筛选（按来源格式）
