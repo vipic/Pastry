@@ -172,6 +172,33 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     }
 }
 
+// MARK: - 搜索过滤
+extension Array where Element == ClipboardItem {
+
+    /// 搜索过滤：对 content 大小写不敏感子串匹配，可选匹配 appName。
+    /// 空查询或无内容匹配时返回空数组。
+    /// - Parameters:
+    ///   - query: 搜索关键词（大小写不敏感）
+    ///   - includeAppName: 是否同时搜索来源 App 名称，默认 true
+    /// - Returns: 匹配的 ClipboardItem 数组（保持原序）
+    func filtered(by query: String, includeAppName: Bool = true) -> [ClipboardItem] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        let lowerQuery = trimmed.lowercased()
+
+        return self.filter { item in
+            if item.content.lowercased().contains(lowerQuery) {
+                return true
+            }
+            if includeAppName, let app = item.appName {
+                return app.lowercased().contains(lowerQuery)
+            }
+            return false
+        }
+    }
+}
+
 // MARK: - 历史状态统计
 struct ClipboardStats: Codable {
     let totalItems: Int
