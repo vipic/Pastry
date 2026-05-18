@@ -9,6 +9,7 @@ enum DisplayMode: Equatable {
     case richText
     case mixedMedia
     case link(URL)
+    case multiLink([URL])
     case image
     case singleFile
     case multiFile
@@ -164,24 +165,34 @@ struct ClipboardCardView: View {
             return item.tags.isMissing ? .missing : .singleFile
         case .html:
             if item.tags.hasSegments { return .mixedMedia }
+            if isMultiURL { return .multiLink(detectedLinks) }
             if item.tags.isURL, let url = detectedLink { return .link(url) }
             if let url = detectedLink { return .link(url) }
             return .richText
         case .rtf:
+            if isMultiURL { return .multiLink(detectedLinks) }
             if item.tags.isURL, let url = detectedLink { return .link(url) }
             if let url = detectedLink { return .link(url) }
             return .richText
         case .text:
+            if isMultiURL { return .multiLink(detectedLinks) }
             if item.tags.isURL, let url = detectedLink { return .link(url) }
             if let url = detectedLink { return .link(url) }
             return .plainText
         }
     }
 
-    /// 用默认应用打开（多文件时逐个打开所有存在的文件）
+    /// 用默认应用打开（多文件/多链接时逐个打开所有存在的 URL）
     private func openItem() {
         if isMultiFile {
             let urls = existingFileURLs
+            guard !urls.isEmpty else { return }
+            OverlayPanelManager.shared.hide()
+            for url in urls { NSWorkspace.shared.open(url) }
+            return
+        }
+        if isMultiURL {
+            let urls = detectedLinks
             guard !urls.isEmpty else { return }
             OverlayPanelManager.shared.hide()
             for url in urls { NSWorkspace.shared.open(url) }
@@ -327,7 +338,8 @@ struct ClipboardCardView: View {
         case .fileURL: fileURLContent
         case .html:    htmlWithImagePreview
         default:
-            if let url = detectedLink { linkContent(url) }
+            if isMultiURL { multiLinkContent(detectedLinks) }
+            else if let url = detectedLink { linkContent(url) }
             else { textPreview }
         }
     }
@@ -597,6 +609,59 @@ struct ClipboardCardView: View {
 
     // MARK: - 文件列表（多文件 → 小图标行）
 
+    // MARK: - 多链接列表（多个 URL 换行复制时的展示）
+
+    @ViewBuilder
+    private func multiLinkContent(_ urls: [URL]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // 计数标签
+            Text(String(format: L10n["card.multi_links"], urls.count))
+                .font(.system(size: 8, weight: .medium))
+                .foregroundColor(.secondary.opacity(0.5))
+                .padding(.bottom, 4)
+
+            ForEach(Array(urls.prefix(6).enumerated()), id: \.offset) { idx, url in
+                HStack(spacing: 6) {
+                    // 域名首字母图标
+                    ZStack {
+                        Circle()
+                            .fill(Color.accentColor.opacity(0.12))
+                            .frame(width: 20, height: 20)
+                        Text(String(url.host?.prefix(1).uppercased() ?? "?"))
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.accentColor)
+                    }
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(url.host ?? url.absoluteString)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        Text(url.path.isEmpty ? "/" : url.path)
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary.opacity(0.5))
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.vertical, 3)
+                .padding(.horizontal, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.primary.opacity(idx % 2 == 0 ? 0.02 : 0))
+                )
+            }
+
+            if urls.count > 6 {
+                Text(String(format: L10n["card.extra_links"], urls.count - 6))
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - 文件预览列表（多文件）
     private var fileURLList: some View {
         let urls = fileURLs
         return VStack(alignment: .leading, spacing: 3) {
@@ -664,6 +729,8 @@ struct ClipboardCardView: View {
                     }
                 }
             }
+        } else if isMultiURL {
+            multiLinkContent(detectedLinks)
         } else if let url = detectedLink {
             linkContent(url)
         } else {
@@ -797,6 +864,23 @@ struct ClipboardCardView: View {
     /// 是否为多文件条目
     private var isMultiFile: Bool {
         item.sourceFormat == .fileURL && item.content.contains("\n")
+    }
+
+    /// 内容中的全部 http/https URL
+    private var detectedLinks: [URL] {
+        guard item.tags.isURL else { return [] }
+        let lines = item.content.components(separatedBy: "\n")
+        return lines.compactMap { line -> URL? in
+            guard let url = URL(string: line.trimmingCharacters(in: .whitespaces)),
+                  let s = url.scheme,
+                  s == "http" || s == "https" else { return nil }
+            return upgradeToHTTPS(url)
+        }
+    }
+
+    /// 是否为多链接条目
+    private var isMultiURL: Bool {
+        item.tags.isURL && detectedLinks.count > 1
     }
 
     private func loadAppInfo() {
