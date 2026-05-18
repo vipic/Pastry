@@ -79,9 +79,9 @@ final class UpdateChecker {
             return nil
         }
 
-        // 找裸二进制 asset（文件名 "Pastry"）
-        guard let binary = release.assets.first(where: { $0.name == "Pastry" }) else {
-            log.error("Release 中没有找到裸二进制文件")
+        // 找 DMG asset（文件名以 .dmg 结尾）
+        guard let dmg = release.assets.first(where: { $0.name.hasSuffix(".dmg") }) else {
+            log.error("Release 中没有找到 DMG 文件")
             return nil
         }
 
@@ -89,7 +89,7 @@ final class UpdateChecker {
             currentVersion: currentVersion,
             latestVersion: release.tag_name,
             releaseNotes: release.body ?? "",
-            downloadURL: binary.browser_download_url,
+            downloadURL: dmg.browser_download_url,
             htmlURL: release.html_url
         )
     }
@@ -129,37 +129,62 @@ final class UpdateChecker {
         return tempURL
     }
 
-    /// 应用更新：替换二进制并重启
-    func applyUpdate(binaryAt tempURL: URL) throws {
-        guard let executablePath = Bundle.main.executablePath else {
-            throw UpdateError.cannotReplace
-        }
-
-        let fileManager = FileManager.default
-
-        // 1. 替换二进制
-        let backupPath = executablePath + ".old"
-        if fileManager.fileExists(atPath: backupPath) {
-            try fileManager.removeItem(atPath: backupPath)
-        }
-        try fileManager.moveItem(atPath: executablePath, toPath: backupPath)
-        try fileManager.copyItem(atPath: tempURL.path, toPath: executablePath)
-
-        // 2. 设置可执行权限
-        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executablePath)
-
-        // 3. 用已知证书重签（保持 TCC 权限不丢失）
-        let appPath = Bundle.main.bundlePath
+    /// 应用更新：挂载 DMG → 替换整个 .app → 重签 → 重启
+    func applyUpdate(dmgAt tempURL: URL) throws {
+        let targetPath = Bundle.main.bundlePath
         let identity = resolveCodeSignIdentity()
-        _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/codesign"),
-                             arguments: ["--force", "--deep", "--sign", identity, appPath])
 
-        // 4. 重启（用 bash 中间进程，避免 terminate 杀子进程）
-        let bundlePath = Bundle.main.bundlePath
+        // 将 DMG 移到稳定路径（tempURL 可能被系统清理）
+        let stableDMG = URL(fileURLWithPath: NSTemporaryDirectory() + "pastry_update.dmg")
+        try? FileManager.default.removeItem(at: stableDMG)
+        try FileManager.default.moveItem(at: tempURL, to: stableDMG)
+
+        // 写 helper 脚本：当前进程 terminate 后由它完成替换
+        let scriptPath = NSTemporaryDirectory() + "pastry_update.sh"
+        let script = """
+        #!/bin/bash
+        set -e
+        sleep 1
+
+        DMG="\(stableDMG.path)"
+        TARGET="\(targetPath)"
+        IDENTITY="\(identity)"
+
+        # 挂载 DMG
+        MOUNT_OUTPUT=$(hdiutil attach -noverify -noautoopen -nobrowse "$DMG" 2>&1)
+        VOLUME=$(echo "$MOUNT_OUTPUT" | grep '/Volumes/' | tail -1 | awk -F'\\t' '{print $NF}')
+
+        if [ ! -d "$VOLUME/Pastry.app" ]; then
+            echo "❌ DMG 挂载失败或缺少 Pastry.app" >&2
+            open "$TARGET"
+            exit 1
+        fi
+
+        # 替换整个 .app
+        rm -rf "$TARGET"
+        cp -R "$VOLUME/Pastry.app" "$TARGET"
+
+        # 卸载 DMG
+        hdiutil detach "$VOLUME" -quiet
+
+        # 重签（保持 TCC 权限不丢失）
+        codesign --force --deep --sign "$IDENTITY" "$TARGET" 2>/dev/null || true
+
+        # 清理
+        rm -f "$DMG" "$0"
+
+        open "$TARGET"
+        """
+
+        try script.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath)
+
+        // 启动 helper 并退出当前进程
         let task = Process()
         task.launchPath = "/bin/bash"
-        task.arguments = ["-c", "sleep 0.3; open '\(bundlePath)'"]
-        try? task.run()
+        task.arguments = [scriptPath]
+        try task.run()
+
         NSApp.terminate(nil)
     }
 
@@ -234,13 +259,11 @@ final class UpdateChecker {
     enum UpdateError: LocalizedError {
         case invalidURL
         case downloadFailed
-        case cannotReplace
 
         var errorDescription: String? {
             switch self {
             case .invalidURL: return "下载链接无效"
             case .downloadFailed: return "下载失败"
-            case .cannotReplace: return "无法替换应用二进制"
             }
         }
     }

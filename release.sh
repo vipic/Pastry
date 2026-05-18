@@ -92,6 +92,9 @@ cp "$PROJECT_DIR/Resources/Copy.aiff"    "$STAGING/$APP_NAME.app/Contents/Resour
 cp "$PROJECT_DIR/Resources/Paste.aiff"   "$STAGING/$APP_NAME.app/Contents/Resources/" 2>/dev/null || true
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$STAGING/$APP_NAME.app/Contents/Resources/" 2>/dev/null || true
 
+# SPM 资源包（Localizable.xcstrings、placeholder-icon.png 等）
+cp -R "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" "$STAGING/$APP_NAME.app/Contents/Resources/" 2>/dev/null || true
+
 # Info.plist
 cat > "$STAGING/$APP_NAME.app/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
