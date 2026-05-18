@@ -145,9 +145,7 @@ struct UpdateView: View {
             .font(.system(size: 13))
 
         case .checking:
-            Text("Connecting to GitHub...")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
+            EmptyView()
 
         case .downloading:
             // 保留版本箭头（由 currentVersion/latestVersion 提供）
