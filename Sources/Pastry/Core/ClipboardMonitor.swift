@@ -93,14 +93,14 @@ final class ClipboardMonitor: ObservableObject {
         RunLoop.main.add(ft, forMode: .common)
         focusTrackingTimer = ft
 
-        // 立即启动 CGEvent tap——用于来源检测（按键目标进程）和 ⌘C/X 快速轮询。
-        // CGEvent.tapCreate 不会弹权限对话框（静默返回 nil），安全的在 start 中调用。
-        setupEventTap()
+        // CGEvent tap 延迟到首次需要时创建，避免启动时弹出辅助功能授权对话框。
+        // 在 poll() 首次检测到剪贴板变化时调用 setupEventTap()。
 
         log.info("剪贴板监听已启动 (interval: \(self.pollInterval)s)")
     }
 
-    /// ⌘C 事件监听：延迟到首次粘贴时才创建（避免启动时弹辅助功能授权）
+    /// ⌘C 事件监听：延迟到首次剪贴板变化时创建（避免启动时弹出辅助功能授权对话框）。
+    /// 首次 ⌘C 的来源检测由 AX 缓存 + frontmostApp 兜底，后续自动切换为 event tap。
     func setupEventTap() {
         guard eventTap == nil else { return }
 
@@ -231,6 +231,9 @@ final class ClipboardMonitor: ObservableObject {
 
         guard currentChange != lastChangeCount else { return }
         lastChangeCount = currentChange
+
+        // 首次检测到剪贴板变化时延迟创建 event tap，避免应用启动时弹出辅助功能授权
+        setupEventTap()
 
         // changeCount 变化即播提示音 — 不管后续要不要记录，用户需要知道 ⌘C 生效了
         if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
