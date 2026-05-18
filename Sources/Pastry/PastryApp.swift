@@ -22,6 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 启动主线程看门狗（卡死时自动 dump 堆栈）
+        MainThreadWatchdog.shared.start()
+
         // 替换系统"关于"菜单项 → 自定义 About 窗口
         if let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu {
             if let aboutItem = appMenu.items.first(where: {
@@ -77,6 +80,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 初次启动：写入常见密码管理器的默认排除名单
         seedDefaultExcludedApps()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        MainThreadWatchdog.shared.stop()
     }
 
     @MainActor
