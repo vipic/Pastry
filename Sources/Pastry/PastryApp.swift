@@ -311,7 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 onCancel: nil
             )
 
-            try UpdateChecker.shared.applyUpdate(binaryAt: tempURL)
+            try UpdateChecker.shared.applyUpdate(dmgAt: tempURL)
         } catch {
             let log = Logger(subsystem: "com.nekutai.pastry", category: "update")
             log.error("更新失败: \(error.localizedDescription)")
