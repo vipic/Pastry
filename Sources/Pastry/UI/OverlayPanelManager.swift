@@ -746,7 +746,12 @@ final class OverlayPanelManager: @unchecked Sendable {
                 if self.isSearchActive { return event }
                 NotificationCenter.default.post(name: .overlayMoveRight, object: nil, userInfo: ["extend": extend])
                 return nil
-            case 36: // Enter — 搜索时粘贴当前选中/光标卡，无选中时取第一项
+            case 36: // Enter
+                // IME 正在拼写时放行 —— 中文拼音按回车确认英文上屏，不应触发粘贴
+                if let fr = NSApp.keyWindow?.firstResponder as? NSTextView,
+                   fr.hasMarkedText() {
+                    return event
+                }
                 if self.isSearchActive {
                     NotificationCenter.default.post(name: .overlaySearchEnterPaste, object: nil)
                     return nil
