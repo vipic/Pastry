@@ -11,7 +11,7 @@ final class DatabaseManager {
 
     nonisolated(unsafe) static let shared = DatabaseManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "database")
-    private let lock = NSLock()
+    private let lock = NSRecursiveLock()
 
     private var db: OpaquePointer?
     private let dbPath: String
