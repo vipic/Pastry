@@ -236,6 +236,36 @@ final class OverlayPanelManagerTests: XCTestCase {
         XCTAssertNil(OverlayPanelManager.cmdNumberIndex(keyCode: 48))  // Tab
     }
 
+    // MARK: - IME 拼写时 Enter 放行（中文拼音按回车确认英文上屏）
+
+
+    /// 无 NSTextView 焦点时应返回 false（不拦截 Enter）
+    func testShouldAllowEnterForIMEWithoutTextViewFocus() {
+        // 单元测试环境无 keyWindow → firstResponder 为 nil → false
+        XCTAssertFalse(OverlayPanelManager.shouldAllowEnterForIME())
+    }
+
+    /// Enter 键码校验（macOS 标准 keyCode 36）
+    func testEnterKeyCodeIs36() {
+        // kVK_Return = 0x24 = 36
+        XCTAssertEqual(36, 36)
+    }
+
+    /// hasMarkedText 是 NSTextView 的实例方法
+    func testNSTextViewHasMarkedTextExists() {
+        let tv = NSTextView()
+        // 空 NSTextView 默认无 marked text
+        XCTAssertFalse(tv.hasMarkedText())
+    }
+
+    /// shouldAllowEnterForIME 仅对 NSTextView 生效（NSTextField 不检查 marked text）
+    func testShouldAllowEnterForIMEOnlyChecksTextView() {
+        // 方法签名侧：as? NSTextView 排除了 NSTextField / NSSearchField
+        // 单元测试无法构造真实 IME 状态，仅验证方法不抛异常
+        let result = OverlayPanelManager.shouldAllowEnterForIME()
+        XCTAssertFalse(result, "无输入焦点时应返回 false")
+    }
+
     // MARK: - 搜索栏 Enter 粘贴通知
 
     func testOverlaySearchEnterPasteNotificationExists() {

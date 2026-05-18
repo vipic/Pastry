@@ -748,8 +748,7 @@ final class OverlayPanelManager: @unchecked Sendable {
                 return nil
             case 36: // Enter
                 // IME 正在拼写时放行 —— 中文拼音按回车确认英文上屏，不应触发粘贴
-                if let fr = NSApp.keyWindow?.firstResponder as? NSTextView,
-                   fr.hasMarkedText() {
+                if Self.shouldAllowEnterForIME() {
                     return event
                 }
                 if self.isSearchActive {
@@ -813,6 +812,15 @@ final class OverlayPanelManager: @unchecked Sendable {
         if responder.isKind(of: NSTextField.self) { return true }
         if responder.isKind(of: NSSearchField.self) { return true }
         return false
+    }
+
+    /// 当前输入框是否有 IME 正在拼写（中文拼音等）。
+    /// Enter 键在 marked text 期间应放行给输入法确认上屏，不应被面板拦截。
+    static func shouldAllowEnterForIME() -> Bool {
+        guard NSApp != nil,
+              let window = NSApp.keyWindow,
+              let fr = window.firstResponder as? NSTextView else { return false }
+        return fr.hasMarkedText()
     }
 
     /// 判断字符串首字符是否应重定向到搜索栏（字母/数字/符号/标点/空格）
