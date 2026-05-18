@@ -224,6 +224,15 @@ final class StoreManager: ObservableObject {
         performSearchImmediate()
     }
 
+    /// 更新链接预览标题（DB 持久化 + 内存同步）
+    func updateLinkTitle(_ itemId: UUID, linkTitle: String?) {
+        DatabaseManager.shared.updateLinkTitle(id: itemId.uuidString, linkTitle: linkTitle)
+        guard let idx = items.firstIndex(where: { $0.id == itemId }) else { return }
+        items[idx].linkTitle = linkTitle
+        // 若正在显示筛选结果，刷新以反映变更
+        if hasActiveFilters { performSearchImmediate() }
+    }
+
     /// 批量设置选中项的 pin 状态
     func setPinForSelected(_ ids: Set<UUID>, pinned: Bool) {
         for id in ids {

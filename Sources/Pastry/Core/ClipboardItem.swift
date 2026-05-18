@@ -94,6 +94,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let appName: String?        // 来源应用名
     let isHandoff: Bool          // 是否来自 Handoff（iPhone/iPad 通用剪贴板）
     let textAnnotation: String?       // 图片附带的文字（同时复制图文时保留）
+    var linkTitle: String?            // 链接预览抓取的页面标题（og:title / <title>）（可变，不计入 hash）
     let segmentsJSON: String?         // segments 的原始 JSON（延迟解码）
     let rawFormatData: Data?          // 原始格式数据（RTF/HTML 的原始字节，粘贴时写回）
     let rawFormatType: String?        // 原始格式的剪贴板类型（public.rtf / public.html）
@@ -129,6 +130,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         appName: String? = nil,
         isHandoff: Bool = false,
         textAnnotation: String? = nil,
+        linkTitle: String? = nil,
         segments: [ContentSegment]? = nil,
         segmentsJSON: String? = nil,
         rawFormatData: Data? = nil,
@@ -144,6 +146,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.appName = appName
         self.isHandoff = isHandoff
         self.textAnnotation = textAnnotation
+        self.linkTitle = linkTitle
         // 优先用已有 JSON，否则从 segments 编码
         if let json = segmentsJSON {
             self.segmentsJSON = json
@@ -175,7 +178,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
 // MARK: - 搜索过滤
 extension Array where Element == ClipboardItem {
 
-    /// 搜索过滤：对 content 大小写不敏感子串匹配，可选匹配 appName。
+    /// 搜索过滤：对 content / linkTitle 大小写不敏感子串匹配，可选匹配 appName。
     /// 空查询或无内容匹配时返回空数组。
     /// - Parameters:
     ///   - query: 搜索关键词（大小写不敏感）
@@ -189,6 +192,9 @@ extension Array where Element == ClipboardItem {
 
         return self.filter { item in
             if item.content.lowercased().contains(lowerQuery) {
+                return true
+            }
+            if let title = item.linkTitle, title.lowercased().contains(lowerQuery) {
                 return true
             }
             if includeAppName, let app = item.appName {

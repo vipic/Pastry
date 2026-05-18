@@ -57,6 +57,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 updateItem.target = self
                 appMenu.insertItem(updateItem, at: afterAbout + 1)
             }
+
+            // 将 Edit > Find > "Find…" (⌘F) 重定向到搜索栏聚焦
+            // NSEvent local monitor 已在 OverlayPanelManager 拦截 ⌘F 做搜索栏聚焦，
+            // 此处让菜单条目显示快捷键并支持鼠标点击触发
+            if let editMenu = NSApp.mainMenu?.item(at: 2)?.submenu {
+                for item in editMenu.items {
+                    if let findSubmenu = item.submenu,
+                       let findItem = findSubmenu.items.first(where: {
+                        $0.keyEquivalent == "f" && $0.keyEquivalentModifierMask == .command
+                    }) {
+                        findItem.action = #selector(focusSearchField)
+                        findItem.target = self
+                        break
+                    }
+                }
+            }
         }
 
         // 初次启动：写入常见密码管理器的默认排除名单
@@ -309,6 +325,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - 搜索栏聚焦（Edit > Find 菜单）
+
+    /// 将 ⌘F / Edit > Find 菜单重定向到搜索栏（面板打开时有效）
+    @objc func focusSearchField() {
+        NotificationCenter.default.post(name: .overlayOpenSearch, object: nil)
+    }
+
     // MARK: - 默认排除名单
 
     /// 初次启动时，检测已安装的常见密码管理器，写入排除名单。
@@ -394,7 +417,7 @@ struct PastryApp: App {
 
         if Self.isBenchmark {
             let elapsed = Int((CFAbsoluteTimeGetCurrent() - benchStart) * 1000)
-            print("启动耗时: \(elapsed)ms")
+            log.info("启动耗时: \(elapsed)ms")
             exit(0)
         }
 

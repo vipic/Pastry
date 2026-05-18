@@ -11,7 +11,7 @@ final class DatabaseManager {
 
     nonisolated(unsafe) static let shared = DatabaseManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "database")
-    private let lock = NSRecursiveLock()
+    private let lock = NSLock()
 
     private var db: OpaquePointer?
     private let dbPath: String
@@ -98,12 +98,18 @@ final class DatabaseManager {
 
     /// 从设备硬件标识派生密钥加密密钥（同一设备永远相同，跨设备无法复现）
     private static func deviceKEK() -> SymmetricKey {
-        let salt = "com.nekutai.pastry.kek".data(using: .utf8)!
-        let material = deviceIdentity().data(using: .utf8)!
+        guard let salt = "com.nekutai.pastry.kek".data(using: .utf8),
+              let material = deviceIdentity().data(using: .utf8),
+              let info = "pastry-db-key".data(using: .utf8)
+        else {
+            // 字符串字面量和 IOKit UUID 均为 ASCII，此分支理论不可达
+            // 但为安全起见，返回零密钥会导致数据库不可读，优于 crash
+            return SymmetricKey(data: Data(repeating: 0, count: 32))
+        }
         return HKDF<SHA256>.deriveKey(
             inputKeyMaterial: SymmetricKey(data: material),
             salt: salt,
-            info: "pastry-db-key".data(using: .utf8)!,
+            info: info,
             outputByteCount: 32
         )
     }
@@ -338,6 +344,7 @@ final class DatabaseManager {
         let ftsSQL = """
         CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
             content,
+            link_title,
             content='clips',
             content_rowid='rowid',
             tokenize='porter unicode61'
@@ -410,6 +417,36 @@ final class DatabaseManager {
             _ = execute("CREATE INDEX IF NOT EXISTS idx_clips_dedup ON clips(dedup_key);")
             userVersion = 8
         }
+        if version < 9 {
+            _ = execute("ALTER TABLE clips ADD COLUMN link_title TEXT;")
+            userVersion = 9
+        }
+        if version < 10 {
+            // 重建 FTS5 表以加入 link_title 列，然后全量重建索引
+            _ = execute("DROP TABLE IF EXISTS clips_fts;")
+            let ftsSQL = """
+            CREATE VIRTUAL TABLE clips_fts USING fts5(
+                content,
+                link_title,
+                content='clips',
+                content_rowid='rowid',
+                tokenize='porter unicode61'
+            );
+            """
+            _ = execute(ftsSQL)
+            // 重新插入所有已有数据到 FTS 索引
+            _ = execute("INSERT INTO clips_fts(rowid, content, link_title) SELECT rowid, content, link_title FROM clips;")
+            // 重建 FTS 删除触发器
+            _ = execute("DROP TRIGGER IF EXISTS trg_clips_fts_delete;")
+            _ = execute("""
+                CREATE TRIGGER trg_clips_fts_delete
+                AFTER DELETE ON clips
+                BEGIN
+                    DELETE FROM clips_fts WHERE rowid = old.rowid;
+                END;
+            """)
+            userVersion = 10
+        }
     }
 
     // MARK: - CRUD
@@ -450,8 +487,8 @@ final class DatabaseManager {
         }
 
         let sql = """
-        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, dedup_key)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, dedup_key, link_title)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -486,6 +523,11 @@ final class DatabaseManager {
         }
         sqlite3_bind_int(stmt, 14, item.tags.isURL ? 1 : 0)
         sqlite3_bind_text(stmt, 15, (key as NSString).utf8String, -1, nil)
+        if let lt = item.linkTitle {
+            sqlite3_bind_text(stmt, 16, (lt as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 16)
+        }
 
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -499,7 +541,8 @@ final class DatabaseManager {
         lastKey = key
         lastKeyTime = now
 
-        return oldID != nil ? .replaced(oldID: oldID!) : .inserted
+        if let oldID { return .replaced(oldID: oldID) }
+        return .inserted
     }
 
     /// 搜索（优先 FTS，fallback LIKE）
@@ -513,7 +556,7 @@ final class DatabaseManager {
         // FTS5 搜索（带前缀通配）
         let ftsSQL = """
         SELECT c.id, c.timestamp, substr(c.content, 1, 256) AS content, c.content_type, c.app_name,
-               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff, c.raw_format_data, c.raw_format_type
+               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff, c.raw_format_data, c.raw_format_type, c.is_url, c.link_title
         FROM clips c
         JOIN clips_fts f ON c.rowid = f.rowid
         WHERE clips_fts MATCH ?
@@ -546,9 +589,9 @@ final class DatabaseManager {
     /// LIKE 降级搜索
     private func fallbackSearch(query: String, limit: Int) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type
+        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, link_title
         FROM clips
-        WHERE content LIKE ?
+        WHERE content LIKE ? OR link_title LIKE ?
         ORDER BY timestamp DESC
         LIMIT ?;
         """
@@ -560,7 +603,8 @@ final class DatabaseManager {
 
         let pattern = "%\(query)%"
         sqlite3_bind_text(stmt, 1, (pattern as NSString).utf8String, -1, nil)
-        sqlite3_bind_int(stmt, 2, Int32(limit))
+        sqlite3_bind_text(stmt, 2, (pattern as NSString).utf8String, -1, nil)
+        sqlite3_bind_int(stmt, 3, Int32(limit))
 
         let results = readItems(from: stmt)
         sqlite3_finalize(stmt)
@@ -572,7 +616,7 @@ final class DatabaseManager {
         lock.lock()
         defer { lock.unlock() }
         let sql = """
-        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url
+        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, link_title
         FROM clips
         ORDER BY timestamp DESC
         LIMIT ?;
@@ -595,7 +639,7 @@ final class DatabaseManager {
         lock.lock()
         defer { lock.unlock() }
         let sql = """
-        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type
+        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, link_title
         FROM clips
         WHERE is_favorite = 1
         ORDER BY timestamp DESC
@@ -665,6 +709,25 @@ final class DatabaseManager {
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
 
         sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
+        sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+    }
+
+    /// 更新链接预览抓取的页面标题（nil 表示清空）
+    func updateLinkTitle(id: String, linkTitle: String?) {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = "UPDATE clips SET link_title = ? WHERE id = ?;"
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+
+        if let lt = linkTitle {
+            sqlite3_bind_text(stmt, 1, (lt as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 1)
+        }
+        sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
         sqlite3_step(stmt)
         sqlite3_finalize(stmt)
     }
@@ -741,8 +804,8 @@ final class DatabaseManager {
 
     private func syncFTS(_ item: ClipboardItem) {
         let sql = """
-        INSERT INTO clips_fts (rowid, content)
-        VALUES ((SELECT rowid FROM clips WHERE id = ?), ?);
+        INSERT INTO clips_fts (rowid, content, link_title)
+        VALUES ((SELECT rowid FROM clips WHERE id = ?), ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -750,6 +813,11 @@ final class DatabaseManager {
 
         sqlite3_bind_text(stmt, 1, (item.id.uuidString as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 2, (item.content as NSString).utf8String, -1, nil)
+        if let lt = item.linkTitle {
+            sqlite3_bind_text(stmt, 3, (lt as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 3)
+        }
         sqlite3_step(stmt)
         sqlite3_finalize(stmt)
     }
@@ -790,6 +858,10 @@ final class DatabaseManager {
                 return String(cString: ptr)
             }()
             let isURL = sqlite3_column_int(stmt, 13) != 0
+            let linkTitle: String? = {
+                guard let ptr = sqlite3_column_text(stmt, 14) else { return nil }
+                return String(cString: ptr)
+            }()
 
             let sourceFormat = SourceFormat(storageKey: typeStr)
             let tags = ContentTags(
@@ -808,6 +880,7 @@ final class DatabaseManager {
                 appName: appName,
                 isHandoff: isHandoff,
                 textAnnotation: textAnnotation,
+                linkTitle: linkTitle,
                 segmentsJSON: segmentsJSON,
                 rawFormatData: rawFormatData,
                 rawFormatType: rawFormatType,

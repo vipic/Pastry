@@ -292,7 +292,7 @@ final class OverlayPanelManager: @unchecked Sendable {
     /// 隐藏 + 粘贴到之前的前台应用（点击卡片使用）
     /// 先写剪贴板 + ⌘V，面板隐藏/DB/音效后台收尾，不阻塞粘贴
     @MainActor
-    func hideAndPaste(_ item: ClipboardItem) {
+    func hideAndPaste(_ item: ClipboardItem) async {
         guard panel != nil else { return }
 
         isPasting = true
@@ -340,7 +340,9 @@ final class OverlayPanelManager: @unchecked Sendable {
         case .image:
             // 优先从原始数据路径加载（高清），回退到缩略图路径
             let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
-            if let image = NSImage(contentsOfFile: imagePath) {
+            if let image = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+                NSImage(contentsOfFile: imagePath)
+            }.value {
                 if let annotation = item.textAnnotation, !annotation.isEmpty {
                     let attr = NSMutableAttributedString()
                     let attachment = NSTextAttachment()
