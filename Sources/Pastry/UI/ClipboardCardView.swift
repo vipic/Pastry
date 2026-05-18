@@ -765,7 +765,12 @@ struct ClipboardCardView: View {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             LinkPreviewLoader.shared.load(url: url) { preview in
-                guard preview != nil else { return }
+                guard let preview else { return }
+                // 持久化抓取的标题（空标题不覆盖已有值）
+                let title = preview.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !title.isEmpty {
+                    StoreManager.shared.updateLinkTitle(item.id, linkTitle: title)
+                }
                 self.previewLoadTrigger &+= 1
             }
         }
@@ -813,7 +818,7 @@ struct ClipboardCardView: View {
 
     private func pasteItem() {
         didPaste = true
-        OverlayPanelManager.shared.hideAndPaste(item)
+        Task { await OverlayPanelManager.shared.hideAndPaste(item) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
             didPaste = false
         }
