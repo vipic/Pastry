@@ -11,19 +11,18 @@ APP_DIR="$HOME/Applications/${APP_NAME} Dev.app"
 CONTENTS="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS/MacOS"
 RESOURCES_DIR="$CONTENTS/Resources"
+IDENTITY="${CODESIGN_IDENTITY:-}"
 
 echo "⚡ Deploying $APP_NAME (debug)..."
 
-# 0. 确保固定代码签名证书存在（TCC 权限持久保留，更新不需要重新授权）
-# 首次运行需手动创建一次（30 秒）：
-#   Keychain Access → 证书助理 → 创建证书
-#   名称: Pastry Dev, 身份类型: 自签名根, 证书类型: 代码签名, 覆盖默认: 是
+# 确保代码签名证书存在（TCC 权限持久保留）
 CERT_OK=true
-if ! security find-identity -p codesigning 2>/dev/null | grep -q "Pastry Dev"; then
-    echo "⚠️  未找到 \"Pastry Dev\" 代码签名证书"
-    echo "   首次运行需创建一次（后续永久有效）："
-    echo "   Keychain Access → 菜单「证书助理」→「创建证书」"
-    echo "   名称: Pastry Dev  |  类型: 代码签名"
+if [ -n "$IDENTITY" ] && security find-identity -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
+    :
+elif [ -n "$IDENTITY" ]; then
+    echo "⚠️  未找到 \"$IDENTITY\" 代码签名证书，回退 ad-hoc"
+    CERT_OK=false
+else
     CERT_OK=false
 fi
 
@@ -100,10 +99,10 @@ fi
 # 6. 清除残留签名（二进制替换后签名失效）并重签
 rm -rf "$APP_DIR/_CodeSignature" 2>/dev/null || true
 if $CERT_OK; then
-    codesign --force --sign "Pastry Dev" "$APP_DIR" 2>/dev/null || true
+    codesign --force --sign "$IDENTITY" "$APP_DIR" 2>/dev/null || true
 else
     codesign --force --sign - "$APP_DIR" 2>/dev/null || true
-    echo "⚠️  已用 ad-hoc 签名（TCC 权限不持久，创建证书后可持久保留）"
+    echo "⚠️  已用 ad-hoc 签名（TCC 权限不持久）"
 fi
 
 # 7. 启动

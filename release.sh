@@ -16,7 +16,7 @@ VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
 VERSION="${VERSION#v}"   # 统一剥掉 v 前缀，内部只用裸版本号
 BUILD=$(git rev-list --count HEAD)
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
-IDENTITY="${CODESIGN_IDENTITY:-Pastry Release}"  # 默认固定证书（TCC 持久），用 CODESIGN_IDENTITY 环境变量覆盖
+IDENTITY="${CODESIGN_IDENTITY:-}"
 
 # 解析 --publish 标志
 PUBLISH=false
@@ -127,22 +127,16 @@ PLIST
 echo ""
 echo "━━━ 4/5 代码签名 ━━━"
 
-# 固定证书签名 = TCC 权限持久保留（更新不需要重新授权）
-# 首次运行需手动创建一次（30 秒）：
-#   Keychain Access → 证书助理 → 创建证书
-#   名称: Pastry Release（或自定义），身份类型: 自签名根，证书类型: 代码签名
-#   分发正式签名：CODESIGN_IDENTITY='Developer ID Application: ...' ./release.sh
+# 固定证书签名 = TCC 权限持久保留
+# 通过 CODESIGN_IDENTITY 环境变量指定，未配置则 ad-hoc
 CERT_OK=true
-if security find-identity -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
+if [ -n "$IDENTITY" ] && security find-identity -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
     echo "   签名身份: $IDENTITY"
+elif [ -n "$IDENTITY" ]; then
+    echo "⚠️  未找到 \"$IDENTITY\" 代码签名证书，回退 ad-hoc"
+    CERT_OK=false
 else
-    echo "⚠️  未找到 \"$IDENTITY\" 代码签名证书"
-    if [ "$IDENTITY" = "Pastry Release" ]; then
-        echo "   首次运行需创建一次（后续永久有效）："
-        echo "   Keychain Access → 菜单「证书助理」→「创建证书」"
-        echo "   名称: Pastry Release  |  类型: 代码签名"
-    fi
-    echo "   本次回退到 ad-hoc 签名（TCC 不持久）"
+    echo "   未配置签名证书，使用 ad-hoc"
     CERT_OK=false
 fi
 
