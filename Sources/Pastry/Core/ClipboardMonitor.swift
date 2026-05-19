@@ -258,6 +258,10 @@ final class ClipboardMonitor: ObservableObject {
     // MARK: - 处理剪贴板变化
 
     private func processChange(capturedApp: String?, capturedBundleID: String?) {
+        // 诊断日志：每次剪贴板变化都记录来源和类型，用于排查「只响不记」问题
+        let pbTypes = NSPasteboard.general.types
+        log.info("剪贴板变化: 来源=\(capturedApp ?? "nil")(\(capturedBundleID ?? "nil")), types=\(pbTypes?.map(\.rawValue).joined(separator: ",") ?? "nil")")
+
         // 排除名单：密码管理器等敏感应用不保存剪贴板历史
         if let bundleID = capturedBundleID {
             let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
