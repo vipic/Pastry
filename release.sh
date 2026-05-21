@@ -13,7 +13,7 @@ BUILD_DIR="$PROJECT_DIR/.build/release"
 STAGING="$PROJECT_DIR/.release_staging"
 DIST_DIR="$PROJECT_DIR/dist"
 BUNDLE_ID="com.nekutai.pastry"
-IDENTITY="${CODESIGN_IDENTITY:-Pastry Release}"
+IDENTITY="${CODESIGN_IDENTITY:-Nekutai}"
 
 # 解析参数
 PUBLISH=false
@@ -152,8 +152,8 @@ PLIST
 
 step 6 "代码签名"
 
-# 固定证书签名 = TCC/Keychain 授权持久保留
-# 通过 CODESIGN_IDENTITY 环境变量指定；显式传 "-" 可强制 ad-hoc。
+# 固定作者级证书签名 = TCC/Keychain 授权持久保留
+# 默认使用 Nekutai；通过 CODESIGN_IDENTITY 环境变量指定其他作者证书；显式传 "-" 可强制 ad-hoc。
 if [ "$IDENTITY" = "-" ]; then
     echo "   签名身份: ad-hoc"
 else
