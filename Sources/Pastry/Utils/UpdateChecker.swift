@@ -121,6 +121,7 @@ final class UpdateChecker {
 
         let delegate = ProgressDownloadDelegate(onProgress: onProgress)
         let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: .main)
+        onProgress?(0.02)
 
         let (tempURL, response) = try await session.download(from: url)
 
@@ -129,6 +130,7 @@ final class UpdateChecker {
             throw UpdateError.downloadFailed
         }
 
+        onProgress?(1.0)
         return tempURL
     }
 
@@ -231,6 +233,7 @@ final class UpdateChecker {
 private final class ProgressDownloadDelegate: NSObject, URLSessionDownloadDelegate {
 
     private let onProgress: (@Sendable (Double) -> Void)?
+    private var lastProgress = 0.0
 
     init(onProgress: (@Sendable (Double) -> Void)?) {
         self.onProgress = onProgress
@@ -239,8 +242,17 @@ private final class ProgressDownloadDelegate: NSObject, URLSessionDownloadDelega
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
                     didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
                     totalBytesExpectedToWrite: Int64) {
-        guard totalBytesExpectedToWrite > 0 else { return }
-        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        let progress: Double
+        if totalBytesExpectedToWrite > 0 {
+            progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        } else {
+            // GitHub/CDN 下载有时不提供 Content-Length。此时给一个保守的伪进度，
+            // 避免 UI 长时间停在空白 0%，完成时 downloadBinary 会再发送 100%。
+            let megabytes = max(Double(totalBytesWritten) / 1_048_576.0, 0.01)
+            progress = min(0.9, 0.02 + log10(megabytes + 1.0) * 0.45)
+        }
+        guard progress > lastProgress else { return }
+        lastProgress = progress
         onProgress?(progress)
     }
 
