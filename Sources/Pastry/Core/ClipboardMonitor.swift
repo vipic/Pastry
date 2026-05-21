@@ -135,7 +135,7 @@ final class ClipboardMonitor: ObservableObject {
                         }
                     }
                 }
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             },
             userInfo: UnsafeMutableRawPointer(
                 Unmanaged.passUnretained(self).toOpaque()

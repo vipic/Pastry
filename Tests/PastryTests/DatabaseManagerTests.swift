@@ -531,13 +531,14 @@ final class DatabaseManagerTests: XCTestCase {
     /// 多种类型 + isHandoff → 全部正确持久化
     func testIsHandoffMultipleTypes() {
         let text = makeItem(content: "text", type: .text, isHandoff: true)
-        let img = makeItem(content: "/tmp/pic.png", type: .image, isHandoff: true)
-        let file = makeItem(content: "/tmp/file.pdf", type: .fileURL, isHandoff: false)
-
         db.insert(text)
+
         Thread.sleep(forTimeInterval: 0.1)
+        let img = makeItem(content: "/tmp/pic.png", type: .image, isHandoff: true)
         db.insert(img)
+
         Thread.sleep(forTimeInterval: 0.1)
+        let file = makeItem(content: "/tmp/file.pdf", type: .fileURL, isHandoff: false)
         db.insert(file)
 
         let items = db.recent()
@@ -664,6 +665,17 @@ final class DatabaseManagerTests: XCTestCase {
 
         let items = db.recent()
         XCTAssertEqual(items[0].content, short)
+    }
+
+    /// 图片缓存清理应能读取仍被数据库引用的 image content 路径
+    func testAllImageContentPathsUsesContentTypeColumn() {
+        let imagePath = "/tmp/pastry-image-cache-test.png"
+        db.insert(makeItem(content: imagePath, type: .image))
+        db.insert(makeItem(content: "/tmp/pastry-file-test.pdf", type: .fileURL))
+        db.insert(makeItem(content: "plain text", type: .text))
+
+        let paths = db.allImageContentPaths()
+        XCTAssertEqual(paths, [imagePath])
     }
 
     // MARK: - segmentsJSON 不解码

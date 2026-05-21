@@ -59,32 +59,37 @@ final class DatabaseManager {
 
     /// 密钥文件路径（数据库同目录）
     private var keyFilePath: String { dbPath + ".key" }
+    private static let keychainService = "com.nekutai.pastry.dbkey"
+    private static let keychainAccount = "clips.db"
 
-    /// 获取或创建 256-bit 加密密钥（设备派生 KEK 加密存文件，零弹窗）
+    /// 获取或创建 256-bit 加密密钥（Keychain 为主，旧文件密钥只作为迁移来源）
     private func getOrCreateKey() -> Data {
-        // 读已有密钥文件
-        if let key = readKeyFromFile() { return key }
+        if let key = readKeyFromKeychain() { return key }
 
-        // 一次性 Keychain 迁移（仅在无文件时尝试，之后永不再碰）
-        if let legacyKey = migrateFromKeychain() {
-            writeKeyToFile(legacyKey)
-            return legacyKey
+        // 兼容上个版本的文件密钥：读到后立即迁回 Keychain。
+        if let fileKey = readKeyFromFile() {
+            if writeKeyToKeychain(fileKey) {
+                try? FileManager.default.removeItem(atPath: keyFilePath)
+            }
+            return fileKey
         }
 
-        // 全新安装 → 生成新密钥，加密存文件
+        // 全新安装 → 生成新密钥，存入 Keychain。
         var keyBytes = [UInt8](repeating: 0, count: 32)
         _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
         let newKey = Data(keyBytes)
-        writeKeyToFile(newKey)
+        if !writeKeyToKeychain(newKey) {
+            // Keychain 异常时保底写旧格式文件，避免应用完全不可用。
+            writeKeyToFile(newKey)
+        }
         return newKey
     }
 
-    /// 一次性：尝试从 Keychain 读取旧版密钥（可能弹一次系统授权对话框）
-    private func migrateFromKeychain() -> Data? {
+    private func readKeyFromKeychain() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "com.nekutai.pastry.dbkey",
-            kSecAttrAccount as String: "clips.db",
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: Self.keychainAccount,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
@@ -92,6 +97,27 @@ final class DatabaseManager {
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
               let keyData = result as? Data else { return nil }
         return keyData
+    }
+
+    @discardableResult
+    private func writeKeyToKeychain(_ key: Data) -> Bool {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: Self.keychainAccount,
+        ]
+        let attrs: [String: Any] = [
+            kSecValueData as String: key,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+
+        let status = SecItemAdd(base.merging(attrs) { _, new in new } as CFDictionary, nil)
+        if status == errSecSuccess { return true }
+        if status == errSecDuplicateItem {
+            return SecItemUpdate(base as CFDictionary, attrs as CFDictionary) == errSecSuccess
+        }
+        log.error("Keychain 密钥写入失败: \(status)")
+        return false
     }
 
     // MARK: 文件密钥存储（设备派生 KEK，AES-256-GCM 加密）
@@ -182,20 +208,27 @@ final class DatabaseManager {
 
         let plainPath = dbPath
         let tempEncPath = dbPath + ".enc-migrate"
+        let backupPath = dbPath + ".plaintext-backup"
 
         // 先删可能存在的残留临时文件
         try? FileManager.default.removeItem(atPath: tempEncPath)
 
-        // Step 1: 用明文方式打开原数据库，导出全部内容到内存
+        // Step 1: 用明文方式打开原数据库并先验证。验证失败时绝不删除原库。
         var plainDB: OpaquePointer?
         guard sqlite3_open_v2(plainPath, &plainDB, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
               let plain = plainDB else {
-            log.error("迁移失败：无法打开明文数据库")
-            // 删除残留的损坏加密库，重建新的
-            try? FileManager.default.removeItem(atPath: plainPath)
-            sqlite3_open(plainPath, &db)
-            applyEncryptionKey()
-            createTables()
+            log.error("迁移跳过：无法按明文打开数据库，原文件已保留")
+            preserveUnreadableDatabaseAndCreateFresh(key: key)
+            return
+        }
+        var validationStmt: OpaquePointer?
+        let validationOK = sqlite3_prepare_v2(plain, "SELECT count(*) FROM sqlite_master;", -1, &validationStmt, nil) == SQLITE_OK
+            && sqlite3_step(validationStmt) == SQLITE_ROW
+        sqlite3_finalize(validationStmt)
+        guard validationOK else {
+            sqlite3_close(plain)
+            log.error("迁移跳过：数据库不是可读明文库，原文件已保留")
+            preserveUnreadableDatabaseAndCreateFresh(key: key)
             return
         }
 
@@ -249,12 +282,10 @@ final class DatabaseManager {
         sqlite3_close(plain)
 
         // Step 2: 创建新的加密数据库，执行 schema + 数据导入
-        let newPath = (plainPath as NSString).deletingLastPathComponent + "/clips.db"
-        try? FileManager.default.removeItem(atPath: plainPath)  // 删明文
-        try? FileManager.default.removeItem(atPath: newPath)    // 删损坏
+        try? FileManager.default.removeItem(atPath: tempEncPath)
 
         var encDB: OpaquePointer?
-        guard sqlite3_open(plainPath, &encDB) == SQLITE_OK, let enc = encDB else {
+        guard sqlite3_open(tempEncPath, &encDB) == SQLITE_OK, let enc = encDB else {
             log.error("迁移失败：无法创建加密数据库")
             db = nil
             return
@@ -281,7 +312,40 @@ final class DatabaseManager {
         sqlite3_close(enc)
         db = nil
 
-        // Step 3: 重新打开加密数据库
+        // Step 3: 只有临时加密库验证通过后，才替换原明文库。
+        var verifyDB: OpaquePointer?
+        guard sqlite3_open(tempEncPath, &verifyDB) == SQLITE_OK, let verify = verifyDB else {
+            log.error("迁移失败：无法验证临时加密数据库")
+            return
+        }
+        _ = key.withUnsafeBytes { ptr in
+            sqlite3_key(verify, ptr.baseAddress, Int32(key.count))
+        }
+        var verifyStmt: OpaquePointer?
+        let verifyOK = sqlite3_prepare_v2(verify, "SELECT count(*) FROM sqlite_master;", -1, &verifyStmt, nil) == SQLITE_OK
+            && sqlite3_step(verifyStmt) == SQLITE_ROW
+        sqlite3_finalize(verifyStmt)
+        sqlite3_close(verify)
+        guard verifyOK else {
+            log.error("迁移失败：临时加密数据库不可读，原文件已保留")
+            preserveUnreadableDatabaseAndCreateFresh(key: key)
+            return
+        }
+
+        try? FileManager.default.removeItem(atPath: backupPath)
+        do {
+            try FileManager.default.moveItem(atPath: plainPath, toPath: backupPath)
+            try FileManager.default.moveItem(atPath: tempEncPath, toPath: plainPath)
+        } catch {
+            log.error("迁移失败：替换数据库文件失败: \(error.localizedDescription)")
+            if !FileManager.default.fileExists(atPath: plainPath),
+               FileManager.default.fileExists(atPath: backupPath) {
+                try? FileManager.default.moveItem(atPath: backupPath, toPath: plainPath)
+            }
+            return
+        }
+
+        // Step 4: 重新打开加密数据库
         guard sqlite3_open(plainPath, &db) == SQLITE_OK else {
             log.error("迁移后无法打开加密数据库")
             return
@@ -291,6 +355,28 @@ final class DatabaseManager {
         }
 
         log.info("明文数据库迁移完成 → 加密")
+    }
+
+    /// 无法解密且也不是可迁移明文库时，保留原文件并创建新的空加密库，避免启动后继续访问 nil db。
+    private func preserveUnreadableDatabaseAndCreateFresh(key: Data) {
+        let preservedPath = dbPath + ".unreadable-\(Int(Date().timeIntervalSince1970))"
+        do {
+            if FileManager.default.fileExists(atPath: dbPath) {
+                try FileManager.default.moveItem(atPath: dbPath, toPath: preservedPath)
+                log.error("不可读数据库已保留为: \(preservedPath, privacy: .public)")
+            }
+            if sqlite3_open(dbPath, &db) == SQLITE_OK, let fresh = db {
+                _ = key.withUnsafeBytes { ptr in
+                    sqlite3_key(fresh, ptr.baseAddress, Int32(key.count))
+                }
+            } else {
+                log.error("创建新加密数据库失败")
+                db = nil
+            }
+        } catch {
+            log.error("保留不可读数据库失败: \(error.localizedDescription)")
+            db = nil
+        }
     }
 
     /// 在指定 db 上执行裸 SQL（不检查结果）
@@ -313,6 +399,10 @@ final class DatabaseManager {
         } else {
             if useEncryption {
                 applyEncryptionKey()
+                guard db != nil else {
+                    log.error("数据库加密初始化失败，跳过后续初始化以保留原文件")
+                    return
+                }
             }
             // 开启 WAL 模式，提升并发性能
             execute("PRAGMA journal_mode=WAL")
@@ -897,7 +987,7 @@ final class DatabaseManager {
     func allImageContentPaths() -> Set<String> {
         lock.lock()
         defer { lock.unlock() }
-        let sql = "SELECT content FROM clips WHERE source_format = 'image';"
+        let sql = "SELECT content FROM clips WHERE content_type = 'image';"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
         defer { sqlite3_finalize(stmt) }
@@ -924,6 +1014,7 @@ final class DatabaseManager {
 
     @discardableResult
     private func execute(_ sql: String) -> Bool {
+        guard let db else { return false }
         var errMsg: UnsafeMutablePointer<CChar>?
         let rc = sqlite3_exec(db, sql, nil, nil, &errMsg)
         if rc != SQLITE_OK {
@@ -936,6 +1027,7 @@ final class DatabaseManager {
     }
 
     private func scalarInt(_ sql: String) -> Int {
+        guard let db else { return 0 }
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             return 0
@@ -949,7 +1041,8 @@ final class DatabaseManager {
     }
 
     private var lastError: String {
-        String(cString: sqlite3_errmsg(db))
+        guard let db else { return "database is not open" }
+        return String(cString: sqlite3_errmsg(db))
     }
 
     private var userVersion: Int {

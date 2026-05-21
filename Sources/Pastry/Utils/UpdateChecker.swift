@@ -115,6 +115,9 @@ final class UpdateChecker {
         guard let url = URL(string: urlString) else {
             throw UpdateError.invalidURL
         }
+        guard url.scheme?.lowercased() == "https" else {
+            throw UpdateError.insecureURL
+        }
 
         let delegate = ProgressDownloadDelegate(onProgress: onProgress)
         let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: .main)
@@ -160,9 +163,39 @@ final class UpdateChecker {
             exit 1
         fi
 
+        CANDIDATE="$VOLUME/Pastry.app"
+        CANDIDATE_BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$CANDIDATE/Contents/Info.plist" 2>/dev/null || true)
+        if [ "$CANDIDATE_BUNDLE" != "com.nekutai.pastry" ]; then
+            echo "❌ 更新包 Bundle ID 不匹配: $CANDIDATE_BUNDLE" >&2
+            hdiutil detach "$VOLUME" -quiet || true
+            open "$TARGET"
+            exit 1
+        fi
+
+        if ! /usr/bin/codesign --verify --deep --strict "$CANDIDATE" 2>/dev/null; then
+            echo "❌ 更新包签名校验失败" >&2
+            hdiutil detach "$VOLUME" -quiet || true
+            open "$TARGET"
+            exit 1
+        fi
+
+        CURRENT_REQ=$(/usr/bin/codesign -dr - "$TARGET" 2>&1 | sed -n 's/^.*designated => //p')
+        if [ -z "$CURRENT_REQ" ]; then
+            echo "❌ 无法读取当前 App 签名要求，拒绝自动更新" >&2
+            hdiutil detach "$VOLUME" -quiet || true
+            open "$TARGET"
+            exit 1
+        fi
+        if ! /usr/bin/codesign --verify --deep --strict -R="designated => $CURRENT_REQ" "$CANDIDATE" 2>/dev/null; then
+            echo "❌ 更新包签名身份与当前 App 不匹配" >&2
+            hdiutil detach "$VOLUME" -quiet || true
+            open "$TARGET"
+            exit 1
+        fi
+
         # 替换整个 .app
         rm -rf "$TARGET"
-        cp -R "$VOLUME/Pastry.app" "$TARGET"
+        cp -R "$CANDIDATE" "$TARGET"
 
         # 卸载 DMG
         hdiutil detach "$VOLUME" -quiet
@@ -256,13 +289,15 @@ final class UpdateChecker {
         }
     }
 
-    enum UpdateError: LocalizedError {
+    enum UpdateError: LocalizedError, Equatable {
         case invalidURL
+        case insecureURL
         case downloadFailed
 
         var errorDescription: String? {
             switch self {
             case .invalidURL: return "下载链接无效"
+            case .insecureURL: return "下载链接必须使用 HTTPS"
             case .downloadFailed: return "下载失败"
             }
         }
