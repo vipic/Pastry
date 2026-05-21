@@ -235,11 +235,7 @@ final class StoreManager: ObservableObject {
         }
 
         if items.isEmpty {
-            let pb = NSPasteboard.general
-            pb.clearContents()
-            pb.declareTypes([.string], owner: nil)
-            pb.setString("", forType: .string)
-            ClipboardMonitor.shared.syncChangeCount()
+            PasteboardWriter.clearSystemClipboard()
         }
 
         ClipboardMonitor.shared.resume()
@@ -262,11 +258,7 @@ final class StoreManager: ObservableObject {
         items.removeAll()
         filteredItems.removeAll()
         refreshStats()
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.declareTypes([.string], owner: nil)
-        pb.setString("", forType: .string)
-        ClipboardMonitor.shared.syncChangeCount()
+        PasteboardWriter.clearSystemClipboard()
         ClipboardMonitor.shared.resume()
     }
 
@@ -410,11 +402,7 @@ final class StoreManager: ObservableObject {
         DatabaseManager.shared.clearNonPinned()
         items = items.filter { $0.isPinned }
         if items.isEmpty {
-            let pb = NSPasteboard.general
-            pb.clearContents()
-            pb.declareTypes([.string], owner: nil)
-            pb.setString("", forType: .string)
-            ClipboardMonitor.shared.syncChangeCount()
+            PasteboardWriter.clearSystemClipboard()
         }
         performSearchImmediate()
         refreshStats()

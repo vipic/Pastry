@@ -76,4 +76,13 @@ final class PasteboardWriterTests: XCTestCase {
         XCTAssertEqual(result, .noWritableContent)
         XCTAssertNil(pasteboard.string(forType: .string))
     }
+
+    func testClearSystemClipboardLeavesEmptyStringType() {
+        pasteboard.setString("old", forType: .string)
+
+        PasteboardWriter.clearSystemClipboard(to: pasteboard)
+
+        XCTAssertTrue(pasteboard.types?.contains(.string) == true)
+        XCTAssertEqual(pasteboard.string(forType: .string), "")
+    }
 }
