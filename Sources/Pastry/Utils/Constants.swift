@@ -39,6 +39,7 @@ enum UserDefaultsKeys {
     static let hotkeyKeyCode = "hotkey_keycode"
     static let hotkeyModifiers = "hotkey_modifiers"
     static let excludedBundleIDs = "excluded_bundle_ids"
+    static let linkPreviewNetworkEnabled = "link_preview_network_enabled"
 }
 
 // MARK: - 颜色

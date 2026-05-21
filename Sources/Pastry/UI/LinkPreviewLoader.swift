@@ -41,6 +41,13 @@ final class LinkPreviewLoader {
     }
 
     func load(url: URL, completion: @escaping (Preview?) -> Void) {
+        guard NetworkAccessPolicy.isLinkPreviewEnabled,
+              NetworkAccessPolicy.isAllowedRemoteResourceURL(url)
+        else {
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+
         let key = url.absoluteString
         if let cached = cache.object(forKey: key as NSString) {
             completion(cached.preview)
@@ -50,8 +57,11 @@ final class LinkPreviewLoader {
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
 
-        session.dataTask(with: request) { [weak self] data, _, _ in
-            guard let self, let data = data,
+        session.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self,
+                  NetworkAccessPolicy.responseWithinLimit(response, maxBytes: NetworkAccessPolicy.maxHTMLBytes),
+                  let data = data,
+                  data.count <= NetworkAccessPolicy.maxHTMLBytes,
                   let html = String(data: data, encoding: .utf8)
             else { DispatchQueue.main.async { completion(nil) }; return }
             let title = self.extractMeta(from: html, tag: "og:title")

@@ -47,7 +47,7 @@ struct ClipboardCardView: View {
     private static let appIconSize: CGFloat = 72
 
     /// 路径 → NSImage 缓存，避免重绘时重复创建实例导致闪烁
-    private static let imageCache = NSCache<NSString, NSImage>()
+    private nonisolated(unsafe) static let imageCache = NSCache<NSString, NSImage>()
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -448,7 +448,7 @@ struct ClipboardCardView: View {
         case systemIcon  // 其他 → NSWorkspace 系统图标
     }
 
-    static func filePreviewStyle(for url: URL) -> FilePreviewStyle {
+    nonisolated static func filePreviewStyle(for url: URL) -> FilePreviewStyle {
         if imageExtensions.contains(url.pathExtension.lowercased()) { return .thumbnail }
         return .systemIcon
     }
@@ -547,9 +547,9 @@ struct ClipboardCardView: View {
                 await MainActor.run { asyncFilePreview = cached }
                 return
             }
-            let img = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+            let img = await Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
                 NSImage(contentsOfFile: path)
-            }.value
+            }).value
             if let img = img {
                 Self.imageCache.setObject(img, forKey: key)
                 await MainActor.run { asyncFilePreview = img }
@@ -560,7 +560,7 @@ struct ClipboardCardView: View {
         // 文件 URL 类型 — 异步检查存在性并加载图标
         if item.sourceFormat == .fileURL {
             let urls = fileURLs
-            let result = await Task.detached(priority: .userInitiated) { () -> (missing: Set<URL>, icons: [(URL, NSImage, Bool)]) in
+            let result = await Task.detached(priority: .userInitiated, operation: { () -> (missing: Set<URL>, icons: [(URL, NSImage, Bool)]) in
                 var missing: Set<URL> = []
                 var icons: [(URL, NSImage, Bool)] = []
                 for url in urls {
@@ -595,7 +595,7 @@ struct ClipboardCardView: View {
                     }
                 }
                 return (missing, icons)
-            }.value
+            }).value
 
             await MainActor.run {
                 missingFileURLs = result.missing
@@ -700,7 +700,7 @@ struct ClipboardCardView: View {
         return icon
     }
 
-    static let imageExtensions: Set<String> = [
+    nonisolated static let imageExtensions: Set<String> = [
         "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "heic", "heif",
     ]
 
@@ -1199,4 +1199,3 @@ struct ClipboardCardView: View {
     }
 
 }
-

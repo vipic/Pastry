@@ -35,12 +35,10 @@ struct RemoteThumbnail: View {
             return
         }
 
-        guard let url = URL(string: urlString) else { return }
-        Task {
-            guard let (data, _) = try? await URLSession.shared.data(from: url),
-                  let img = NSImage(data: data) else { return }
+        RemoteImageLoader.shared.load(urlString: urlString) { img in
+            guard let img else { return }
             Self.cache.setObject(img, forKey: key)
-            await MainActor.run { image = img }
+            image = img
         }
     }
 }

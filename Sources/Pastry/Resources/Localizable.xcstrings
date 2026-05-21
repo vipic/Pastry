@@ -2381,6 +2381,40 @@
         }
       }
     },
+    "settings.link_preview_network": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许链接预览联网"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Link Preview Network Access"
+          }
+        }
+      }
+    },
+    "settings.link_preview_network_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启后会向剪贴板中的 HTTPS 链接和图片地址发起请求；本地和内网地址会被拦截。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When enabled, Pastry fetches HTTPS pages and image URLs from clipboard links; local and private-network addresses are blocked."
+          }
+        }
+      }
+    },
     "settings.excluded_apps": {
       "extractionState": "manual",
       "localizations": {

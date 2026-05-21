@@ -31,19 +31,30 @@ final class RemoteImageLoader {
 
     /// 异步拉取（缓存命中直接回调，未命中网络请求）
     func load(urlString: String, completion: @escaping (NSImage?) -> Void) {
+        guard NetworkAccessPolicy.isLinkPreviewEnabled else {
+            completion(nil)
+            return
+        }
+
         let key = urlString as NSString
         if let cached = cache.object(forKey: key) {
             completion(cached)
             return
         }
 
-        guard let url = URL(string: urlString) else {
+        guard let url = URL(string: urlString),
+              NetworkAccessPolicy.isAllowedRemoteResourceURL(url)
+        else {
             completion(nil)
             return
         }
 
-        session.dataTask(with: url) { [weak self] data, _, error in
-            guard let self, let data = data, error == nil,
+        session.dataTask(with: url) { [weak self] data, response, error in
+            guard let self,
+                  NetworkAccessPolicy.responseWithinLimit(response, maxBytes: NetworkAccessPolicy.maxImageBytes),
+                  let data = data,
+                  data.count <= NetworkAccessPolicy.maxImageBytes,
+                  error == nil,
                   let image = NSImage(data: data)
             else {
                 DispatchQueue.main.async { completion(nil) }

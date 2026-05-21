@@ -19,8 +19,6 @@ extension Notification.Name {
     static let overlayCmdPaste       = Notification.Name("overlayCmdPaste")
     static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
     static let overlaySearchEnterPaste = Notification.Name("overlaySearchEnterPaste")
-    static let overlayToggleFilterPopover = Notification.Name("overlayToggleFilterPopover")
-    static let filterPopoverStateChanged  = Notification.Name("filterPopoverStateChanged")
 }
 
 // MARK: - 覆盖层主视图
