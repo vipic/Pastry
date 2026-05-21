@@ -47,15 +47,11 @@ struct AboutView: View {
     }
 
     private var appVersion: String {
-        AppVersion.current == "0.0.0-dev"
-            ? (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-            : UpdateChecker.displayVersion(AppVersion.current)
+        AppVersion.displayCurrent
     }
 
     private var appBuild: String {
-        AppVersion.build == "0"
-            ? (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
-            : AppVersion.build
+        AppVersion.displayBuild
     }
 }
 

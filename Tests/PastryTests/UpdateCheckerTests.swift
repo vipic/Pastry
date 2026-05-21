@@ -108,6 +108,13 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(UpdateChecker.displayVersion("1.2.3"), "1.2.3")
     }
 
+    func testAppVersionDisplayFallsBackToBundleWhenGeneratedIsPlaceholder() {
+        XCTAssertEqual(AppVersion.displayCurrent(generated: "0.0.0-dev", bundle: "1.3.17"), "1.3.17")
+        XCTAssertEqual(AppVersion.displayCurrent(generated: "v1.4.0", bundle: "1.3.17"), "1.4.0")
+        XCTAssertEqual(AppVersion.displayBuild(generated: "0", bundle: "abc1234"), "abc1234")
+        XCTAssertEqual(AppVersion.displayBuild(generated: "42", bundle: "abc1234"), "42")
+    }
+
     func testVersionComparisonHandlesLeadingVAndDifferentLengths() {
         XCTAssertTrue(UpdateChecker.isNewer(tag: "v1.10.0", than: "1.9.9"))
         XCTAssertTrue(UpdateChecker.isNewer(tag: "vv2.0", than: "v1.9.9"))
