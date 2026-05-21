@@ -611,34 +611,30 @@ struct OverlayView: View {
     // MARK: - 空状态
 
     private var emptyState: some View {
-        let isPinnedTab = store.pinTab == .pinned
-        let isFiltered = !store.searchQuery.isEmpty
+        let hasActiveFilters = !store.searchQuery.isEmpty
             || store.typeFilter != nil
             || store.appFilter != nil
             || store.timeFilter != .any
+        let model = OverlayEmptyStateModel.resolve(
+            isPinnedTab: store.pinTab == .pinned,
+            hasActiveFilters: hasActiveFilters
+        )
 
-        let icon: String
-        let message: String
-
-        if isPinnedTab && !isFiltered {
-            icon = "pin.slash"
-            message = L10n["empty.no_pins"]
-        } else if isFiltered {
-            icon = "magnifyingglass"
-            message = L10n["empty.no_results"]
-        } else {
-            icon = "clipboard"
-            message = L10n["empty.no_history"]
-        }
-
-        return VStack(spacing: 14) {
-            Image(systemName: icon)
+        return VStack(spacing: 8) {
+            Image(systemName: model.icon)
                 .font(.system(size: 32))
                 .foregroundColor(.white.opacity(0.6))
-            Text(message)
+                .padding(.bottom, 6)
+            Text(model.title)
                 .font(.body)
-                .foregroundColor(.white.opacity(0.65))
+                .foregroundColor(.white.opacity(0.72))
+            Text(model.subtitle)
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.46))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
         }
+        .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, minHeight: UIConstants.Overlay.emptyStateMinHeight)
     }
 }

@@ -1038,6 +1038,23 @@
         }
       }
     },
+    "empty.no_pins_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右键卡片并选择收藏后会出现在这里。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorite a card from its context menu to keep it here."
+          }
+        }
+      }
+    },
     "empty.no_results": {
       "extractionState": "manual",
       "localizations": {
@@ -1055,6 +1072,23 @@
         }
       }
     },
+    "empty.no_results_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调整搜索词或清除筛选条件后再试。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try changing the search text or clearing filters."
+          }
+        }
+      }
+    },
     "empty.no_history": {
       "extractionState": "manual",
       "localizations": {
@@ -1068,6 +1102,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "No clipboard history yet"
+          }
+        }
+      }
+    },
+    "empty.no_history_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制文本、链接、图片或文件后会自动记录。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy text, links, images, or files to start building history."
           }
         }
       }
