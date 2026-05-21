@@ -21,19 +21,8 @@ final class DatabaseManager {
     private var lastKeyTime: Date = .distantPast
 
     private init() {
-        guard let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
-            log.error("无法获取 Application Support 目录")
-            fatalError("Application Support directory is unavailable")
-        }
-        let dir = appSupport.appendingPathComponent(Constants.appName)
-        do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        } catch {
-            log.error("无法创建数据库目录: \(dir.path, privacy: .public), error: \(error.localizedDescription)")
-        }
+        let dir = AppDirectories.applicationSupportDirectory()
+        AppDirectories.ensureDirectory(dir, logCategory: "database")
 
         dbPath = dir.appendingPathComponent("clips.db").path
         openDatabase()
