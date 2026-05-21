@@ -11,7 +11,7 @@ Package.resolved
 *.app
 *.dSYM
 *.dmg
-Pastry
+/Pastry
 Info.plist
 .release_staging/
 

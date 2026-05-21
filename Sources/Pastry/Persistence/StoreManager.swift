@@ -156,38 +156,8 @@ final class StoreManager: ObservableObject {
     }
 
     func pasteItem(_ item: ClipboardItem) async {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-
-        // 列表查询只取前 256 字符，粘贴前按需取完整内容
-        let fullContent: String
-        switch item.sourceFormat {
-        case .text, .rtf, .html:
-            fullContent = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
-        default:
-            fullContent = item.content
-        }
-
-        switch item.sourceFormat {
-        case .text:
-            pb.setString(fullContent, forType: .string)
-        case .rtf, .html:
-            pb.setString(fullContent, forType: .string)
-            if let raw = item.rawFormatData, let typeStr = item.rawFormatType {
-                pb.setData(raw, forType: NSPasteboard.PasteboardType(typeStr))
-            }
-        case .fileURL:
-            let urls = item.content
-                .split(separator: "\n")
-                .map { URL(fileURLWithPath: String($0)) }
-            pb.writeObjects(urls as [NSURL])
-        case .image:
-            if let image = await Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
-                NSImage(contentsOfFile: item.content)
-            }).value {
-                pb.writeObjects([image])
-            }
-        }
+        let result = await PasteboardWriter.write(item, options: .storeSingle)
+        guard result == .written else { return }
 
         DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
 

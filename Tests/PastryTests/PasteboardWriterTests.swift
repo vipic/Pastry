@@ -1,0 +1,79 @@
+import Cocoa
+import XCTest
+@testable import Pastry
+
+final class PasteboardWriterTests: XCTestCase {
+    private var pasteboard: NSPasteboard!
+
+    override func setUp() {
+        pasteboard = NSPasteboard.withUniqueName()
+        pasteboard.clearContents()
+    }
+
+    override func tearDown() {
+        pasteboard.clearContents()
+        pasteboard = nil
+    }
+
+    func testTextUsesFullContentProvider() async {
+        let item = ClipboardItem(content: "truncated", sourceFormat: .text)
+
+        let result = await PasteboardWriter.write(
+            item,
+            to: pasteboard,
+            options: .storeSingle,
+            loadFullContent: { _ in "full text content" }
+        )
+
+        XCTAssertEqual(result, .written)
+        XCTAssertEqual(pasteboard.string(forType: .string), "full text content")
+    }
+
+    func testRichTextWritesStringAndOriginalFormat() async {
+        let raw = Data("{\\rtf1\\ansi Hello}".utf8)
+        let item = ClipboardItem(
+            content: "Hello",
+            sourceFormat: .rtf,
+            rawFormatData: raw,
+            rawFormatType: NSPasteboard.PasteboardType.rtf.rawValue
+        )
+
+        let result = await PasteboardWriter.write(item, to: pasteboard, options: .storeSingle)
+
+        XCTAssertEqual(result, .written)
+        XCTAssertEqual(pasteboard.string(forType: .string), "Hello")
+        XCTAssertEqual(pasteboard.data(forType: .rtf), raw)
+    }
+
+    func testOverlaySingleFiltersMissingFileURLs() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let existing = dir.appendingPathComponent("existing.txt")
+        let missing = dir.appendingPathComponent("missing.txt")
+        try "ok".write(to: existing, atomically: true, encoding: .utf8)
+        let item = ClipboardItem(
+            content: "\(existing.path)\n\(missing.path)",
+            sourceFormat: .fileURL
+        )
+
+        let result = await PasteboardWriter.write(item, to: pasteboard, options: .overlaySingle)
+        let objects = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL]
+
+        XCTAssertEqual(result, .written)
+        XCTAssertEqual(objects, [existing])
+    }
+
+    func testOverlaySingleRejectsAllMissingFileURLs() async {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("missing.txt")
+        let item = ClipboardItem(content: missing.path, sourceFormat: .fileURL)
+
+        let result = await PasteboardWriter.write(item, to: pasteboard, options: .overlaySingle)
+
+        XCTAssertEqual(result, .noWritableContent)
+        XCTAssertNil(pasteboard.string(forType: .string))
+    }
+}
