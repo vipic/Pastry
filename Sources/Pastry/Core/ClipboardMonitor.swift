@@ -235,11 +235,6 @@ final class ClipboardMonitor: ObservableObject {
         // 首次检测到剪贴板变化时延迟创建 event tap，避免应用启动时弹出辅助功能授权
         setupEventTap()
 
-        // changeCount 变化即播提示音 — 不管后续要不要记录，用户需要知道 ⌘C 生效了
-        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
-            Self.copySound?.play()
-        }
-
         var (capturedApp, capturedBundleID) = resolveSourceApp()
 
         // 1Password Quick Open 在 pasteboard 上写 com.agilebits.onepassword 自定义类型。
@@ -258,10 +253,6 @@ final class ClipboardMonitor: ObservableObject {
     // MARK: - 处理剪贴板变化
 
     private func processChange(capturedApp: String?, capturedBundleID: String?) {
-        // 诊断日志：每次剪贴板变化都记录来源和类型，用于排查「只响不记」问题
-        let pbTypes = NSPasteboard.general.types
-        log.info("剪贴板变化: 来源=\(capturedApp ?? "nil")(\(capturedBundleID ?? "nil")), types=\(pbTypes?.map(\.rawValue).joined(separator: ",") ?? "nil")")
-
         // 排除名单：密码管理器等敏感应用不保存剪贴板历史
         if let bundleID = capturedBundleID {
             let excluded = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
@@ -285,6 +276,11 @@ final class ClipboardMonitor: ObservableObject {
 
         guard let types = pb.types, !types.isEmpty else {
             return
+        }
+
+        // 类型非空，确认有效复制 → 播提示音
+        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
+            Self.copySound?.play()
         }
 
         // 检测 Handoff/通用剪贴板来源
