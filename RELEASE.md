@@ -7,24 +7,24 @@
 - macOS 26+
 - Xcode Command Line Tools
 - `gh` CLI：仅 `--publish` 发布 GitHub Release 时需要
-- 固定代码签名证书：建议使用 `Pastry Release`
+- 固定代码签名证书：默认使用作者级证书 `Nekutai`，也可通过 `CODESIGN_IDENTITY` 指定自己的证书名
 
-创建证书：
+创建证书（已有同名作者证书可直接复用，多个应用可以共用同一张代码签名证书）：
 
 ```text
 Keychain Access -> 证书助理 -> 创建证书
-名称: Pastry Release
+名称: Nekutai
 身份类型: 自签名根
 证书类型: 代码签名
 ```
 
-也可以通过环境变量覆盖证书名：
+如果证书名不是 `Nekutai`，通过环境变量覆盖：
 
 ```bash
 export CODESIGN_IDENTITY="Nekutai"
 ```
 
-没有匹配证书时脚本会回退到 ad-hoc 签名，应用仍可运行，但 macOS 权限持久性会变差。
+没有匹配证书时脚本会回退到 ad-hoc 签名，应用仍可运行，但 macOS 权限持久性会变差。显式设置 `CODESIGN_IDENTITY="-"` 可强制使用 ad-hoc。
 
 ## 版本号规则
 
@@ -49,7 +49,7 @@ export CODESIGN_IDENTITY="Nekutai"
 - release 编译
 - 去除调试符号
 - 组装 `.app`
-- 固定证书签名
+- 固定作者级证书签名
 - 打包 DMG
 - DMG 烟测
 - 输出 SHA256

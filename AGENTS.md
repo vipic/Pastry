@@ -18,24 +18,24 @@
 
 ### 一次性设置：代码签名证书
 
-为了让 TCC 权限（辅助功能等）在更新时不丢失，需要固定签名证书。两个脚本各自使用独立证书：
+为了让 TCC 权限（辅助功能等）在更新时不丢失，需要固定签名证书。当前脚本默认使用作者级共享证书 `Nekutai`，也可以通过 `CODESIGN_IDENTITY` 指定任意稳定的代码签名证书。证书不再按应用拆分成 Dev/Release；同一个作者的多个应用可以共用一张证书。
 
 | 脚本 | 证书名称 | 用途 |
 |---|---|---|
-| `deploy.sh` | `Pastry Dev` | 开发版，`com.nekutai.pastry.dev` |
-| `release.sh` | `Pastry Release` | 正式版，`com.nekutai.pastry` |
+| `deploy.sh` | `${CODESIGN_IDENTITY:-Nekutai}` | 开发版，`com.nekutai.pastry.dev` |
+| `release.sh` | `${CODESIGN_IDENTITY:-Nekutai}` | 正式版，`com.nekutai.pastry` |
 
 **创建方法（只需一次，30 秒）：**
 
 1. 打开 **Keychain Access**（钥匙串访问）
 2. 菜单 **钥匙串访问 → 证书助理 → 创建证书**
-3. 名称填 `Pastry Dev`（或 `Pastry Release`）
+3. 名称填 `Nekutai`（或你自己的作者证书名）
 4. 身份类型：**自签名根**
 5. 证书类型：**代码签名**
 6. 勾选 **覆盖默认**（覆盖默认值）
 7. 点击「继续」→「创建」
 
-证书缺时脚本自动回退到 ad-hoc 签名，不影响运行，仅 TCC 权限不持久。
+证书缺时脚本自动回退到 ad-hoc 签名，不影响运行，仅 TCC 权限不持久。显式设置 `CODESIGN_IDENTITY="-"` 可强制 ad-hoc。
 
 ### 手动命令（备用）
 
@@ -48,7 +48,7 @@ cp .build/release/Pastry ~/Applications/Pastry.app/Contents/MacOS/Pastry
 
 # 重签
 rm -rf ~/Applications/Pastry.app/Contents/_CodeSignature
-codesign --force --sign "Pastry Dev" ~/Applications/Pastry.app   # 或 --sign - 回退 ad-hoc
+codesign --force --sign "${CODESIGN_IDENTITY:-Nekutai}" ~/Applications/Pastry.app   # 或 --sign - 回退 ad-hoc
 
 # 重启
 pkill -f Pastry; sleep 0.5; open ~/Applications/Pastry.app
@@ -195,10 +195,10 @@ Button(action: { selectedItem = item }) { ... }
 
 ### 架构
 
-`clips.db` 使用 SQLCipher 全库加密，保护剪贴板历史不被直接读取。密钥存在 macOS Keychain 中（service: `com.nekutai.pastry.dbkey`）。
+`clips.db` 使用 SQLCipher 全库加密，保护剪贴板历史不被直接读取。当前版本优先使用数据库旁的 `.key` 文件保存加密后的密钥；macOS Keychain（service: `com.nekutai.pastry.dbkey`）仅作为旧版本迁移来源，避免每次重新签名后反复弹出钥匙串授权。
 
-- **密钥生成**：首次启动时 `SecRandomCopyBytes` 生成 256-bit 随机密钥，存入 Keychain
-- **密钥读取**：后续启动从 Keychain 读取
+- **密钥生成**：首次启动时 `SecRandomCopyBytes` 生成 256-bit 随机密钥，使用设备派生 KEK 加密后写入 `.key` 文件
+- **旧密钥迁移**：如果 `.key` 不存在但 Keychain 里有旧密钥，会读取一次并迁移到 `.key`
 - **加密激活**：`sqlite3_key()` 在打开数据库后立即调用
 - **透明性**：FTS5 全文搜索正常工作，查询逻辑无变化
 - **测试跳过**：`init(dbPath:)` 构造函数通过 `openDatabase(useEncryption: false)` 跳过加密
