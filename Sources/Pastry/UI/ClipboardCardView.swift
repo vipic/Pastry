@@ -453,77 +453,15 @@ struct ClipboardCardView: View {
         return .systemIcon
     }
 
-    /// 缺失文件的图标占位区（等高等宽替换原有图标/缩略图，居中布局）
-    private var missingIconPlaceholder: some View {
-        VStack(spacing: 4) {
-            Spacer()
-            Image(systemName: "questionmark.folder")
-                .font(.system(size: 28))
-                .foregroundColor(.secondary.opacity(0.3))
-            Text(L10n["card.file_not_found"])
-                .font(.system(size: 10))
-                .foregroundColor(.secondary.opacity(0.45))
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     @ViewBuilder
     private var fileURLContent: some View {
-        let urls = fileURLs
-        if urls.count == 1 {
-            singleFilePreview(urls[0], style: Self.filePreviewStyle(for: urls[0]))
-        } else {
-            fileURLList
-        }
-    }
-
-    /// 单文件卡片：统一布局，预览内容按策略切换。缺失文件在图标区显示提示，文件名加删除线
-    private func singleFilePreview(_ url: URL, style: FilePreviewStyle) -> some View {
-        let isMissing = missingFileURLs.contains(url)
-        return VStack(spacing: style == .thumbnail ? 6 : 4) {
-            if isMissing {
-                missingIconPlaceholder
-            } else {
-                filePreviewContent(url: url, style: style)
-            }
-            Text(url.lastPathComponent)
-                .font(.system(size: 9))
-                .foregroundColor(isMissing ? .secondary.opacity(0.4) : .secondary)
-                .strikethrough(isMissing)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    @ViewBuilder
-    private func filePreviewContent(url: URL, style: FilePreviewStyle) -> some View {
-        switch style {
-        case .thumbnail:
-            if let img = asyncFilePreview {
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                fallbackPreview
-            }
-        case .systemIcon:
-            if let icon = asyncFileIcons[url] {
-                Image(nsImage: icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-    }
-
-    /// NSImage 文件缓存（缩略图用 — 仅缓存查询，不做 I/O）
-    private func cachedImage(for url: URL) -> NSImage? {
-        let key = url.path as NSString
-        return Self.imageCache.object(forKey: key)
+        FilePreviewContent(
+            urls: fileURLs,
+            missingURLs: missingFileURLs,
+            thumbnailImage: asyncFilePreview,
+            fileIcons: asyncFileIcons,
+            styleForURL: Self.filePreviewStyle(for:)
+        )
     }
 
     private var filePreviewTaskID: String {
@@ -682,45 +620,6 @@ struct ClipboardCardView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - 文件预览列表（多文件）
-    private var fileURLList: some View {
-        let urls = fileURLs
-        return VStack(alignment: .leading, spacing: 3) {
-            ForEach(urls.prefix(4), id: \.self) { url in
-                let isMissing = missingFileURLs.contains(url)
-                HStack(spacing: 4) {
-                    if isMissing {
-                        Image(systemName: "questionmark.folder")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary.opacity(0.4))
-                    } else if let icon = asyncFileIcons[url] {
-                        Image(nsImage: icon)
-                            .resizable()
-                            .frame(width: 12, height: 12)
-                    }
-                    Text(url.lastPathComponent)
-                        .lineLimit(1)
-                        .font(.system(size: 10))
-                        .foregroundColor(isMissing ? .secondary.opacity(0.4) : .primary)
-                        .strikethrough(isMissing)
-                }
-            }
-            if urls.count > 4 {
-                Text(String(format: L10n["card.extra_files"], urls.count - 4)).font(.system(size: 9)).foregroundColor(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// NSWorkspace 文件图标缓存
-    private func systemIcon(for url: URL) -> NSImage? {
-        let cacheKey = "icon:\(url.path)" as NSString
-        if let cached = Self.imageCache.object(forKey: cacheKey) { return cached }
-        let icon = NSWorkspace.shared.icon(forFile: url.path)
-        Self.imageCache.setObject(icon, forKey: cacheKey)
-        return icon
     }
 
     nonisolated static let imageExtensions: Set<String> = [
