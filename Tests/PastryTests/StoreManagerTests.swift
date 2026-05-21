@@ -231,6 +231,20 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertFalse(store.hasActiveFilters)
     }
 
+    // MARK: - History Retention
+
+    func testApplyHistoryRetentionSettingsInvokesCleanup() {
+        store = makeStoreWithItems([("A", .text, "Safari", false, 0)])
+        var didEnforce = false
+
+        store.applyHistoryRetentionSettings(
+            enforce: { didEnforce = true },
+            reloadFromDatabase: false
+        )
+
+        XCTAssertTrue(didEnforce)
+    }
+
     // MARK: - togglePin
 
     func testTogglePinInMemory() {
