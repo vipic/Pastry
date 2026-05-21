@@ -550,42 +550,13 @@ struct OverlayView: View {
             OverlayPanelManager.shared.beginDragThrough()
             let ids = selection.selectedIds
             if ids.count > 1, ids.contains(item.id) {
-                // 多选拖拽：拼接所有选中条目的文本
                 let selected = visibleItems.filter { ids.contains($0.id) }
-                let text = selected.compactMap { it -> String? in
-                    switch it.sourceFormat {
-                    case .text, .rtf, .html:
-                        return DatabaseManager.shared.loadFullContent(id: it.id) ?? it.content
-                    case .fileURL: return it.content
-                    default: return nil
-                    }
-                }.joined(separator: "\n")
-                guard !text.isEmpty else { return NSItemProvider(object: "" as NSString) }
-                return NSItemProvider(object: text as NSString)
+                return DragPayloadBuilder.providerForSelection(selected) { item in
+                    DatabaseManager.shared.loadFullContent(id: item.id)
+                }
             } else {
-                // 单选拖拽：按类型提供原生数据
-                switch item.sourceFormat {
-                case .image:
-                    let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
-                    let imageURL = URL(fileURLWithPath: imagePath)
-                    if FileManager.default.fileExists(atPath: imagePath),
-                       let provider = NSItemProvider(contentsOf: imageURL) {
-                        provider.suggestedName = imageURL.lastPathComponent
-                        return provider
-                    }
-                    return NSItemProvider(object: item.content as NSString)
-                case .fileURL:
-                    let firstPath = item.content.split(separator: "\n").first.map(String.init) ?? item.content
-                    let fileURL = URL(fileURLWithPath: firstPath)
-                    if FileManager.default.fileExists(atPath: firstPath),
-                       let provider = NSItemProvider(contentsOf: fileURL) {
-                        provider.suggestedName = fileURL.lastPathComponent
-                        return provider
-                    }
-                    return NSItemProvider(object: item.content as NSString)
-                default:
-                    let content = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
-                    return NSItemProvider(object: content as NSString)
+                return DragPayloadBuilder.provider(for: item) { item in
+                    DatabaseManager.shared.loadFullContent(id: item.id)
                 }
             }
         }

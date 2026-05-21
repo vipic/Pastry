@@ -265,6 +265,31 @@ final class FilePreviewTests: XCTestCase {
                       "URL 条目的 sourceFormat 为 .text，应属文本类可预览")
     }
 
+    func testSingleURLDragProviderExposesURLType() {
+        let item = ClipboardItem(
+            content: "https://example.com/video",
+            sourceFormat: .text,
+            tags: ContentTags(isURL: true)
+        )
+
+        let provider = DragPayloadBuilder.provider(for: item)
+
+        XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.url"))
+        XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.utf8-plain-text"))
+    }
+
+    func testMultiURLSelectionDragProviderExposesURLAndTextTypes() {
+        let items = [
+            ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
+            ClipboardItem(content: "https://example.com/b", sourceFormat: .text, tags: ContentTags(isURL: true)),
+        ]
+
+        let provider = DragPayloadBuilder.providerForSelection(items)
+
+        XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.url"))
+        XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.utf8-plain-text"))
+    }
+
     func testTextTypeCanPreview() {
         XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .text))
         XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .rtf))
