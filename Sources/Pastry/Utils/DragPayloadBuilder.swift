@@ -45,6 +45,20 @@ enum DragPayloadBuilder {
         return NSItemProvider(object: text as NSString)
     }
 
+    static func webURLsForLinkSelection(
+        _ items: [ClipboardItem],
+        loadFullContent: (ClipboardItem) -> String? = { _ in nil }
+    ) -> [URL] {
+        guard !items.isEmpty else { return [] }
+        var urls: [URL] = []
+        for item in items {
+            let itemURLs = webURLs(in: item, loadFullContent: loadFullContent)
+            guard !itemURLs.isEmpty else { return [] }
+            urls.append(contentsOf: itemURLs)
+        }
+        return urls
+    }
+
     static func multiSelectText(
         _ items: [ClipboardItem],
         loadFullContent: (ClipboardItem) -> String? = { _ in nil }

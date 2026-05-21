@@ -5,6 +5,7 @@ struct MultiSelectionDragSourceView: NSViewRepresentable {
     let isActive: Bool
     let itemCount: Int
     let payloadText: String
+    let payloadURLs: [URL]
 
     func makeNSView(context: Context) -> MultiSelectionDragSourceNSView {
         MultiSelectionDragSourceNSView()
@@ -14,6 +15,7 @@ struct MultiSelectionDragSourceView: NSViewRepresentable {
         nsView.isActive = isActive
         nsView.itemCount = itemCount
         nsView.payloadText = payloadText
+        nsView.payloadURLs = payloadURLs
     }
 }
 
@@ -21,6 +23,7 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     var isActive = false
     var itemCount = 0
     var payloadText = ""
+    var payloadURLs: [URL] = []
     private var mouseDownEvent: NSEvent?
     private var didStartDrag = false
 
@@ -40,11 +43,10 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
         guard !didStartDrag, isActive else { return }
         didStartDrag = true
 
-        let draggingItem = NSDraggingItem(pasteboardWriter: payloadText as NSString)
-        draggingItem.setDraggingFrame(draggingFrame, contents: dragImage)
+        let draggingItems = makeDraggingItems()
 
         guard let startEvent = mouseDownEvent ?? window?.currentEvent else { return }
-        let session = beginDraggingSession(with: [draggingItem], event: startEvent, source: self)
+        let session = beginDraggingSession(with: draggingItems, event: startEvent, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = false
 
         Task { @MainActor in
@@ -72,6 +74,21 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
             width: side,
             height: side
         )
+    }
+
+    private func makeDraggingItems() -> [NSDraggingItem] {
+        if !payloadURLs.isEmpty {
+            return payloadURLs.enumerated().map { index, url in
+                let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+                let contents: Any? = index == 0 ? dragImage : NSImage(size: .zero)
+                item.setDraggingFrame(index == 0 ? draggingFrame : draggingFrame.offsetBy(dx: 1, dy: -1), contents: contents)
+                return item
+            }
+        }
+
+        let item = NSDraggingItem(pasteboardWriter: payloadText as NSString)
+        item.setDraggingFrame(draggingFrame, contents: dragImage)
+        return [item]
     }
 
     private var dragImage: NSImage {

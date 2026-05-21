@@ -299,6 +299,27 @@ final class FilePreviewTests: XCTestCase {
         wait(for: [exp], timeout: 1)
     }
 
+    func testMultiURLSelectionExtractsSeparateWebURLsForFileDrops() {
+        let items = [
+            ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
+            ClipboardItem(content: "https://example.com/b", sourceFormat: .text, tags: ContentTags(isURL: true)),
+        ]
+
+        XCTAssertEqual(
+            DragPayloadBuilder.webURLsForLinkSelection(items).map(\.absoluteString),
+            ["https://example.com/a", "https://example.com/b"]
+        )
+    }
+
+    func testMixedURLAndTextSelectionDoesNotUseSeparateWebURLDragItems() {
+        let items = [
+            ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
+            ClipboardItem(content: "plain note", sourceFormat: .text),
+        ]
+
+        XCTAssertTrue(DragPayloadBuilder.webURLsForLinkSelection(items).isEmpty)
+    }
+
     func testMixedURLAndTextSelectionKeepsPlainTextPayload() {
         let items = [
             ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
