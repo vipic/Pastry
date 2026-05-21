@@ -133,7 +133,7 @@ final class UpdateChecker {
     }
 
     /// 应用更新：挂载 DMG → 校验签名 → 备份替换整个 .app → 重启
-    func applyUpdate(dmgAt tempURL: URL) throws {
+    func applyUpdate(dmgAt tempURL: URL, expectedVersion: String) throws {
         let targetPath = Bundle.main.bundlePath
 
         // 将 DMG 移到稳定路径（tempURL 可能被系统清理）
@@ -145,7 +145,8 @@ final class UpdateChecker {
         let scriptPath = NSTemporaryDirectory() + "pastry_update.sh"
         let script = UpdateInstallScriptBuilder.script(
             stableDMGPath: stableDMG.path,
-            targetPath: targetPath
+            targetPath: targetPath,
+            expectedVersion: Self.displayVersion(expectedVersion)
         )
 
         try script.write(toFile: scriptPath, atomically: true, encoding: .utf8)
@@ -163,7 +164,7 @@ final class UpdateChecker {
     // MARK: - 版本比较
 
     private func currentVersionString() -> String {
-        Self.displayVersion(AppVersion.current)
+        AppVersion.displayCurrent
     }
 
     /// 语义化版本比较：tag > current → true

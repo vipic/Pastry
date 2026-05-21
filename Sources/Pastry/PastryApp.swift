@@ -312,7 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 onCancel: nil
             )
 
-            try UpdateChecker.shared.applyUpdate(dmgAt: tempURL)
+            try UpdateChecker.shared.applyUpdate(dmgAt: tempURL, expectedVersion: result.latestVersion)
         } catch {
             let log = Logger(subsystem: "com.nekutai.pastry", category: "update")
             log.error("更新失败: \(error.localizedDescription)")

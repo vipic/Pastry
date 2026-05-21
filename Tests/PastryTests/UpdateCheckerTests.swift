@@ -118,7 +118,8 @@ final class UpdateCheckerTests: XCTestCase {
     func testUpdateInstallScriptUsesBackupReplaceWithoutResigning() {
         let script = UpdateInstallScriptBuilder.script(
             stableDMGPath: "/tmp/pastry_update.dmg",
-            targetPath: "/Applications/Pastry.app"
+            targetPath: "/Applications/Pastry.app",
+            expectedVersion: "1.3.18"
         )
 
         XCTAssertTrue(script.contains("BACKUP=\"$TARGET_PARENT/.${TARGET_NAME}.update-backup-$(date +%s)\""))
@@ -127,5 +128,19 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertTrue(script.contains("mv \"$TARGET\" \"$BACKUP\""))
         XCTAssertTrue(script.contains("mv \"$BACKUP\" \"$TARGET\""))
         XCTAssertFalse(script.contains("codesign --force --deep --sign"))
+    }
+
+    func testUpdateInstallScriptVerifiesExpectedVersion() {
+        let script = UpdateInstallScriptBuilder.script(
+            stableDMGPath: "/tmp/pastry_update.dmg",
+            targetPath: "/Applications/Pastry.app",
+            expectedVersion: "1.3.18"
+        )
+
+        XCTAssertTrue(script.contains("EXPECTED_VERSION=\"1.3.18\""))
+        XCTAssertTrue(script.contains("CANDIDATE_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString'"))
+        XCTAssertTrue(script.contains("INSTALLED_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString'"))
+        XCTAssertTrue(script.contains("更新包版本不匹配"))
+        XCTAssertTrue(script.contains("安装后版本仍为"))
     }
 }

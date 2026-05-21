@@ -6,8 +6,12 @@ final class AppVersionInfoTests: XCTestCase {
         XCTAssertEqual(AppVersion.displayCurrent(generated: "0.0.0-dev", bundle: "1.3.17"), "1.3.17")
     }
 
-    func testDisplayCurrentPrefersGeneratedReleaseVersion() {
-        XCTAssertEqual(AppVersion.displayCurrent(generated: "v1.4.0", bundle: "1.3.17"), "1.4.0")
+    func testDisplayCurrentPrefersBundleVersion() {
+        XCTAssertEqual(AppVersion.displayCurrent(generated: "v1.4.0", bundle: "1.3.17"), "1.3.17")
+    }
+
+    func testDisplayCurrentUsesGeneratedReleaseVersionWhenBundleMissing() {
+        XCTAssertEqual(AppVersion.displayCurrent(generated: "v1.4.0", bundle: nil), "1.4.0")
     }
 
     func testDisplayBuildFallsBackToBundleWhenGeneratedIsPlaceholder() {
