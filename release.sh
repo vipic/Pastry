@@ -13,7 +13,7 @@ BUILD_DIR="$PROJECT_DIR/.build/release"
 STAGING="$PROJECT_DIR/.release_staging"
 DIST_DIR="$PROJECT_DIR/dist"
 BUNDLE_ID="com.nekutai.pastry"
-IDENTITY="${CODESIGN_IDENTITY:-}"
+IDENTITY="${CODESIGN_IDENTITY:-Pastry Release}"
 
 # 解析参数
 PUBLISH=false

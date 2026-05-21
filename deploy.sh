@@ -11,7 +11,7 @@ APP_DIR="$HOME/Applications/${APP_NAME} Dev.app"
 CONTENTS="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS/MacOS"
 RESOURCES_DIR="$CONTENTS/Resources"
-IDENTITY="${CODESIGN_IDENTITY:-}"
+IDENTITY="${CODESIGN_IDENTITY:-Pastry Dev}"
 
 echo "⚡ Deploying $APP_NAME (debug)..."
 
