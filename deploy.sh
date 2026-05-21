@@ -15,15 +15,10 @@ IDENTITY="${CODESIGN_IDENTITY:-Pastry Dev}"
 
 echo "⚡ Deploying $APP_NAME (debug)..."
 
-# 确保代码签名证书存在（TCC 权限持久保留）
-CERT_OK=true
-if [ -n "$IDENTITY" ] && security find-identity -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
-    :
-elif [ -n "$IDENTITY" ]; then
-    echo "⚠️  未找到 \"$IDENTITY\" 代码签名证书，回退 ad-hoc"
-    CERT_OK=false
+if [ "$IDENTITY" = "-" ]; then
+    echo "   签名身份: ad-hoc"
 else
-    CERT_OK=false
+    echo "   签名身份: $IDENTITY"
 fi
 
 cd "$PROJECT_DIR"
@@ -100,11 +95,17 @@ fi
 
 # 6. 清除残留签名（二进制替换后签名失效）并重签
 rm -rf "$APP_DIR/_CodeSignature" 2>/dev/null || true
-if $CERT_OK; then
-    codesign --force --sign "$IDENTITY" "$APP_DIR" 2>/dev/null || true
+if [ "$IDENTITY" != "-" ]; then
+    if codesign --force --sign "$IDENTITY" "$APP_DIR"; then
+        :
+    else
+        echo "⚠️  \"$IDENTITY\" 签名失败，回退 ad-hoc"
+        codesign --force --sign - "$APP_DIR" 2>/dev/null || true
+        echo "⚠️  已用 ad-hoc 签名（TCC/Keychain 授权不持久）"
+    fi
 else
     codesign --force --sign - "$APP_DIR" 2>/dev/null || true
-    echo "⚠️  已用 ad-hoc 签名（TCC 权限不持久）"
+    echo "⚠️  已用 ad-hoc 签名（TCC/Keychain 授权不持久）"
 fi
 
 # 7. 启动

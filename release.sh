@@ -149,25 +149,25 @@ PLIST
 echo ""
 echo "━━━ 4/6 代码签名 ━━━"
 
-# 固定证书签名 = TCC 权限持久保留
-# 通过 CODESIGN_IDENTITY 环境变量指定，未配置则 ad-hoc
-CERT_OK=true
-if [ -n "$IDENTITY" ] && security find-identity -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
-    echo "   签名身份: $IDENTITY"
-elif [ -n "$IDENTITY" ]; then
-    echo "⚠️  未找到 \"$IDENTITY\" 代码签名证书，回退 ad-hoc"
-    CERT_OK=false
+# 固定证书签名 = TCC/Keychain 授权持久保留
+# 通过 CODESIGN_IDENTITY 环境变量指定；显式传 "-" 可强制 ad-hoc。
+if [ "$IDENTITY" = "-" ]; then
+    echo "   签名身份: ad-hoc"
 else
-    echo "   未配置签名证书，使用 ad-hoc"
-    CERT_OK=false
+    echo "   签名身份: $IDENTITY"
 fi
 
 # 公证提醒（需要付费开发者账号）
 # 有账号后加一行：
 #   xcrun notarytool submit "$DMG_PATH" --keychain-profile "AC_PASSWORD" --wait
 
-if $CERT_OK; then
-    codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1
+if [ "$IDENTITY" != "-" ]; then
+    if codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1; then
+        :
+    else
+        echo "⚠️  \"$IDENTITY\" 签名失败，回退 ad-hoc"
+        codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
+    fi
 else
     codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
 fi
