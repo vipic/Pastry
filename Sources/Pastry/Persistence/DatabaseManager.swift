@@ -59,6 +59,10 @@ final class DatabaseManager {
 
     /// 获取或创建 256-bit 加密密钥（Keychain 为主，旧文件密钥只作为迁移来源）
     private func getOrCreateKey() -> Data {
+        if Self.prefersFileKeyStorage {
+            return getOrCreateFileBackedKey()
+        }
+
         if let entry = readKeyFromKeychain() {
             if entry.needsAccessRefresh {
                 refreshKeychainAccess(for: entry.key)
@@ -82,6 +86,33 @@ final class DatabaseManager {
             // Keychain 异常时保底写旧格式文件，避免应用完全不可用。
             writeKeyToFile(newKey)
         }
+        return newKey
+    }
+
+    private static var prefersFileKeyStorage: Bool {
+        #if DEBUG
+        return true
+        #else
+        Bundle.main.bundleIdentifier == "com.nekutai.pastry.dev"
+        #endif
+    }
+
+    static var prefersFileKeyStorageForTesting: Bool {
+        prefersFileKeyStorage
+    }
+
+    private func getOrCreateFileBackedKey() -> Data {
+        if let fileKey = readKeyFromFile() { return fileKey }
+
+        if let entry = readKeyFromKeychain() {
+            writeKeyToFile(entry.key)
+            return entry.key
+        }
+
+        var keyBytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
+        let newKey = Data(keyBytes)
+        writeKeyToFile(newKey)
         return newKey
     }
 
