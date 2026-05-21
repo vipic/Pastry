@@ -132,10 +132,9 @@ final class UpdateChecker {
         return tempURL
     }
 
-    /// 应用更新：挂载 DMG → 替换整个 .app → 重签 → 重启
+    /// 应用更新：挂载 DMG → 校验签名 → 备份替换整个 .app → 重启
     func applyUpdate(dmgAt tempURL: URL) throws {
         let targetPath = Bundle.main.bundlePath
-        let identity = resolveCodeSignIdentity()
 
         // 将 DMG 移到稳定路径（tempURL 可能被系统清理）
         let stableDMG = URL(fileURLWithPath: NSTemporaryDirectory() + "pastry_update.dmg")
@@ -151,7 +150,9 @@ final class UpdateChecker {
 
         DMG="\(stableDMG.path)"
         TARGET="\(targetPath)"
-        IDENTITY="\(identity)"
+        TARGET_PARENT=$(dirname "$TARGET")
+        TARGET_NAME=$(basename "$TARGET")
+        BACKUP="$TARGET_PARENT/.${TARGET_NAME}.update-backup-$(date +%s)"
 
         # 挂载 DMG
         MOUNT_OUTPUT=$(hdiutil attach -noverify -noautoopen -nobrowse "$DMG" 2>&1)
@@ -193,15 +194,20 @@ final class UpdateChecker {
             exit 1
         fi
 
-        # 替换整个 .app
-        rm -rf "$TARGET"
-        cp -R "$CANDIDATE" "$TARGET"
+        # 替换整个 .app；先备份，复制失败时恢复旧版本
+        mv "$TARGET" "$BACKUP"
+        if ! cp -R "$CANDIDATE" "$TARGET"; then
+            echo "❌ 更新包复制失败，已恢复旧版本" >&2
+            rm -rf "$TARGET"
+            mv "$BACKUP" "$TARGET"
+            hdiutil detach "$VOLUME" -quiet || true
+            open "$TARGET"
+            exit 1
+        fi
+        rm -rf "$BACKUP"
 
         # 卸载 DMG
         hdiutil detach "$VOLUME" -quiet
-
-        # 重签（保持 TCC 权限不丢失）
-        codesign --force --deep --sign "$IDENTITY" "$TARGET" 2>/dev/null || true
 
         # 清理
         rm -f "$DMG" "$0"
@@ -244,28 +250,6 @@ final class UpdateChecker {
     static func displayVersion(_ version: String) -> String {
         version.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: #"^v+"#, with: "", options: .regularExpression)
-    }
-
-    // MARK: - 签名
-
-    /// 解析代码签名身份：先尝 Pastry Release（TCC 持久），失败则 ad-hoc
-    private func resolveCodeSignIdentity() -> String {
-        let identities = ["Pastry Release", "Pastry Dev"]
-        for name in identities {
-            let task = Process()
-            task.launchPath = "/usr/bin/security"
-            task.arguments = ["find-identity", "-p", "codesigning", name]
-            task.standardOutput = FileHandle.nullDevice
-            task.standardError = FileHandle.nullDevice
-            try? task.run()
-            task.waitUntilExit()
-            if task.terminationStatus == 0 {
-                log.info("使用签名身份: \(name)")
-                return name
-            }
-        }
-        log.warning("未找到固定证书，使用 ad-hoc 签名（TCC 不持久）")
-        return "-"
     }
 
     // MARK: - 网络请求
