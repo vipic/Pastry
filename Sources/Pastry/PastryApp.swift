@@ -250,7 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 let version = AppVersion.current == "0.0.0-dev"
                     ? (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                    : AppVersion.current
+                    : UpdateChecker.displayVersion(AppVersion.current)
                 let build = AppVersion.build == "0"
                     ? (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
                     : AppVersion.build

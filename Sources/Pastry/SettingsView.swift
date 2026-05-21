@@ -134,7 +134,7 @@ struct SettingsSceneView: View {
                     Button {
                         AppDelegate.shared?.showAboutWindow()
                     } label: {
-                        Text("v\(AppVersion.current)")
+                        Text("v\(UpdateChecker.displayVersion(AppVersion.current))")
                             .foregroundColor(.accentColor)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)

@@ -87,7 +87,7 @@ final class UpdateChecker {
 
         return UpdateResult(
             currentVersion: currentVersion,
-            latestVersion: release.tag_name,
+            latestVersion: Self.displayVersion(release.tag_name),
             releaseNotes: release.body ?? "",
             downloadURL: dmg.browser_download_url,
             htmlURL: release.html_url
@@ -224,13 +224,13 @@ final class UpdateChecker {
     // MARK: - 版本比较
 
     private func currentVersionString() -> String {
-        AppVersion.current
+        Self.displayVersion(AppVersion.current)
     }
 
     /// 语义化版本比较：tag > current → true
     private func isNewer(tag: String, than current: String) -> Bool {
-        let tagParts = tag.replacingOccurrences(of: "v", with: "").split(separator: ".")
-        let curParts = current.split(separator: ".")
+        let tagParts = Self.displayVersion(tag).split(separator: ".")
+        let curParts = Self.displayVersion(current).split(separator: ".")
 
         for i in 0..<max(tagParts.count, curParts.count) {
             let t = i < tagParts.count ? (Int(tagParts[i]) ?? 0) : 0
@@ -239,6 +239,11 @@ final class UpdateChecker {
             if t < c { return false }
         }
         return false
+    }
+
+    static func displayVersion(_ version: String) -> String {
+        version.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"^v+"#, with: "", options: .regularExpression)
     }
 
     // MARK: - 签名

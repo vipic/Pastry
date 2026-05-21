@@ -25,7 +25,10 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     private var didStartDrag = false
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        isActive ? super.hitTest(point) : nil
+        if NSApp.currentEvent?.type == .rightMouseDown {
+            return nil
+        }
+        return isActive ? super.hitTest(point) : nil
     }
 
     override func mouseDown(with event: NSEvent) {

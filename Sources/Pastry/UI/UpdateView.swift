@@ -129,17 +129,17 @@ struct UpdateView: View {
     private var versionRow: some View {
         switch state {
         case .upToDate(let version, let build, _, _):
-            Text("v\(version) · Build \(build)")
+            Text("v\(UpdateChecker.displayVersion(version)) · Build \(build)")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
 
         case .updateAvailable(let result):
             HStack(spacing: 6) {
-                Text("v\(result.currentVersion)")
+                Text("v\(UpdateChecker.displayVersion(result.currentVersion))")
                     .foregroundColor(.secondary)
                 Text("→")
                     .foregroundColor(.secondary.opacity(0.5))
-                Text("v\(result.latestVersion)")
+                Text("v\(UpdateChecker.displayVersion(result.latestVersion))")
                     .fontWeight(.medium)
             }
             .font(.system(size: 13))
@@ -151,9 +151,9 @@ struct UpdateView: View {
             // 保留版本箭头（由 currentVersion/latestVersion 提供）
             if let cur = currentVersion, let lat = latestVersion {
                 HStack(spacing: 6) {
-                    Text("v\(cur)").foregroundColor(.secondary)
+                    Text("v\(UpdateChecker.displayVersion(cur))").foregroundColor(.secondary)
                     Text("→").foregroundColor(.secondary.opacity(0.5))
-                    Text("v\(lat)").fontWeight(.medium)
+                    Text("v\(UpdateChecker.displayVersion(lat))").fontWeight(.medium)
                 }
                 .font(.system(size: 13))
             } else {
