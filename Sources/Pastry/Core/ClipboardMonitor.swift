@@ -289,51 +289,69 @@ final class ClipboardMonitor: ObservableObject {
 
         // 文件 URL 优先：Finder 复制文件时剪贴板同时有图片数据，fileURL 更能代表用户意图
         if let item = readFileURLs(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
-            DispatchQueue.main.async {
-                self.latestItem = item
-                self.onNewItem?(item)
-            }
+            publish(item)
             return
         }
 
         // URL 链接：在图片之前检测，避免 http 字符串被当作纯文本
         if let item = readURL(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
-            DispatchQueue.main.async {
-                self.latestItem = item
-                self.onNewItem?(item)
-            }
+            publish(item)
             return
         }
 
-        // 图片处理：主线程读取数据，后台队列生成缩略图并写入磁盘
+        // 图片处理：主线程读取数据，后台任务生成缩略图并写入磁盘
         if let (image, data) = readImageData(from: pb) {
-            let appName = effectiveApp
-            let isHandoff = isRemoteClipboard
             let textAnnotation = readText(from: pb, appName: nil)?.content
-            Task.detached(priority: .utility) { [weak self] in
-                guard let self else { return }
-                guard let savedPath = ImageCacheManager.shared.save(image: image, data: data) else {
-                    self.log.error("图片缓存写入失败")
-                    return
-                }
-                let item = ClipboardItem(content: savedPath, sourceFormat: .image, appName: appName, isHandoff: isHandoff, textAnnotation: textAnnotation)
-                await MainActor.run {
-                    self.latestItem = item
-                    self.onNewItem?(item)
-                }
-            }
+            saveImageAndPublish(
+                image: image,
+                data: data,
+                appName: effectiveApp,
+                isHandoff: isRemoteClipboard,
+                textAnnotation: textAnnotation
+            )
             return
         }
 
         if let item = readHTML(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
             ?? readRTF(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
             ?? readText(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
+            publish(item)
+        }
+    }
 
+    @MainActor
+    private func publishOnMain(_ item: ClipboardItem) {
+        latestItem = item
+        onNewItem?(item)
+    }
 
-            DispatchQueue.main.async {
-                self.latestItem = item
-                self.onNewItem?(item)
+    private func publish(_ item: ClipboardItem) {
+        DispatchQueue.main.async { [weak self] in
+            self?.publishOnMain(item)
+        }
+    }
+
+    private func saveImageAndPublish(
+        image: NSImage,
+        data: Data,
+        appName: String?,
+        isHandoff: Bool,
+        textAnnotation: String?
+    ) {
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            guard let savedPath = ImageCacheManager.shared.save(image: image, data: data) else {
+                self.log.error("图片缓存写入失败")
+                return
             }
+            let item = ClipboardItem(
+                content: savedPath,
+                sourceFormat: .image,
+                appName: appName,
+                isHandoff: isHandoff,
+                textAnnotation: textAnnotation
+            )
+            await self.publishOnMain(item)
         }
     }
 
