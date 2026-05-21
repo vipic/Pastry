@@ -16,6 +16,11 @@ final class DatabaseManager {
     // 上次插入的去重 key + 时间，5 秒内连续相同才跳过
     private var lastKey: String?
     private var lastKeyTime: Date = .distantPast
+    private static let maxHistoryItems = 1_000
+
+    static var maxHistoryItemsForTesting: Int {
+        maxHistoryItems
+    }
 
     private init() {
         let dir = AppDirectories.applicationSupportDirectory()
@@ -307,6 +312,7 @@ final class DatabaseManager {
 
         // 同步到 FTS 索引
         syncFTS(item)
+        enforceHistoryLimit()
 
         // 更新去重缓存
         lastKey = key
@@ -314,6 +320,28 @@ final class DatabaseManager {
 
         if let oldID { return .replaced(oldID: oldID) }
         return .inserted
+    }
+
+    /// 自动淘汰最旧的非收藏记录，收藏项不计入上限。
+    private func enforceHistoryLimit() {
+        let sql = """
+        DELETE FROM clips
+        WHERE is_favorite = 0
+          AND id IN (
+              SELECT id FROM clips
+              WHERE is_favorite = 0
+              ORDER BY timestamp DESC
+              LIMIT -1 OFFSET ?
+          );
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            log.error("历史记录淘汰 prepare 失败: \(self.lastError)")
+            return
+        }
+        sqlite3_bind_int(stmt, 1, Int32(Self.maxHistoryItems))
+        sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
     }
 
     /// 搜索（优先 FTS，fallback LIKE）
