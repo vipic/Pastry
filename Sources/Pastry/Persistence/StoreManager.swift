@@ -282,6 +282,12 @@ final class StoreManager: ObservableObject {
         refreshStats()
     }
 
+    func applyHistoryRetentionSettings() {
+        DatabaseManager.shared.enforceHistoryRetention()
+        loadRecent()
+        refreshStats()
+    }
+
     // MARK: - 内部
 
     private func handleNewItem(_ item: ClipboardItem) {

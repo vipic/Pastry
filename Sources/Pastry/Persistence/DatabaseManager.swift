@@ -16,10 +16,8 @@ final class DatabaseManager {
     // 上次插入的去重 key + 时间，5 秒内连续相同才跳过
     private var lastKey: String?
     private var lastKeyTime: Date = .distantPast
-    private static let maxHistoryItems = 1_000
-
     static var maxHistoryItemsForTesting: Int {
-        maxHistoryItems
+        HistoryRetentionPolicy.defaultMaxItems
     }
 
     private init() {
@@ -312,7 +310,7 @@ final class DatabaseManager {
 
         // 同步到 FTS 索引
         syncFTS(item)
-        enforceHistoryLimit()
+        enforceHistoryRetention()
 
         // 更新去重缓存
         lastKey = key
@@ -322,9 +320,25 @@ final class DatabaseManager {
         return .inserted
     }
 
-    /// 自动淘汰最旧的非收藏记录，收藏项不计入上限。
-    private func enforceHistoryLimit() {
-        let sql = """
+    /// 自动淘汰过期或超出容量的非收藏记录，收藏项不计入上限。
+    func enforceHistoryRetention(policy: HistoryRetentionPolicy = .current) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if policy.maxAgeDays > 0 {
+            let cutoff = Date().addingTimeInterval(-Double(policy.maxAgeDays) * 86_400).timeIntervalSince1970
+            let ageSQL = "DELETE FROM clips WHERE is_favorite = 0 AND timestamp < ?;"
+            var ageStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, ageSQL, -1, &ageStmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(ageStmt, 1, cutoff)
+                sqlite3_step(ageStmt)
+                sqlite3_finalize(ageStmt)
+            } else {
+                log.error("历史周期清理 prepare 失败: \(self.lastError)")
+            }
+        }
+
+        let countSQL = """
         DELETE FROM clips
         WHERE is_favorite = 0
           AND id IN (
@@ -335,11 +349,11 @@ final class DatabaseManager {
           );
         """
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+        guard sqlite3_prepare_v2(db, countSQL, -1, &stmt, nil) == SQLITE_OK else {
             log.error("历史记录淘汰 prepare 失败: \(self.lastError)")
             return
         }
-        sqlite3_bind_int(stmt, 1, Int32(Self.maxHistoryItems))
+        sqlite3_bind_int(stmt, 1, Int32(policy.maxItems))
         sqlite3_step(stmt)
         sqlite3_finalize(stmt)
     }
