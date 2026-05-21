@@ -89,6 +89,13 @@ struct PasteboardWriter {
         pasteboard.setString(text, forType: .string)
     }
 
+    static func clearSystemClipboard(to pasteboard: NSPasteboard = .general) {
+        pasteboard.clearContents()
+        pasteboard.declareTypes([.string], owner: nil)
+        pasteboard.setString("", forType: .string)
+        ClipboardMonitor.shared.syncChangeCount()
+    }
+
     private static func writeAnnotatedImage(_ image: NSImage, annotation: String, to pasteboard: NSPasteboard) {
         let attr = NSMutableAttributedString()
         let attachment = NSTextAttachment()
