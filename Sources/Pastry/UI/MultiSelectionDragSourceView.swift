@@ -37,10 +37,7 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
         guard !didStartDrag, isActive else { return }
         didStartDrag = true
 
-        let pasteboardItem = NSPasteboardItem()
-        pasteboardItem.setString(payloadText, forType: .string)
-
-        let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
+        let draggingItem = NSDraggingItem(pasteboardWriter: payloadText as NSString)
         draggingItem.setDraggingFrame(draggingFrame, contents: dragImage)
 
         guard let startEvent = mouseDownEvent ?? window?.currentEvent else { return }

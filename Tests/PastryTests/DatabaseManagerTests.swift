@@ -73,6 +73,14 @@ final class DatabaseManagerTests: XCTestCase {
 
     // MARK: - 基本 CRUD
 
+    func testDevBuildPrefersFileKeyStorage() {
+        #if DEBUG
+        XCTAssertTrue(DatabaseManager.prefersFileKeyStorageForTesting)
+        #else
+        XCTAssertFalse(DatabaseManager.prefersFileKeyStorageForTesting)
+        #endif
+    }
+
     /// 插入一条 → recent() 应包含它
     func testInsertAndRetrieve() {
         let item = makeItem(content: "Hello World")
