@@ -322,6 +322,20 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertNotEqual(a.dedupKey, b.dedupKey)
     }
 
+    func testDedupKeySeparatesTextAndFileURL() {
+        let text = ClipboardItem(content: "/tmp/demo.txt", sourceFormat: .text)
+        let file = ClipboardItem(content: "/tmp/demo.txt", sourceFormat: .fileURL)
+
+        XCTAssertNotEqual(text.dedupKey, file.dedupKey)
+    }
+
+    func testDedupKeySeparatesFileURLAndImage() {
+        let file = ClipboardItem(content: "/tmp/demo.png", sourceFormat: .fileURL)
+        let image = ClipboardItem(content: "/tmp/demo.png", sourceFormat: .image)
+
+        XCTAssertNotEqual(file.dedupKey, image.dedupKey)
+    }
+
     // MARK: - dedupKey 含 segments
 
     func testDedupKeyIncludesSegments() {

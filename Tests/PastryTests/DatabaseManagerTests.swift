@@ -254,7 +254,7 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(items[0].appName, "Sublime Text", "来源应更新")
     }
 
-    /// text 和 fileURL 即使内容相同也不合并（路径 ≠ 文本）— 暂不支持，保留为已知行为
+    /// text 和 fileURL 即使内容相同也不合并（路径 ≠ 文本）
     func testDedupTextAndFileURLAreSeparate() {
         let file = makeItem(content: "/Users/nekutai/note.txt", type: .fileURL, app: "Finder")
         let text = makeItem(content: "/Users/nekutai/note.txt", type: .text, app: "Sublime Text")
@@ -263,8 +263,20 @@ final class DatabaseManagerTests: XCTestCase {
         assertInserted(text)
 
         let items = db.recent()
-        // NOTE: 当前去重仅按 content 判断，不区分格式 → 会合并。该行为可能后续修正。
         XCTAssertEqual(items.count, 2, "fileURL 和 text 即使同路径也应独立")
+    }
+
+    /// fileURL 和 image 即使底层路径相同也应独立
+    func testDedupFileURLAndImageAreSeparate() {
+        let path = "/Users/nekutai/Pictures/demo.png"
+        let file = makeItem(content: path, type: .fileURL, app: "Finder")
+        let image = makeItem(content: path, type: .image, app: "Preview")
+
+        assertInserted(file)
+        assertInserted(image)
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 2, "fileURL 和 image 的使用语义不同，应独立保留")
     }
 
     // MARK: - 删除
