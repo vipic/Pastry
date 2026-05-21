@@ -73,12 +73,8 @@ final class DatabaseManagerTests: XCTestCase {
 
     // MARK: - 基本 CRUD
 
-    func testDevBuildPrefersFileKeyStorage() {
-        #if DEBUG
+    func testBuildsPreferFileKeyStorage() {
         XCTAssertTrue(DatabaseManager.prefersFileKeyStorageForTesting)
-        #else
-        XCTAssertFalse(DatabaseManager.prefersFileKeyStorageForTesting)
-        #endif
     }
 
     /// 插入一条 → recent() 应包含它

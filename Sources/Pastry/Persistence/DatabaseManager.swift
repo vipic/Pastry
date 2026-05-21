@@ -90,11 +90,7 @@ final class DatabaseManager {
     }
 
     private static var prefersFileKeyStorage: Bool {
-        #if DEBUG
-        return true
-        #else
-        Bundle.main.bundleIdentifier == "com.nekutai.pastry.dev"
-        #endif
+        true
     }
 
     static var prefersFileKeyStorageForTesting: Bool {
