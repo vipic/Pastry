@@ -36,6 +36,25 @@ final class L10nTests: XCTestCase {
         }
     }
 
+    /// 历史保留设置所有键存在
+    func testHistoryRetentionSettingsKeysExist() {
+        let keys = [
+            "settings.history.section",
+            "settings.history.max_items",
+            "settings.history.max_age",
+            "settings.history.retention_hint",
+            "settings.history.max_items_value",
+            "settings.history.age_never",
+            "settings.history.age_days",
+            "settings.history.age_one_year"
+        ]
+        for key in keys {
+            let value = L10n[key]
+            XCTAssertNotEqual(value, key,
+                              "\(key) 应有翻译，不应返回 key 本身")
+        }
+    }
+
     // MARK: - 语言切换
 
     /// 切换到英文后返回英文翻译

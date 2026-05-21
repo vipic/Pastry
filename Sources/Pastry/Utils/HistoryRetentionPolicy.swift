@@ -25,17 +25,14 @@ struct HistoryRetentionPolicy: Equatable {
     }
 
     static func maxItemsLabel(_ value: Int) -> String {
-        "\(value) 条"
+        L10n["settings.history.max_items_value", value]
     }
 
     static func maxAgeLabel(_ days: Int) -> String {
         switch days {
-        case 0: return "不按时间清理"
-        case 7: return "保留 7 天"
-        case 30: return "保留 30 天"
-        case 90: return "保留 90 天"
-        case 365: return "保留 1 年"
-        default: return "保留 \(days) 天"
+        case 0: return L10n["settings.history.age_never"]
+        case 365: return L10n["settings.history.age_one_year"]
+        default: return L10n["settings.history.age_days", days]
         }
     }
 }

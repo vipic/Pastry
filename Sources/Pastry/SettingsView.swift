@@ -127,7 +127,7 @@ struct SettingsSceneView: View {
             }
 
             Section {
-                Picker("历史容量", selection: Binding(
+                Picker(L10n["settings.history.max_items"], selection: Binding(
                     get: { HistoryRetentionPolicy.sanitizedMaxItems(historyMaxItems) },
                     set: { value in
                         historyMaxItems = value
@@ -139,7 +139,7 @@ struct SettingsSceneView: View {
                     }
                 }
 
-                Picker("清理周期", selection: Binding(
+                Picker(L10n["settings.history.max_age"], selection: Binding(
                     get: { HistoryRetentionPolicy.sanitizedMaxAgeDays(historyMaxAgeDays) },
                     set: { value in
                         historyMaxAgeDays = value
@@ -151,11 +151,11 @@ struct SettingsSceneView: View {
                     }
                 }
 
-                Text("超过容量或保留周期的普通历史会自动清理，收藏项目不受影响。")
+                Text(L10n["settings.history.retention_hint"])
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
-                Text("历史记录")
+                Text(L10n["settings.history.section"])
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
             }
