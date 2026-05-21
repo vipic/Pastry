@@ -1072,6 +1072,23 @@
         }
       }
     },
+    "card.selected": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected"
+          }
+        }
+      }
+    },
     "delete.confirm_title": {
       "extractionState": "manual",
       "localizations": {
