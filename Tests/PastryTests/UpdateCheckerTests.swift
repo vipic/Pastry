@@ -101,4 +101,10 @@ final class UpdateCheckerTests: XCTestCase {
         let isDev = version.contains("-dev")
         XCTAssertEqual(checker.isDevBuild, isDev)
     }
+
+    func testDisplayVersionStripsLeadingV() {
+        XCTAssertEqual(UpdateChecker.displayVersion("v1.2.3"), "1.2.3")
+        XCTAssertEqual(UpdateChecker.displayVersion("vv1.2.3"), "1.2.3")
+        XCTAssertEqual(UpdateChecker.displayVersion("1.2.3"), "1.2.3")
+    }
 }
