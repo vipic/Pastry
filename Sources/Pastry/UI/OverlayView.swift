@@ -560,9 +560,21 @@ struct OverlayView: View {
                 }
             }
         }
+        .overlay {
+            MultiURLDragSourceView(urls: multiURLDragURLs(for: item))
+        }
     }
 
     // MARK: - 选择交互
+
+    private func multiURLDragURLs(for item: ClipboardItem) -> [URL] {
+        let ids = selection.selectedIds
+        guard ids.count > 1, ids.contains(item.id) else { return [] }
+
+        let selected = visibleItems.filter { ids.contains($0.id) }
+        let urls = selected.flatMap { DragPayloadBuilder.webURLs(in: $0) }
+        return urls.count > 1 ? urls : []
+    }
 
     /// 卡片单击：委托给 SelectionState
     private func handleCardTap(_ item: ClipboardItem) {

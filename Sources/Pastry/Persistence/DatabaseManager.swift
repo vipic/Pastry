@@ -50,10 +50,21 @@ final class DatabaseManager {
     private var keyFilePath: String { dbPath + ".key" }
     private static let keychainService = "com.nekutai.pastry.dbkey"
     private static let keychainAccount = "clips.db"
+    private static let keychainAccessVersion = "pastry-keychain-access-v2"
+
+    private struct KeychainEntry {
+        let key: Data
+        let needsAccessRefresh: Bool
+    }
 
     /// 获取或创建 256-bit 加密密钥（Keychain 为主，旧文件密钥只作为迁移来源）
     private func getOrCreateKey() -> Data {
-        if let key = readKeyFromKeychain() { return key }
+        if let entry = readKeyFromKeychain() {
+            if entry.needsAccessRefresh {
+                refreshKeychainAccess(for: entry.key)
+            }
+            return entry.key
+        }
 
         // 兼容上个版本的文件密钥：读到后立即迁回 Keychain。
         if let fileKey = readKeyFromFile() {
@@ -74,18 +85,24 @@ final class DatabaseManager {
         return newKey
     }
 
-    private func readKeyFromKeychain() -> Data? {
+    private func readKeyFromKeychain() -> KeychainEntry? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
             kSecReturnData as String: true,
+            kSecReturnAttributes as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let keyData = result as? Data else { return nil }
-        return keyData
+              let item = result as? [String: Any],
+              let keyData = item[kSecValueData as String] as? Data else { return nil }
+        let accessVersion = item[kSecAttrComment as String] as? String
+        return KeychainEntry(
+            key: keyData,
+            needsAccessRefresh: accessVersion != Self.keychainAccessVersion
+        )
     }
 
     @discardableResult
@@ -98,6 +115,8 @@ final class DatabaseManager {
         let attrs: [String: Any] = [
             kSecValueData as String: key,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecAttrLabel as String: "Pastry Clipboard Database Key",
+            kSecAttrComment as String: Self.keychainAccessVersion,
         ]
 
         let status = SecItemAdd(base.merging(attrs) { _, new in new } as CFDictionary, nil)
@@ -107,6 +126,25 @@ final class DatabaseManager {
         }
         log.error("Keychain 密钥写入失败: \(status)")
         return false
+    }
+
+    private func refreshKeychainAccess(for key: Data) {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: Self.keychainAccount,
+        ]
+
+        let deleteStatus = SecItemDelete(base as CFDictionary)
+        guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else {
+            log.error("Keychain 密钥访问权限刷新失败，删除旧项失败: \(deleteStatus)")
+            return
+        }
+
+        if !writeKeyToKeychain(key) {
+            // 保底保存同一份密钥，避免删除旧 Keychain 项后下次启动无法解密数据库。
+            writeKeyToFile(key)
+        }
     }
 
     // MARK: 文件密钥存储（设备派生 KEK，AES-256-GCM 加密）
