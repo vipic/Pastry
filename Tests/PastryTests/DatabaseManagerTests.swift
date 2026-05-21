@@ -38,9 +38,11 @@ final class DatabaseManagerTests: XCTestCase {
         type: SourceFormat = .text,
         app: String? = "Safari",
         pinned: Bool = false,
-        isHandoff: Bool = false
+        isHandoff: Bool = false,
+        timestamp: Date = Date()
     ) -> ClipboardItem {
         ClipboardItem(
+            timestamp: timestamp,
             content: content,
             sourceFormat: type,
             appName: app,
@@ -95,11 +97,9 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 插入多条 → recent() 按时间倒序
     func testInsertMultiple() {
-        let a = makeItem(content: "A")
-        Thread.sleep(forTimeInterval: 0.01)
-        let b = makeItem(content: "B")
-        Thread.sleep(forTimeInterval: 0.01)
-        let c = makeItem(content: "C")
+        let a = makeItem(content: "A", timestamp: Date(timeIntervalSince1970: 1))
+        let b = makeItem(content: "B", timestamp: Date(timeIntervalSince1970: 2))
+        let c = makeItem(content: "C", timestamp: Date(timeIntervalSince1970: 3))
 
         db.insert(a)
         db.insert(b)
@@ -115,11 +115,9 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 插入不同类型的内容
     func testInsertDifferentTypes() {
-        let textItem = makeItem(content: "文本", type: .text)
-        Thread.sleep(forTimeInterval: 0.01)
-        let imageItem = makeItem(content: "/tmp/img.png", type: .image)
-        Thread.sleep(forTimeInterval: 0.01)
-        let fileItem = makeItem(content: "/Users/test/file.pdf", type: .fileURL)
+        let textItem = makeItem(content: "文本", type: .text, timestamp: Date(timeIntervalSince1970: 1))
+        let imageItem = makeItem(content: "/tmp/img.png", type: .image, timestamp: Date(timeIntervalSince1970: 2))
+        let fileItem = makeItem(content: "/Users/test/file.pdf", type: .fileURL, timestamp: Date(timeIntervalSince1970: 3))
 
         db.insert(textItem)
         db.insert(imageItem)
@@ -161,16 +159,14 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 跨历史去重：复制 A → B → 再次 A，A 应被移到最前且不出现重复
     func testDedupReplaceMovesToTop() {
-        let a1 = makeItem(content: "内容A")
+        let a1 = makeItem(content: "内容A", timestamp: Date(timeIntervalSince1970: 1))
         assertInserted(a1)
-        Thread.sleep(forTimeInterval: 0.1)
 
-        let b = makeItem(content: "内容B")
+        let b = makeItem(content: "内容B", timestamp: Date(timeIntervalSince1970: 2))
         assertInserted(b)
-        Thread.sleep(forTimeInterval: 0.1)
 
         // 再次复制 A（新 id），应替换旧的 A 并置顶
-        let a2 = makeItem(content: "内容A")
+        let a2 = makeItem(content: "内容A", timestamp: Date(timeIntervalSince1970: 3))
         assertInserted(a2)
 
         let items = db.recent()
@@ -181,15 +177,13 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// .replaced 返回被替换的旧条目 UUID
     func testDedupReplaceReturnsOldID() {
-        let a1 = makeItem(content: "替换测试")
+        let a1 = makeItem(content: "替换测试", timestamp: Date(timeIntervalSince1970: 1))
         _ = db.insert(a1)
-        Thread.sleep(forTimeInterval: 0.1)
 
-        let b = makeItem(content: "中间内容")
+        let b = makeItem(content: "中间内容", timestamp: Date(timeIntervalSince1970: 2))
         _ = db.insert(b)
-        Thread.sleep(forTimeInterval: 0.1)
 
-        let a2 = makeItem(content: "替换测试")
+        let a2 = makeItem(content: "替换测试", timestamp: Date(timeIntervalSince1970: 3))
         let result = db.insert(a2)
 
         switch result {
@@ -202,17 +196,15 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 去重置顶不影响其他无关条目
     func testDedupReplacePreservesOtherItems() {
-        let a = makeItem(content: "AAA")
-        let b = makeItem(content: "BBB")
-        let c = makeItem(content: "CCC")
+        let a = makeItem(content: "AAA", timestamp: Date(timeIntervalSince1970: 1))
+        let b = makeItem(content: "BBB", timestamp: Date(timeIntervalSince1970: 2))
+        let c = makeItem(content: "CCC", timestamp: Date(timeIntervalSince1970: 3))
         assertInserted(a)
-        Thread.sleep(forTimeInterval: 0.1)
         assertInserted(b)
-        Thread.sleep(forTimeInterval: 0.1)
         assertInserted(c)
 
         // 再次复制 B
-        let b2 = makeItem(content: "BBB")
+        let b2 = makeItem(content: "BBB", timestamp: Date(timeIntervalSince1970: 4))
         assertInserted(b2)
 
         let items = db.recent()
@@ -226,7 +218,6 @@ final class DatabaseManagerTests: XCTestCase {
     func testDedupMergesAcrossTextFormats() {
         let textItem = makeItem(content: "hello", type: .text, app: "TextEdit")
         assertInserted(textItem)
-        Thread.sleep(forTimeInterval: 0.1)
 
         let htmlItem = makeItem(content: "hello", type: .html, app: "Safari")
         let result = db.insert(htmlItem)
@@ -244,7 +235,6 @@ final class DatabaseManagerTests: XCTestCase {
     func testDedupMergesRTFWithText() {
         let rtfItem = makeItem(content: "你好", type: .rtf, app: "Telegram")
         assertInserted(rtfItem)
-        Thread.sleep(forTimeInterval: 0.1)
 
         let textItem = makeItem(content: "你好", type: .text, app: "Sublime Text")
         let result = db.insert(textItem)
@@ -371,11 +361,10 @@ final class DatabaseManagerTests: XCTestCase {
     // MARK: - bumpTimestamp
 
     func testBumpTimestampMovesToTop() {
-        let a = makeItem(content: "旧条目")
+        let a = makeItem(content: "旧条目", timestamp: Date(timeIntervalSince1970: 1))
         db.insert(a)
-        Thread.sleep(forTimeInterval: 0.01)
 
-        let b = makeItem(content: "新条目")
+        let b = makeItem(content: "新条目", timestamp: Date(timeIntervalSince1970: 2))
         db.insert(b)
 
         // bump 旧条目
@@ -550,15 +539,13 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 多种类型 + isHandoff → 全部正确持久化
     func testIsHandoffMultipleTypes() {
-        let text = makeItem(content: "text", type: .text, isHandoff: true)
+        let text = makeItem(content: "text", type: .text, isHandoff: true, timestamp: Date(timeIntervalSince1970: 1))
         db.insert(text)
 
-        Thread.sleep(forTimeInterval: 0.1)
-        let img = makeItem(content: "/tmp/pic.png", type: .image, isHandoff: true)
+        let img = makeItem(content: "/tmp/pic.png", type: .image, isHandoff: true, timestamp: Date(timeIntervalSince1970: 2))
         db.insert(img)
 
-        Thread.sleep(forTimeInterval: 0.1)
-        let file = makeItem(content: "/tmp/file.pdf", type: .fileURL, isHandoff: false)
+        let file = makeItem(content: "/tmp/file.pdf", type: .fileURL, isHandoff: false, timestamp: Date(timeIntervalSince1970: 3))
         db.insert(file)
 
         let items = db.recent()
@@ -583,9 +570,8 @@ final class DatabaseManagerTests: XCTestCase {
     /// recent(limit:) 应遵守 limit
     func testRecentLimit() {
         for i in 0..<20 {
-            let item = makeItem(content: "Item \(i)")
+            let item = makeItem(content: "Item \(i)", timestamp: Date(timeIntervalSince1970: Double(i)))
             db.insert(item)
-            Thread.sleep(forTimeInterval: 0.001)
         }
 
         let limited = db.recent(limit: 5)
@@ -675,9 +661,8 @@ final class DatabaseManagerTests: XCTestCase {
     /// favorites(limit:) 应遵守 limit
     func testFavoritesLimit() {
         for i in 0..<10 {
-            let item = makeItem(content: "Pin \(i)", pinned: true)
+            let item = makeItem(content: "Pin \(i)", pinned: true, timestamp: Date(timeIntervalSince1970: Double(i)))
             db.insert(item)
-            Thread.sleep(forTimeInterval: 0.001)
         }
 
         let limited = db.favorites(limit: 3)
