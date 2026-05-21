@@ -50,43 +50,10 @@ final class DatabaseManager {
     private var keyFilePath: String { dbPath + ".key" }
     private static let keychainService = "com.nekutai.pastry.dbkey"
     private static let keychainAccount = "clips.db"
-    private static let keychainAccessVersion = "pastry-keychain-access-v3"
 
-    private struct KeychainEntry {
-        let key: Data
-        let needsAccessRefresh: Bool
-    }
-
-    /// 获取或创建 256-bit 加密密钥（Keychain 为主，旧文件密钥只作为迁移来源）
+    /// 获取或创建 256-bit 加密密钥（文件密钥为主，Keychain 仅作为旧版本迁移来源）
     private func getOrCreateKey() -> Data {
-        if Self.prefersFileKeyStorage {
-            return getOrCreateFileBackedKey()
-        }
-
-        if let entry = readKeyFromKeychain() {
-            if entry.needsAccessRefresh {
-                refreshKeychainAccess(for: entry.key)
-            }
-            return entry.key
-        }
-
-        // 兼容上个版本的文件密钥：读到后立即迁回 Keychain。
-        if let fileKey = readKeyFromFile() {
-            if writeKeyToKeychain(fileKey) {
-                try? FileManager.default.removeItem(atPath: keyFilePath)
-            }
-            return fileKey
-        }
-
-        // 全新安装 → 生成新密钥，存入 Keychain。
-        var keyBytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
-        let newKey = Data(keyBytes)
-        if !writeKeyToKeychain(newKey) {
-            // Keychain 异常时保底写旧格式文件，避免应用完全不可用。
-            writeKeyToFile(newKey)
-        }
-        return newKey
+        getOrCreateFileBackedKey()
     }
 
     private static var prefersFileKeyStorage: Bool {
@@ -100,9 +67,9 @@ final class DatabaseManager {
     private func getOrCreateFileBackedKey() -> Data {
         if let fileKey = readKeyFromFile() { return fileKey }
 
-        if let entry = readKeyFromKeychain() {
-            writeKeyToFile(entry.key)
-            return entry.key
+        if let key = readKeyFromKeychain() {
+            writeKeyToFile(key)
+            return key
         }
 
         var keyBytes = [UInt8](repeating: 0, count: 32)
@@ -112,93 +79,18 @@ final class DatabaseManager {
         return newKey
     }
 
-    private func readKeyFromKeychain() -> KeychainEntry? {
+    private func readKeyFromKeychain() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
             kSecReturnData as String: true,
-            kSecReturnAttributes as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let item = result as? [String: Any],
-              let keyData = item[kSecValueData as String] as? Data else { return nil }
-        let accessVersion = item[kSecAttrComment as String] as? String
-        return KeychainEntry(
-            key: keyData,
-            needsAccessRefresh: accessVersion != Self.keychainAccessVersion
-        )
-    }
-
-    @discardableResult
-    private func writeKeyToKeychain(_ key: Data) -> Bool {
-        let base: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
-            kSecAttrAccount as String: Self.keychainAccount,
-        ]
-        let attrs: [String: Any] = [
-            kSecValueData as String: key,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-            kSecAttrLabel as String: "Pastry Clipboard Database Key",
-            kSecAttrComment as String: Self.keychainAccessVersion,
-        ]
-        let addAttrs: [String: Any]
-        if let access = makeKeychainAccess() {
-            addAttrs = attrs.merging([kSecAttrAccess as String: access]) { _, new in new }
-        } else {
-            addAttrs = attrs
-        }
-
-        let status = SecItemAdd(base.merging(addAttrs) { _, new in new } as CFDictionary, nil)
-        if status == errSecSuccess { return true }
-        if status == errSecDuplicateItem {
-            return SecItemUpdate(base as CFDictionary, attrs as CFDictionary) == errSecSuccess
-        }
-        log.error("Keychain 密钥写入失败: \(status)")
-        return false
-    }
-
-    private func refreshKeychainAccess(for key: Data) {
-        let base: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
-            kSecAttrAccount as String: Self.keychainAccount,
-        ]
-
-        let deleteStatus = SecItemDelete(base as CFDictionary)
-        guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else {
-            log.error("Keychain 密钥访问权限刷新失败，删除旧项失败: \(deleteStatus)")
-            return
-        }
-
-        if !writeKeyToKeychain(key) {
-            // 保底保存同一份密钥，避免删除旧 Keychain 项后下次启动无法解密数据库。
-            writeKeyToFile(key)
-        }
-    }
-
-    private func makeKeychainAccess() -> SecAccess? {
-        var trustedApplication: SecTrustedApplication?
-        let trustedStatus = SecTrustedApplicationCreateFromPath(nil, &trustedApplication)
-        guard trustedStatus == errSecSuccess, let trustedApplication else {
-            log.error("Keychain 当前应用信任对象创建失败: \(trustedStatus)")
-            return nil
-        }
-
-        var access: SecAccess?
-        let accessStatus = SecAccessCreate(
-            "Pastry Clipboard Database Key" as CFString,
-            [trustedApplication] as CFArray,
-            &access
-        )
-        guard accessStatus == errSecSuccess, let access else {
-            log.error("Keychain 访问控制创建失败: \(accessStatus)")
-            return nil
-        }
-        return access
+              let keyData = result as? Data else { return nil }
+        return keyData
     }
 
     // MARK: 文件密钥存储（设备派生 KEK，AES-256-GCM 加密）
