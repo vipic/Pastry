@@ -248,18 +248,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 )
             } else {
-                let version = AppVersion.current == "0.0.0-dev"
-                    ? (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                    : UpdateChecker.displayVersion(AppVersion.current)
-                let build = AppVersion.build == "0"
-                    ? (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
-                    : AppVersion.build
                 let lastCheck = UserDefaults.standard.object(forKey: "PastryLastUpdateCheck") as? Date
                 let cachedNotes = UpdateChecker.shared.cachedReleaseNotes()
                 hostingView.rootView = UpdateView(
                     state: .upToDate(
-                        version: version,
-                        build: build,
+                        version: AppVersion.displayCurrent,
+                        build: AppVersion.displayBuild,
                         lastCheckDate: lastCheck,
                         lastReleaseNotes: cachedNotes
                     ),
