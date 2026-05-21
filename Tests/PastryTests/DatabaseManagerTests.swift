@@ -11,6 +11,8 @@ final class DatabaseManagerTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.historyMaxItems)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.historyMaxAgeDays)
         let tmp = FileManager.default.temporaryDirectory
         tempPath = tmp.appendingPathComponent("pastry-test-\(UUID().uuidString).db").path
         db = DatabaseManager(dbPath: tempPath)
@@ -24,6 +26,8 @@ final class DatabaseManagerTests: XCTestCase {
             try? FileManager.default.removeItem(atPath: path + "-wal")
             try? FileManager.default.removeItem(atPath: path + "-shm")
         }
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.historyMaxItems)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.historyMaxAgeDays)
         super.tearDown()
     }
 
@@ -629,6 +633,43 @@ final class DatabaseManagerTests: XCTestCase {
         let items = db.recent(limit: max + 10)
         XCTAssertEqual(items.count, max + 1)
         XCTAssertTrue(items.contains { $0.content == "Pinned oldest" })
+    }
+
+    /// 用户设置的历史容量应即时影响非收藏记录淘汰
+    func testHistoryLimitUsesUserConfiguredCapacity() {
+        UserDefaults.standard.set(100, forKey: UserDefaultsKeys.historyMaxItems)
+        for i in 0..<105 {
+            let item = ClipboardItem(
+                timestamp: Date(timeIntervalSince1970: Double(i)),
+                content: "Configured \(i)",
+                sourceFormat: .text
+            )
+            assertInserted(item)
+        }
+
+        let items = db.recent(limit: 110)
+        XCTAssertEqual(items.count, 100)
+        XCTAssertTrue(items.contains { $0.content == "Configured 104" })
+        XCTAssertFalse(items.contains { $0.content == "Configured 0" })
+    }
+
+    /// 用户设置的清理周期应删除过期非收藏记录，但保留收藏项
+    func testHistoryRetentionPrunesExpiredNonPinnedItemsOnly() {
+        let oldDate = Date().addingTimeInterval(-8 * 86_400)
+        let old = ClipboardItem(timestamp: oldDate, content: "Expired", sourceFormat: .text)
+        let oldPinned = ClipboardItem(timestamp: oldDate, content: "Expired pinned", sourceFormat: .text, isPinned: true)
+        let recent = ClipboardItem(content: "Recent", sourceFormat: .text)
+
+        assertInserted(old)
+        assertInserted(oldPinned)
+        assertInserted(recent)
+
+        db.enforceHistoryRetention(policy: HistoryRetentionPolicy(maxItems: 100, maxAgeDays: 7))
+
+        let items = db.recent(limit: 10)
+        XCTAssertFalse(items.contains { $0.content == "Expired" })
+        XCTAssertTrue(items.contains { $0.content == "Expired pinned" })
+        XCTAssertTrue(items.contains { $0.content == "Recent" })
     }
 
     /// favorites(limit:) 应遵守 limit

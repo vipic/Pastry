@@ -40,6 +40,8 @@ enum UserDefaultsKeys {
     static let hotkeyModifiers = "hotkey_modifiers"
     static let excludedBundleIDs = "excluded_bundle_ids"
     static let linkPreviewNetworkEnabled = "link_preview_network_enabled"
+    static let historyMaxItems = "history_max_items"
+    static let historyMaxAgeDays = "history_max_age_days"
 }
 
 // MARK: - 颜色

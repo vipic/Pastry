@@ -14,6 +14,10 @@ struct SettingsSceneView: View {
 
     @AppStorage(UserDefaultsKeys.linkPreviewNetworkEnabled)
     private var linkPreviewNetworkEnabled = false
+    @AppStorage(UserDefaultsKeys.historyMaxItems)
+    private var historyMaxItems = HistoryRetentionPolicy.defaultMaxItems
+    @AppStorage(UserDefaultsKeys.historyMaxAgeDays)
+    private var historyMaxAgeDays = HistoryRetentionPolicy.defaultMaxAgeDays
 
     @AppStorage(UserDefaultsKeys.hotkeyKeyCode)
     private var hotkeyKeyCode = Int(GlobalHotkeyManager.defaultKeyCode)
@@ -120,6 +124,40 @@ struct SettingsSceneView: View {
                         }
                     }
                 Toggle(L10n["settings.sound_enabled"], isOn: $soundEnabled)
+            }
+
+            Section {
+                Picker("历史容量", selection: Binding(
+                    get: { HistoryRetentionPolicy.sanitizedMaxItems(historyMaxItems) },
+                    set: { value in
+                        historyMaxItems = value
+                        StoreManager.shared.applyHistoryRetentionSettings()
+                    }
+                )) {
+                    ForEach(HistoryRetentionPolicy.maxItemsOptions, id: \.self) { value in
+                        Text(HistoryRetentionPolicy.maxItemsLabel(value)).tag(value)
+                    }
+                }
+
+                Picker("清理周期", selection: Binding(
+                    get: { HistoryRetentionPolicy.sanitizedMaxAgeDays(historyMaxAgeDays) },
+                    set: { value in
+                        historyMaxAgeDays = value
+                        StoreManager.shared.applyHistoryRetentionSettings()
+                    }
+                )) {
+                    ForEach(HistoryRetentionPolicy.maxAgeDayOptions, id: \.self) { value in
+                        Text(HistoryRetentionPolicy.maxAgeLabel(value)).tag(value)
+                    }
+                }
+
+                Text("超过容量或保留周期的普通历史会自动清理，收藏项目不受影响。")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("历史记录")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
             }
 
             Section {

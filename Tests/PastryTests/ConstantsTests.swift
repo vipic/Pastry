@@ -30,6 +30,18 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(UserDefaultsKeys.linkPreviewNetworkEnabled, "link_preview_network_enabled")
     }
 
+    func testHistoryRetentionKeys() {
+        XCTAssertEqual(UserDefaultsKeys.historyMaxItems, "history_max_items")
+        XCTAssertEqual(UserDefaultsKeys.historyMaxAgeDays, "history_max_age_days")
+    }
+
+    func testHistoryRetentionPolicySanitizesValues() {
+        XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(500), 500)
+        XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(-1), HistoryRetentionPolicy.defaultMaxItems)
+        XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxAgeDays(30), 30)
+        XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxAgeDays(13), HistoryRetentionPolicy.defaultMaxAgeDays)
+    }
+
     // MARK: - AppName
 
     func testAppName() {
