@@ -16,5 +16,13 @@ jobs:
       - name: Show Swift Version
         run: swift --version
 
+      - name: Check Shell Scripts
+        run: |
+          bash -n deploy.sh
+          bash -n release.sh
+
       - name: Run Tests
         run: swift test
+
+      - name: Build Release
+        run: swift build -c release -Xswiftc -Osize
