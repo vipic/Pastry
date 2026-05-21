@@ -107,4 +107,11 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(UpdateChecker.displayVersion("vv1.2.3"), "1.2.3")
         XCTAssertEqual(UpdateChecker.displayVersion("1.2.3"), "1.2.3")
     }
+
+    func testVersionComparisonHandlesLeadingVAndDifferentLengths() {
+        XCTAssertTrue(UpdateChecker.isNewer(tag: "v1.10.0", than: "1.9.9"))
+        XCTAssertTrue(UpdateChecker.isNewer(tag: "vv2.0", than: "v1.9.9"))
+        XCTAssertFalse(UpdateChecker.isNewer(tag: "v1.0", than: "1.0.0"))
+        XCTAssertFalse(UpdateChecker.isNewer(tag: "1.2.3", than: "v1.2.4"))
+    }
 }
