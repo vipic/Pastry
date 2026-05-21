@@ -324,6 +324,36 @@ final class FilePreviewTests: XCTestCase {
         wait(for: [exp], timeout: 1)
     }
 
+    func testMultiSelectionIncludesFilePathsAndText() {
+        let items = [
+            ClipboardItem(content: "/Users/test/movie.mp4", sourceFormat: .fileURL),
+            ClipboardItem(content: "plain note", sourceFormat: .text),
+        ]
+
+        XCTAssertEqual(
+            DragPayloadBuilder.multiSelectText(items),
+            "/Users/test/movie.mp4\nplain note"
+        )
+    }
+
+    func testMultiSelectionSkipsImageOnlyItems() {
+        let items = [
+            ClipboardItem(content: "/tmp/preview.png", sourceFormat: .image),
+            ClipboardItem(content: "plain note", sourceFormat: .text),
+        ]
+
+        XCTAssertEqual(DragPayloadBuilder.multiSelectText(items), "plain note")
+    }
+
+    func testMultiSelectionUsesFullContentProvider() {
+        let item = ClipboardItem(content: "truncated", sourceFormat: .text)
+
+        XCTAssertEqual(
+            DragPayloadBuilder.multiSelectText([item]) { _ in "full text content" },
+            "full text content"
+        )
+    }
+
     func testTextTypeCanPreview() {
         XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .text))
         XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .rtf))

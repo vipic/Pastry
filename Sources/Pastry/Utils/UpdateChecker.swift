@@ -72,7 +72,7 @@ final class UpdateChecker {
         UserDefaults.standard.set(now, forKey: lastCheckKey)
 
         let currentVersion = currentVersionString()
-        guard isNewer(tag: release.tag_name, than: currentVersion) else {
+        guard Self.isNewer(tag: release.tag_name, than: currentVersion) else {
             log.info("已是最新版本: \(currentVersion)")
             // 仍缓存 release notes（供 upToDate 页显示上次更新日志）
             cacheResult(release)
@@ -234,7 +234,7 @@ final class UpdateChecker {
     }
 
     /// 语义化版本比较：tag > current → true
-    private func isNewer(tag: String, than current: String) -> Bool {
+    static func isNewer(tag: String, than current: String) -> Bool {
         let tagParts = Self.displayVersion(tag).split(separator: ".")
         let curParts = Self.displayVersion(current).split(separator: ".")
 
