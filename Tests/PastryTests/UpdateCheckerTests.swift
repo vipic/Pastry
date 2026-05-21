@@ -59,6 +59,17 @@ final class UpdateCheckerTests: XCTestCase {
         try? FileManager.default.removeItem(at: url)
     }
 
+    func testDownloadBinaryRejectsInsecureURL() async {
+        do {
+            _ = try await UpdateChecker.shared.downloadBinary(from: "http://example.com/Pastry.dmg")
+            XCTFail("HTTP 下载链接应被拒绝")
+        } catch let error as UpdateChecker.UpdateError {
+            XCTAssertEqual(error, .insecureURL)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     // MARK: - isDevBuild
 
     func testIsDevBuildDetection() {
