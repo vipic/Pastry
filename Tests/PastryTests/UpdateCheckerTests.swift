@@ -114,4 +114,16 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertFalse(UpdateChecker.isNewer(tag: "v1.0", than: "1.0.0"))
         XCTAssertFalse(UpdateChecker.isNewer(tag: "1.2.3", than: "v1.2.4"))
     }
+
+    func testUpdateInstallScriptUsesBackupReplaceWithoutResigning() {
+        let script = UpdateInstallScriptBuilder.script(
+            stableDMGPath: "/tmp/pastry_update.dmg",
+            targetPath: "/Applications/Pastry.app"
+        )
+
+        XCTAssertTrue(script.contains("BACKUP=\"$TARGET_PARENT/.${TARGET_NAME}.update-backup-$(date +%s)\""))
+        XCTAssertTrue(script.contains("mv \"$TARGET\" \"$BACKUP\""))
+        XCTAssertTrue(script.contains("mv \"$BACKUP\" \"$TARGET\""))
+        XCTAssertFalse(script.contains("codesign --force --deep --sign"))
+    }
 }
