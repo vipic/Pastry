@@ -28,11 +28,6 @@ struct ClipboardCardView: View {
     @State private var asyncFileIcons: [URL: NSImage] = [:]
     @State private var missingFileURLs: Set<URL> = []
 
-
-    private static let cardSize: CGFloat = 240
-    private static let headerHeight: CGFloat = 48
-    private static let appIconSize: CGFloat = 72
-
     /// 路径 → NSImage 缓存，避免重绘时重复创建实例导致闪烁
     private nonisolated(unsafe) static let imageCache = NSCache<NSString, NSImage>()
 
@@ -81,42 +76,42 @@ struct ClipboardCardView: View {
             topBar
             contentArea
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
+                .padding(.vertical, UIConstants.Card.contentVerticalPadding)
             footerBar
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
+                .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
+                .padding(.bottom, UIConstants.Card.footerBottomPadding)
         }
-        .frame(width: Self.cardSize, height: Self.cardSize)
+        .frame(width: UIConstants.Card.size, height: UIConstants.Card.size)
         .background(Color(nsColor: NSColor.windowBackgroundColor))
         .compositingGroup()
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
+                .stroke(Color.white.opacity(UIConstants.Card.idleBorderOpacity), lineWidth: 0.5)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(lineWidth: 2.5)
+            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
+                .stroke(lineWidth: UIConstants.Card.selectedBorderWidth)
                 .foregroundStyle(cardBorderColor)
-                .animation(.easeInOut(duration: 0.12), value: isSelected)
-                .animation(.easeInOut(duration: 0.12), value: isHovered)
+                .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
+                .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
         )
         .overlay(alignment: .bottomTrailing) {
             if let idx = cmdBadgeIndex {
                 cmdBadge(idx)
             }
         }
-        .animation(.easeInOut(duration: 0.12), value: isSelected)
-        .animation(.easeInOut(duration: 0.12), value: isHovered)
-        .scaleEffect(didPaste ? 0.95 : 1.0)
+        .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
+        .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
+        .scaleEffect(didPaste ? UIConstants.Card.pasteScale : 1.0)
         .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(didPaste ? Color.green : Color.clear, lineWidth: 2.5)
+            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
+                .stroke(didPaste ? Color.green : Color.clear, lineWidth: UIConstants.Card.selectedBorderWidth)
         )
         .animation(.easeOut(duration: 0.5), value: didPaste)
-        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .contentShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius))
     }
 
     // MARK: - 打开文件
@@ -172,7 +167,7 @@ struct ClipboardCardView: View {
     /// 卡片状态边框颜色
     private var cardBorderColor: Color {
         if isSelected { return .blue }
-        if isHovered { return .white.opacity(0.15) }
+        if isHovered { return .white.opacity(UIConstants.Card.hoverBorderOpacity) }
         return .clear
     }
 
@@ -200,7 +195,7 @@ struct ClipboardCardView: View {
 
             Spacer()
         }
-        .frame(height: Self.headerHeight)
+        .frame(height: UIConstants.Card.headerHeight)
         .background(themeColor)
         .clipped()
         .overlay(alignment: .topTrailing) {
@@ -216,19 +211,19 @@ struct ClipboardCardView: View {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
                     .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 3)
             } else if item.isHandoff {
                 // Handoff 来源：SF Symbol 图标
                 Image(systemName: "laptopcomputer.and.iphone")
-                    .font(.system(size: Self.appIconSize * 0.55, weight: .light))
+                    .font(.system(size: UIConstants.Card.appIconSize * 0.55, weight: .light))
                     .foregroundColor(.white.opacity(0.7))
             } else {
                 Color.clear
             }
         }
-        .frame(width: Self.appIconSize, height: Self.appIconSize)
-        .offset(x: 12, y: (Self.headerHeight - Self.appIconSize) / 2 - 2)
+        .frame(width: UIConstants.Card.appIconSize, height: UIConstants.Card.appIconSize)
+        .offset(x: 12, y: (UIConstants.Card.headerHeight - UIConstants.Card.appIconSize) / 2 - 2)
         .animation(.easeInOut(duration: 0.25), value: appIcon != nil)
     }
 
