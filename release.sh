@@ -1,6 +1,6 @@
 #!/bin/bash
 # Pastry Release — 生产发布
-# 流程：release 编译 → 去除符号 → DMG 打包 → 签名
+# 流程：测试 → release 编译 → 去除符号 → 组装 → 签名 → DMG → 烟测 → 可选发布
 # 用法: ./release.sh [version] [--publish]
 #   ./release.sh 1.0.1              # 仅构建 DMG
 #   ./release.sh 1.0.1 --publish    # 构建 + 推 tag + 创建 GitHub Release
@@ -36,6 +36,11 @@ DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 echo "🏭 Building $APP_NAME $VERSION (release)..."
 echo ""
 
+step() {
+    echo ""
+    echo "━━━ $1/8 $2 ━━━"
+}
+
 # ── 检查：发布输入状态（--force 跳过）───
 if [ -n "$(git status --porcelain)" ] && ! $FORCE; then
     echo "❌ 工作区有未提交改动。请先提交，或使用 --force 明确跳过。"
@@ -46,6 +51,13 @@ EXISTING_TAG=$(git tag --points-at HEAD | head -1)
 if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" != "$TAG" ] && ! $FORCE; then
     echo "❌ 当前 commit 已有 tag \"$EXISTING_TAG\"，没有新代码"
     echo "   如需强制重新发布：先 commit 改动后再运行"
+    exit 1
+fi
+
+CURRENT_BRANCH=$(git branch --show-current)
+if $PUBLISH && [ "$CURRENT_BRANCH" != "main" ] && ! $FORCE; then
+    echo "❌ 当前分支是 \"$CURRENT_BRANCH\"，发布必须在 main 分支执行。"
+    echo "   如需强制发布：使用 --force。"
     exit 1
 fi
 
@@ -65,13 +77,11 @@ enum AppVersion {
 SWIFT
 }
 
-# ── 0. 测试（默认跳过联网测试，发布流程应可重复） ──
-echo "━━━ 0/6 测试 ━━━"
+step 1 "测试"
 swift test 2>&1 | tail -5
 
-# ── 0. 注入版本号到编译时代码（构建后恢复 dev 版本） ──
+step 2 "注入版本号"
 mkdir -p "$PROJECT_DIR/Sources/Pastry/Generated"
-DEV_VERSION="${VERSION}-dev"
 trap cleanup EXIT
 
 cat > "$PROJECT_DIR/Sources/Pastry/Generated/Version.generated.swift" << SWIFT
@@ -82,24 +92,19 @@ enum AppVersion {
 }
 SWIFT
 
-# ── 1. Release 编译（启用优化，去除 assert） ──
-echo "━━━ 1/6 Release 编译 ━━━"
+step 3 "Release 编译"
 swift build -c release -Xswiftc -Osize 2>&1 | tail -3
 
 BIN="$BUILD_DIR/$APP_NAME"
 test -f "$BIN" || { echo "❌ 构建失败"; exit 1; }
 
-# ── 2. 去除符号 ──
-echo ""
-echo "━━━ 2/6 去除调试符号 ━━━"
+step 4 "去除调试符号"
 BIN_SIZE_BEFORE=$(stat -f%z "$BIN")
 strip -S "$BIN" 2>/dev/null || true
 BIN_SIZE_AFTER=$(stat -f%z "$BIN")
 echo "   二进制: $(numfmt --to=iec $BIN_SIZE_BEFORE 2>/dev/null || echo "${BIN_SIZE_BEFORE}") → $(numfmt --to=iec $BIN_SIZE_AFTER 2>/dev/null || echo "${BIN_SIZE_AFTER}")"
 
-# ── 3. 组装 .app ──
-echo ""
-echo "━━━ 3/6 组装 .app bundle ━━━"
+step 5 "组装 .app bundle"
 rm -rf "$STAGING"
 mkdir -p "$STAGING/$APP_NAME.app/Contents/MacOS"
 mkdir -p "$STAGING/$APP_NAME.app/Contents/Resources"
@@ -145,9 +150,7 @@ cat > "$STAGING/$APP_NAME.app/Contents/Info.plist" << PLIST
 </plist>
 PLIST
 
-# ── 4. 代码签名 ──
-echo ""
-echo "━━━ 4/6 代码签名 ━━━"
+step 6 "代码签名"
 
 # 固定证书签名 = TCC/Keychain 授权持久保留
 # 通过 CODESIGN_IDENTITY 环境变量指定；显式传 "-" 可强制 ad-hoc。
@@ -172,9 +175,7 @@ else
     codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
 fi
 
-# ── 5. DMG 打包 ──
-echo ""
-echo "━━━ 5/6 DMG 打包 ━━━"
+step 7 "DMG 打包和烟测"
 mkdir -p "$DIST_DIR"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
@@ -225,9 +226,7 @@ hdiutil detach "$VOLUME" -quiet
 hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" 2>&1 | tail -1
 rm -f "$STAGING/tmp.dmg"
 
-# ── 7. DMG 烟测 ──
-echo ""
-echo "━━━ 7/7 DMG 烟测 ━━━"
+echo "   烟测 DMG..."
 SMOKE_MOUNT=$(hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH")
 SMOKE_DEVICE=$(echo "$SMOKE_MOUNT" | awk '/\/Volumes\// {print $1; exit}')
 SMOKE_VOLUME=$(echo "$SMOKE_MOUNT" | awk '/\/Volumes\// {for (i=3; i<=NF; i++) printf "%s%s", (i==3 ? "" : " "), $i; print ""; exit}')
@@ -243,10 +242,8 @@ spctl --assess --type execute "$SMOKE_APP" 2>/dev/null || echo "⚠️  Gatekeep
 hdiutil detach "${SMOKE_DEVICE:-$SMOKE_VOLUME}" -quiet
 SMOKE_VOLUME=""
 
-# ── 6. 发布到 GitHub Releases（可选） ──
 if $PUBLISH; then
-    echo ""
-    echo "━━━ 6/6 发布到 GitHub Releases ━━━"
+    step 8 "发布到 GitHub Releases"
     
     if ! command -v gh &>/dev/null; then
         echo "❌ 未安装 gh CLI，请先运行: brew install gh && gh auth login"
@@ -294,6 +291,9 @@ if $PUBLISH; then
     
     echo "   ✅ 发布完成"
     echo "   🔗 $(gh release view "$TAG" --json url -q '.url')"
+else
+    step 8 "跳过 GitHub Releases 发布"
+    echo "   未传入 --publish，仅生成本地 DMG。"
 fi
 
 echo ""
@@ -304,4 +304,7 @@ printf "║  📦 %-32s ║\n" "$DMG_NAME"
 DMG_SIZE=$(stat -f%z "$DMG_PATH" 2>/dev/null || echo 0)
 DMG_MB=$((DMG_SIZE / 1048576))
 printf "║  📏 DMG: %d MB                        ║\n" $DMG_MB
+DMG_SHA=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')
+printf "║  🔐 SHA256: %.23s…        ║\n" "$DMG_SHA"
 echo "╚══════════════════════════════════════╝"
+echo "SHA256 ($DMG_NAME): $DMG_SHA"
