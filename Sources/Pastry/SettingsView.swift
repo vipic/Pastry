@@ -123,24 +123,7 @@ struct SettingsSceneView: View {
             }
 
             Section {
-                HStack {
-                    Image(systemName: accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
-                        .foregroundColor(accessibilityTrusted ? .green : .orange).font(.title3)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(accessibilityTrusted ? L10n["settings.accessibility_granted"] : L10n["settings.accessibility_denied"]).font(.body)
-                        Text(accessibilityTrusted ? L10n["settings.accessibility_paste_ok"] : L10n["settings.accessibility_paste_need"])
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    if !accessibilityTrusted {
-                        Button(L10n["settings.accessibility_grant_btn"]) {
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
+                accessibilityPermissionRow
             }
 
             // 版本条目
@@ -224,6 +207,14 @@ struct SettingsSceneView: View {
     private var securityTab: some View {
         Form {
             Section {
+                accessibilityPermissionRow
+            } header: {
+                Text(L10n["settings.accessibility_section"])
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
                 Toggle(L10n["settings.link_preview_network"], isOn: $linkPreviewNetworkEnabled)
                 Text(L10n["settings.link_preview_network_hint"])
                     .font(.caption)
@@ -275,9 +266,34 @@ struct SettingsSceneView: View {
 
     // MARK: - 辅助
 
+    private var accessibilityPermissionRow: some View {
+        HStack {
+            Image(systemName: accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
+                .foregroundColor(accessibilityTrusted ? .green : .orange).font(.title3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(accessibilityTrusted ? L10n["settings.accessibility_granted"] : L10n["settings.accessibility_denied"]).font(.body)
+                Text(accessibilityTrusted ? L10n["settings.accessibility_paste_ok"] : L10n["settings.accessibility_paste_need"])
+                    .font(.caption).foregroundColor(.secondary)
+            }
+            Spacer()
+            if !accessibilityTrusted {
+                Button(L10n["settings.accessibility_grant_btn"]) {
+                    openAccessibilitySettings()
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
     private func refreshAccessibilityStatus() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
         accessibilityTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+    }
+
+    private func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: - 排除应用数据
