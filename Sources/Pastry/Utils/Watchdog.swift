@@ -17,15 +17,9 @@ final class MainThreadWatchdog {
     private let lock = NSLock()
 
     private init() {
-        guard let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first else {
-            fatalError("无法获取 Application Support 目录")
-        }
-        dumpDir = appSupport
-            .appendingPathComponent("Pastry")
+        dumpDir = AppDirectories.applicationSupportDirectory()
             .appendingPathComponent("HangReports")
-        try? FileManager.default.createDirectory(at: dumpDir, withIntermediateDirectories: true)
+        AppDirectories.ensureDirectory(dumpDir, logCategory: "watchdog")
     }
 
     func start() {

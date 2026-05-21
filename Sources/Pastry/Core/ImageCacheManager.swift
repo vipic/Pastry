@@ -15,20 +15,9 @@ final class ImageCacheManager {
     private let cacheDir: URL
 
     private init() {
-        guard let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first else {
-            log.error("无法获取 Application Support 目录")
-            fatalError("Application Support directory is unavailable")
-        }
-        cacheDir = appSupport
-            .appendingPathComponent(Constants.appName)
+        cacheDir = AppDirectories.applicationSupportDirectory()
             .appendingPathComponent("ImageCache")
-        do {
-            try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        } catch {
-            log.error("无法创建图片缓存目录: \(self.cacheDir.path, privacy: .public), error: \(error.localizedDescription)")
-        }
+        AppDirectories.ensureDirectory(cacheDir, logCategory: "image-cache")
     }
 
     /// 保存图片：原始数据保留原格式（.orig），另存缩略图（.png）用于卡片预览。
