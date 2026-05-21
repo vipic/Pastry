@@ -125,6 +125,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertTrue(script.contains("mv \"$TARGET\" \"$BACKUP\""))
         XCTAssertTrue(script.contains("mv \"$BACKUP\" \"$TARGET\""))
         XCTAssertFalse(script.contains("codesign --force --deep --sign"))
+        XCTAssertFalse(script.contains("更新包签名身份与当前 App 不匹配\" >&2\n            hdiutil detach"))
     }
 
     func testUpdateInstallScriptVerifiesExpectedVersion() {
@@ -139,5 +140,25 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertTrue(script.contains("INSTALLED_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString'"))
         XCTAssertTrue(script.contains("更新包版本不匹配"))
         XCTAssertTrue(script.contains("安装后版本仍为"))
+    }
+
+    func testUpdateInstallScriptAllowsCertificateRotationButRejectsAdhoc() {
+        let script = UpdateInstallScriptBuilder.script(
+            stableDMGPath: "/tmp/pastry_update.dmg",
+            targetPath: "/Applications/Pastry.app",
+            expectedVersion: "1.3.20"
+        )
+
+        XCTAssertTrue(script.contains("Signature=adhoc"))
+        XCTAssertTrue(script.contains("更新包使用 ad-hoc 签名，拒绝自动更新"))
+        XCTAssertTrue(script.contains("系统权限可能需要重新授权"))
+
+        guard let mismatchRange = script.range(of: "更新包签名身份与当前 App 不匹配"),
+              let replaceRange = script.range(of: "# 替换整个 .app") else {
+            XCTFail("Script should contain signature mismatch warning and replacement step")
+            return
+        }
+        let mismatchBlock = script[mismatchRange.lowerBound..<replaceRange.lowerBound]
+        XCTAssertFalse(mismatchBlock.contains("exit 1"))
     }
 }
