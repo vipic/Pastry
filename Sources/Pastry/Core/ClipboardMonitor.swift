@@ -310,14 +310,14 @@ final class ClipboardMonitor: ObservableObject {
             let appName = effectiveApp
             let isHandoff = isRemoteClipboard
             let textAnnotation = readText(from: pb, appName: nil)?.content
-            DispatchQueue.global(qos: .utility).async { [weak self] in
+            Task.detached(priority: .utility) { [weak self] in
                 guard let self else { return }
                 guard let savedPath = ImageCacheManager.shared.save(image: image, data: data) else {
                     self.log.error("图片缓存写入失败")
                     return
                 }
                 let item = ClipboardItem(content: savedPath, sourceFormat: .image, appName: appName, isHandoff: isHandoff, textAnnotation: textAnnotation)
-                DispatchQueue.main.async {
+                await MainActor.run {
                     self.latestItem = item
                     self.onNewItem?(item)
                 }
