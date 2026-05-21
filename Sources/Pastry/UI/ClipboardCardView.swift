@@ -85,7 +85,7 @@ struct ClipboardCardView: View {
                 Self.imageCache.removeObject(forKey: old as NSString)
                 fetchLinkPreviewIfNeeded()
             }
-            .task { await loadFilePreviewsIfNeeded() }
+            .task(id: filePreviewTaskID) { await loadFilePreviewsIfNeeded() }
     }
 
     /// 卡片基础渲染（样式 + 内容，不含手势和生命周期）
@@ -526,8 +526,18 @@ struct ClipboardCardView: View {
         return Self.imageCache.object(forKey: key)
     }
 
+    private var filePreviewTaskID: String {
+        "\(item.id.uuidString):\(item.sourceFormat.rawValue):\(item.content)"
+    }
+
     /// 异步加载文件预览 — 避免主线程同步 I/O 触发 TCC 权限弹窗死锁
     private func loadFilePreviewsIfNeeded() async {
+        asyncFilePreview = nil
+        asyncFileIcons = [:]
+        missingFileURLs = []
+
+        guard item.sourceFormat == .image || item.sourceFormat == .fileURL else { return }
+
         // 图片类型 — 异步加载 NSImage
         if item.sourceFormat == .image {
             let path = item.content
@@ -544,15 +554,23 @@ struct ClipboardCardView: View {
             }
 
             if let cached = Self.imageCache.object(forKey: key) {
-                await MainActor.run { asyncFilePreview = cached }
+                guard !Task.isCancelled else { return }
+                asyncFilePreview = cached
                 return
             }
-            let img = await Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
-                NSImage(contentsOfFile: path)
-            }).value
+            let imageLoadTask = Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
+                guard !Task.isCancelled else { return nil }
+                return NSImage(contentsOfFile: path)
+            })
+            let img = await withTaskCancellationHandler {
+                await imageLoadTask.value
+            } onCancel: {
+                imageLoadTask.cancel()
+            }
+            guard !Task.isCancelled else { return }
             if let img = img {
                 Self.imageCache.setObject(img, forKey: key)
-                await MainActor.run { asyncFilePreview = img }
+                asyncFilePreview = img
             }
             return
         }
@@ -560,10 +578,11 @@ struct ClipboardCardView: View {
         // 文件 URL 类型 — 异步检查存在性并加载图标
         if item.sourceFormat == .fileURL {
             let urls = fileURLs
-            let result = await Task.detached(priority: .userInitiated, operation: { () -> (missing: Set<URL>, icons: [(URL, NSImage, Bool)]) in
+            let fileLoadTask = Task.detached(priority: .userInitiated, operation: { () -> (missing: Set<URL>, icons: [(URL, NSImage, Bool)]) in
                 var missing: Set<URL> = []
                 var icons: [(URL, NSImage, Bool)] = []
                 for url in urls {
+                    guard !Task.isCancelled else { break }
                     guard FileManager.default.fileExists(atPath: url.path) else {
                         missing.insert(url)
                         continue
@@ -595,14 +614,18 @@ struct ClipboardCardView: View {
                     }
                 }
                 return (missing, icons)
-            }).value
+            })
+            let result = await withTaskCancellationHandler {
+                await fileLoadTask.value
+            } onCancel: {
+                fileLoadTask.cancel()
+            }
 
-            await MainActor.run {
-                missingFileURLs = result.missing
-                for (url, icon, isThumbnail) in result.icons {
-                    if isThumbnail { asyncFilePreview = icon }
-                    else { asyncFileIcons[url] = icon }
-                }
+            guard !Task.isCancelled else { return }
+            missingFileURLs = result.missing
+            for (url, icon, isThumbnail) in result.icons {
+                if isThumbnail { asyncFilePreview = icon }
+                else { asyncFileIcons[url] = icon }
             }
         }
     }
