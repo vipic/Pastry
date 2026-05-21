@@ -5,6 +5,18 @@ import Foundation
 // MARK: - UpdateChecker 测试套件
 
 final class UpdateCheckerTests: XCTestCase {
+    private final class ProgressRecorder: @unchecked Sendable {
+        private var values: [Double] = []
+        private let lock = NSLock()
+
+        func append(_ value: Double) {
+            lock.withLock { values.append(value) }
+        }
+
+        var snapshot: [Double] {
+            lock.withLock { values }
+        }
+    }
 
     // MARK: - downloadBinary 进度回调
 
@@ -16,21 +28,18 @@ final class UpdateCheckerTests: XCTestCase {
             throw XCTSkip("无可用更新或网络不可达，跳过下载测试")
         }
 
-        var progressValues = [Double]()
-        let lock = NSLock()
+        let progress = ProgressRecorder()
 
         let url = try await checker.downloadBinary(
             from: result.downloadURL,
-            onProgress: { progress in
-                lock.withLock { progressValues.append(progress) }
+            onProgress: { value in
+                progress.append(value)
             }
         )
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
 
-        lock.lock()
-        let values = progressValues
-        lock.unlock()
+        let values = progress.snapshot
 
         // 小文件可能一次回调完成，也可能因 CDN 响应不带 Content-Length 无回调
         // 只要文件下载成功即可

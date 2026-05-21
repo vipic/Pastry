@@ -293,68 +293,17 @@ final class OverlayPanelManager: @unchecked Sendable {
         // 1. 挂起监听，防止读到自己的写入
         ClipboardMonitor.shared.suspend()
 
-        // 2. 写剪贴板（立即，主线程 <1ms）
-        let pb = NSPasteboard.general
-        pb.clearContents()
-
-        // 列表查询只取前 256 字符，粘贴前按需取完整内容
-        let fullContent: String
-        switch item.sourceFormat {
-        case .text, .rtf, .html:
-            fullContent = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
-        default:
-            fullContent = item.content
-        }
-
-        switch item.sourceFormat {
-        case .text:
-            pb.setString(fullContent, forType: .string)
-        case .rtf, .html:
-            pb.setString(fullContent, forType: .string)
-            if let raw = item.rawFormatData, let typeStr = item.rawFormatType {
-                pb.setData(raw, forType: NSPasteboard.PasteboardType(typeStr))
-            }
-        case .fileURL:
-            let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
-            let existingURLs = urls.filter { FileManager.default.fileExists(atPath: $0.path) }
-            guard !existingURLs.isEmpty else {
-                // 所有文件都已删除/移动，静默取消粘贴，关闭面板
-                ClipboardMonitor.shared.resume()
-                panel?.orderOut(nil)
-                panel = nil
-                removeKeyboardMonitor()
-                NotificationCenter.default.post(name: .overlayDidHide, object: nil)
-                isPasting = false
-                return
-            }
-            pb.writeObjects(existingURLs as [NSURL])
-        case .image:
-            // 优先从原始数据路径加载（高清），回退到缩略图路径
-            let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
-            if let image = await Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
-                NSImage(contentsOfFile: imagePath)
-            }).value {
-                if let annotation = item.textAnnotation, !annotation.isEmpty {
-                    let attr = NSMutableAttributedString()
-                    let attachment = NSTextAttachment()
-                    attachment.image = image
-                    attr.append(NSAttributedString(attachment: attachment))
-                    attr.append(NSAttributedString(string: "\n\(annotation)"))
-                    do {
-                        let rtfd = try attr.data(
-                            from: NSRange(location: 0, length: attr.length),
-                            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]
-                        )
-                        pb.setData(rtfd, forType: .rtfd)
-                    } catch {
-                        log.error("RTFD 写入失败: \(error.localizedDescription)")
-                    }
-                    pb.setData(image.tiffRepresentation, forType: .tiff)
-                    pb.setString(annotation, forType: .string)
-                } else {
-                    pb.writeObjects([image])
-                }
-            }
+        // 2. 写剪贴板（文本/文件立即，图片 I/O 后台完成）
+        let result = await PasteboardWriter.write(item, options: .overlaySingle)
+        guard result == .written else {
+            // 文件全部缺失或图片读取失败时，静默取消粘贴，关闭面板
+            ClipboardMonitor.shared.resume()
+            panel?.orderOut(nil)
+            panel = nil
+            removeKeyboardMonitor()
+            NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+            isPasting = false
+            return
         }
 
         // 内容就绪 → 反馈音效（异步避免阻塞粘贴）
@@ -403,9 +352,7 @@ final class OverlayPanelManager: @unchecked Sendable {
             }
         }
         let combined = lines.joined(separator: "\n")
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(combined, forType: .string)
+        PasteboardWriter.writePlainText(combined)
 
         // 音效
         if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
