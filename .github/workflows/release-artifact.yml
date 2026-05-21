@@ -20,6 +20,23 @@ jobs:
       - name: Build Release DMG
         run: ./release.sh "${{ inputs.version }}" --force
 
+      - name: Validate DMG
+        run: |
+          set -euo pipefail
+          DMG="dist/Pastry-${{ inputs.version }}.dmg"
+          test -s "$DMG"
+
+          MOUNT_OUTPUT=$(hdiutil attach -readonly -noverify -noautoopen "$DMG")
+          DEVICE=$(echo "$MOUNT_OUTPUT" | awk '/\/Volumes\// {print $1; exit}')
+          VOLUME=$(echo "$MOUNT_OUTPUT" | awk '/\/Volumes\// {for (i=3; i<=NF; i++) printf "%s%s", (i==3 ? "" : " "), $i; print ""; exit}')
+          trap 'hdiutil detach "${DEVICE:-$VOLUME}" -quiet' EXIT
+
+          APP="$VOLUME/Pastry.app"
+          test -d "$APP"
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
+          test "$VERSION" = "${{ inputs.version }}"
+          codesign --verify --deep --strict "$APP"
+
       - name: Upload DMG
         uses: actions/upload-artifact@v5
         with:

@@ -282,8 +282,12 @@ final class StoreManager: ObservableObject {
         refreshStats()
     }
 
-    func applyHistoryRetentionSettings() {
-        DatabaseManager.shared.enforceHistoryRetention()
+    func applyHistoryRetentionSettings(
+        enforce: () -> Void = { DatabaseManager.shared.enforceHistoryRetention() },
+        reloadFromDatabase: Bool = true
+    ) {
+        enforce()
+        guard reloadFromDatabase else { return }
         loadRecent()
         refreshStats()
     }
