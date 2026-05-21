@@ -79,19 +79,23 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
         let image = NSImage(size: size)
         image.lockFocus()
 
-        for index in stride(from: min(itemCount, 4) - 1, through: 0, by: -1) {
+        for index in stride(from: 1, through: 0, by: -1) {
             drawStackCard(index: index, size: size)
         }
 
         let badge = "\(itemCount)" as NSString
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
         let badgeAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold),
             .foregroundColor: NSColor.white,
+            .paragraphStyle: paragraphStyle,
         ]
         NSColor.controlAccentColor.setFill()
-        NSBezierPath(ovalIn: NSRect(x: size.width - 30, y: size.height - 30, width: 24, height: 24)).fill()
+        let badgeRect = NSRect(x: size.width - 30, y: size.height - 30, width: 24, height: 24)
+        NSBezierPath(ovalIn: badgeRect).fill()
         badge.draw(
-            in: NSRect(x: size.width - 30, y: size.height - 26, width: 24, height: 14),
+            in: NSRect(x: badgeRect.minX, y: badgeRect.minY + 5, width: badgeRect.width, height: 14),
             withAttributes: badgeAttributes
         )
 

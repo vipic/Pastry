@@ -50,7 +50,7 @@ final class DatabaseManager {
     private var keyFilePath: String { dbPath + ".key" }
     private static let keychainService = "com.nekutai.pastry.dbkey"
     private static let keychainAccount = "clips.db"
-    private static let keychainAccessVersion = "pastry-keychain-access-v2"
+    private static let keychainAccessVersion = "pastry-keychain-access-v3"
 
     private struct KeychainEntry {
         let key: Data
