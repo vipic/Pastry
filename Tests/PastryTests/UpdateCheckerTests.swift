@@ -53,15 +53,12 @@ final class UpdateCheckerTests: XCTestCase {
 
         let values = progress.snapshot
 
-        // 小文件可能一次回调完成，也可能因 CDN 响应不带 Content-Length 无回调
-        // 只要文件下载成功即可
-        if !values.isEmpty {
-            if let last = values.last {
-                XCTAssertEqual(last, 1.0, accuracy: 0.01, "最终进度应接近 1.0")
-            }
-            if let first = values.first {
-                XCTAssertGreaterThanOrEqual(first, 0.0, "起始进度应 ≥ 0")
-            }
+        XCTAssertFalse(values.isEmpty, "下载应至少发出开始和完成进度")
+        if let last = values.last {
+            XCTAssertEqual(last, 1.0, accuracy: 0.01, "最终进度应接近 1.0")
+        }
+        if let first = values.first {
+            XCTAssertGreaterThanOrEqual(first, 0.0, "起始进度应 ≥ 0")
         }
 
         try? FileManager.default.removeItem(at: url)

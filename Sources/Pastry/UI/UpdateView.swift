@@ -285,6 +285,8 @@ struct UpdateView: View {
     private var progressBar: some View {
         VStack(spacing: 6) {
             if case .downloading(let progress) = state {
+                let clampedProgress = min(max(progress, 0), 1)
+                let visibleProgress = max(clampedProgress, 0.02)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 3)
@@ -292,12 +294,12 @@ struct UpdateView: View {
                             .frame(height: 6)
                         RoundedRectangle(cornerRadius: 3)
                             .fill(Color.accentColor)
-                            .frame(width: geo.size.width * CGFloat(progress), height: 6)
+                            .frame(width: geo.size.width * CGFloat(visibleProgress), height: 6)
                     }
                 }
                 .frame(height: 6)
 
-                Text("\(Int(progress * 100))%")
+                Text("\(Int(clampedProgress * 100))%")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
                     .monospacedDigit()
