@@ -102,6 +102,12 @@ struct ClipboardCardView: View {
                 cmdBadge(idx)
             }
         }
+        .overlay(alignment: .topLeading) {
+            if isSelected {
+                selectedBadge
+                    .padding(6)
+            }
+        }
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
         .scaleEffect(didPaste ? UIConstants.Card.pasteScale : 1.0)
@@ -184,6 +190,15 @@ struct ClipboardCardView: View {
         .padding(6)
     }
 
+    private var selectedBadge: some View {
+        Image(systemName: "checkmark.circle.fill")
+            .font(.system(size: 15, weight: .semibold))
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(.white, .blue)
+            .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
+            .accessibilityLabel(L10n["card.selected"])
+    }
+
     // MARK: - 顶部栏（始终使用主题色背景）
 
     private var topBar: some View {
@@ -193,6 +208,12 @@ struct ClipboardCardView: View {
                 .foregroundColor(.white.opacity(0.9))
                 .padding(.leading, 10)
 
+            Text(cardTypeLabel)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.white.opacity(0.76))
+                .lineLimit(1)
+                .padding(.leading, 5)
+
             Spacer()
         }
         .frame(height: UIConstants.Card.headerHeight)
@@ -201,6 +222,12 @@ struct ClipboardCardView: View {
         .overlay(alignment: .topTrailing) {
             appIconOverlay
         }
+    }
+
+    private var cardTypeLabel: String {
+        if item.tags.isURL { return L10n["filetype.link"] }
+        if item.tags.isMultiFile { return L10n["filter.type.fileURL"] }
+        return item.sourceFormat.label
     }
 
     /// 应用图标 — 60×60，标题栏内垂直居中，右移 50% 让一半溢出卡片被裁切

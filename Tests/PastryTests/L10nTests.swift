@@ -46,7 +46,8 @@ final class L10nTests: XCTestCase {
             "settings.history.max_items_value",
             "settings.history.age_never",
             "settings.history.age_days",
-            "settings.history.age_one_year"
+            "settings.history.age_one_year",
+            "card.selected"
         ]
         for key in keys {
             let value = L10n[key]
