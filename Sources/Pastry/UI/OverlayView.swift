@@ -40,10 +40,6 @@ struct OverlayView: View {
     @FocusState private var isSearchFocused: Bool
     @StateObject private var keyHandler = KeyboardEventHandler()
 
-    private let cardSpacing: CGFloat = 10
-    private let bottomInset: CGFloat = 12
-    private let animationDuration = 0.20
-
     // MARK: - Body
 
     var body: some View {
@@ -61,8 +57,8 @@ struct OverlayView: View {
                 Spacer()
 
                 cardContainer
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, bottomInset)
+                    .padding(.horizontal, UIConstants.Overlay.horizontalPadding)
+                    .padding(.bottom, UIConstants.Overlay.bottomInset)
                     .offset(y: cardVisible ? 0 : 200)
                     .opacity(cardVisible ? 1 : 0)
             }
@@ -77,7 +73,7 @@ struct OverlayView: View {
                 .onAppear {
                     resetAllState()
                     keyHandler.installMouseMonitor()
-                    withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
+                    withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
                         cardVisible = true
                     }
                 }
@@ -204,10 +200,10 @@ struct OverlayView: View {
         showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
-        withAnimation(.spring(response: animationDuration, dampingFraction: 0.82)) {
+        withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
             cardVisible = false
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + UIConstants.Overlay.animationDuration) {
             OverlayPanelManager.shared.hide()
         }
     }
@@ -454,7 +450,7 @@ struct OverlayView: View {
         if isHorizontalLayout {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: cardSpacing) {
+                    LazyHStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                             cardView(item, index: idx)
                         }
@@ -484,16 +480,16 @@ struct OverlayView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: cardSpacing) {
+                    LazyVStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                             cardView(item, index: idx)
-                                .frame(maxWidth: 400)
+                                .frame(maxWidth: UIConstants.Overlay.compactCardMaxWidth)
                         }
                     }
                     .padding(.vertical, 3)
                     .padding(.horizontal, 8)
                 }
-                .frame(maxWidth: 520)
+                .frame(maxWidth: UIConstants.Overlay.compactListMaxWidth)
                 .animation(nil, value: items.count)
                 .onChange(of: selection.cursorIndex) { oldIdx, newIdx in
                     guard let idx = newIdx, idx < items.count else { return }
@@ -643,7 +639,7 @@ struct OverlayView: View {
                 .font(.body)
                 .foregroundColor(.white.opacity(0.65))
         }
-        .frame(maxWidth: .infinity, minHeight: 252)  // 240 card + 6 Lazy + 6 outer = 252
+        .frame(maxWidth: .infinity, minHeight: UIConstants.Overlay.emptyStateMinHeight)
     }
 }
 

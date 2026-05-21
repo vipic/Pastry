@@ -73,6 +73,18 @@ final class ConstantsTests: XCTestCase {
         XCTAssertNotNil(nsColor.usingColorSpace(.sRGB))
     }
 
+    func testUICardConstantsAreStable() {
+        XCTAssertEqual(UIConstants.Card.size, 240)
+        XCTAssertEqual(UIConstants.Card.headerHeight, 48)
+        XCTAssertEqual(UIConstants.Card.cornerRadius, 10)
+    }
+
+    func testUIOverlayConstantsAreStable() {
+        XCTAssertEqual(UIConstants.Overlay.cardSpacing, 10)
+        XCTAssertEqual(UIConstants.Overlay.emptyStateMinHeight, UIConstants.Card.size + 12)
+        XCTAssertEqual(UIConstants.Overlay.compactListMaxWidth, 520)
+    }
+
     // MARK: - SF Symbols
 
     func testAppIconSymbolNotEmpty() {
