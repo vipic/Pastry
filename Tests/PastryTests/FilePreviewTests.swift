@@ -278,7 +278,7 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.utf8-plain-text"))
     }
 
-    func testMultiURLSelectionDragProviderExposesURLAndTextTypes() {
+    func testMultiURLSelectionDragProviderKeepsPlainTextList() {
         let items = [
             ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
             ClipboardItem(content: "https://example.com/b", sourceFormat: .text, tags: ContentTags(isURL: true)),
@@ -286,8 +286,17 @@ final class FilePreviewTests: XCTestCase {
 
         let provider = DragPayloadBuilder.providerForSelection(items)
 
-        XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.url"))
-        XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.utf8-plain-text"))
+        let exp = expectation(description: "plain URL list loaded")
+        provider.loadItem(forTypeIdentifier: "public.utf8-plain-text", options: nil) { item, error in
+            XCTAssertNil(error)
+            if let data = item as? Data {
+                XCTAssertEqual(String(data: data, encoding: .utf8), "https://example.com/a\nhttps://example.com/b")
+            } else {
+                XCTAssertEqual(item as? String, "https://example.com/a\nhttps://example.com/b")
+            }
+            exp.fulfill()
+        }
+        wait(for: [exp], timeout: 1)
     }
 
     func testMixedURLAndTextSelectionKeepsPlainTextPayload() {
@@ -296,7 +305,6 @@ final class FilePreviewTests: XCTestCase {
             ClipboardItem(content: "plain note", sourceFormat: .text),
         ]
 
-        XCTAssertNil(DragPayloadBuilder.pureWebURLs(in: items))
         XCTAssertEqual(
             DragPayloadBuilder.multiSelectText(items),
             "https://example.com/a\nplain note"

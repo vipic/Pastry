@@ -40,35 +40,9 @@ enum DragPayloadBuilder {
         _ items: [ClipboardItem],
         loadFullContent: (ClipboardItem) -> String? = { _ in nil }
     ) -> NSItemProvider {
-        if let urls = pureWebURLs(in: items, loadFullContent: loadFullContent) {
-            return urlProvider(for: urls)
-        }
-
         let text = multiSelectText(items, loadFullContent: loadFullContent)
         guard !text.isEmpty else { return NSItemProvider(object: "" as NSString) }
         return NSItemProvider(object: text as NSString)
-    }
-
-    static func pureWebURLs(
-        in items: [ClipboardItem],
-        loadFullContent: (ClipboardItem) -> String? = { _ in nil }
-    ) -> [URL]? {
-        var urls: [URL] = []
-
-        for item in items {
-            switch item.sourceFormat {
-            case .image:
-                continue
-            case .text, .rtf, .html:
-                let itemURLs = webURLs(in: item, loadFullContent: loadFullContent)
-                guard !itemURLs.isEmpty else { return nil }
-                urls.append(contentsOf: itemURLs)
-            case .fileURL:
-                return nil
-            }
-        }
-
-        return urls.isEmpty ? nil : urls
     }
 
     static func multiSelectText(
