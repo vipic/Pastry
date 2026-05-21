@@ -290,6 +290,32 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertTrue(provider.registeredTypeIdentifiers.contains("public.utf8-plain-text"))
     }
 
+    func testMixedURLAndTextSelectionKeepsPlainTextPayload() {
+        let items = [
+            ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
+            ClipboardItem(content: "plain note", sourceFormat: .text),
+        ]
+
+        XCTAssertNil(DragPayloadBuilder.pureWebURLs(in: items))
+        XCTAssertEqual(
+            DragPayloadBuilder.multiSelectText(items),
+            "https://example.com/a\nplain note"
+        )
+
+        let provider = DragPayloadBuilder.providerForSelection(items)
+        let exp = expectation(description: "plain text loaded")
+        provider.loadItem(forTypeIdentifier: "public.utf8-plain-text", options: nil) { item, error in
+            XCTAssertNil(error)
+            if let data = item as? Data {
+                XCTAssertEqual(String(data: data, encoding: .utf8), "https://example.com/a\nplain note")
+            } else {
+                XCTAssertEqual(item as? String, "https://example.com/a\nplain note")
+            }
+            exp.fulfill()
+        }
+        wait(for: [exp], timeout: 1)
+    }
+
     func testTextTypeCanPreview() {
         XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .text))
         XCTAssertTrue(ClipboardCardView.isTextTypeForTesting(sourceFormat: .rtf))

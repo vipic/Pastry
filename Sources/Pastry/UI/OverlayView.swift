@@ -572,7 +572,7 @@ struct OverlayView: View {
         guard ids.count > 1, ids.contains(item.id) else { return [] }
 
         let selected = visibleItems.filter { ids.contains($0.id) }
-        let urls = selected.flatMap { DragPayloadBuilder.webURLs(in: $0) }
+        guard let urls = DragPayloadBuilder.pureWebURLs(in: selected) else { return [] }
         return urls.count > 1 ? urls : []
     }
 
