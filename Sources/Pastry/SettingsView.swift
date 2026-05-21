@@ -12,6 +12,9 @@ struct SettingsSceneView: View {
     @AppStorage(UserDefaultsKeys.soundEnabled)
     private var soundEnabled = false
 
+    @AppStorage(UserDefaultsKeys.linkPreviewNetworkEnabled)
+    private var linkPreviewNetworkEnabled = false
+
     @AppStorage(UserDefaultsKeys.hotkeyKeyCode)
     private var hotkeyKeyCode = Int(GlobalHotkeyManager.defaultKeyCode)
     @AppStorage(UserDefaultsKeys.hotkeyModifiers)
@@ -220,6 +223,13 @@ struct SettingsSceneView: View {
 
     private var securityTab: some View {
         Form {
+            Section {
+                Toggle(L10n["settings.link_preview_network"], isOn: $linkPreviewNetworkEnabled)
+                Text(L10n["settings.link_preview_network_hint"])
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section {
                 if installedExcludedBundleIDs.isEmpty {
                     Text(L10n["settings.excluded_empty"])

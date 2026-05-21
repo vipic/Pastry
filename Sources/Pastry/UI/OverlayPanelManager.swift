@@ -248,20 +248,11 @@ final class OverlayPanelManager: @unchecked Sendable {
     private var isDragThrough = false
     private var panelResignKeyObserver: NSObjectProtocol?
 
-    /// 筛选气泡
-    private var filterPopover: NSPopover?
-    private var filterPopoverCloseObserver: NSObjectProtocol?
-
     private init() {
         NotificationCenter.default.addObserver(
             forName: .overlayAlertActive, object: nil, queue: .main
         ) { [weak self] note in
             self?.alertActive = (note.userInfo?["active"] as? Bool) ?? false
-        }
-        NotificationCenter.default.addObserver(
-            forName: .overlayToggleFilterPopover, object: nil, queue: .main
-        ) { [weak self] _ in
-            DispatchQueue.main.async { self?.toggleFilterPopover() }
         }
     }
 
@@ -340,9 +331,9 @@ final class OverlayPanelManager: @unchecked Sendable {
         case .image:
             // 优先从原始数据路径加载（高清），回退到缩略图路径
             let imagePath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
-            if let image = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+            if let image = await Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
                 NSImage(contentsOfFile: imagePath)
-            }.value {
+            }).value {
                 if let annotation = item.textAnnotation, !annotation.isEmpty {
                     let attr = NSMutableAttributedString()
                     let attachment = NSTextAttachment()
@@ -568,88 +559,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         log.info("覆盖层已显示")
     }
 
-    // MARK: - 筛选气泡
-
-    @MainActor
-    func toggleFilterPopover(sourceFrame: CGRect? = nil) {
-        try? "toggleFilterPopover frame=\(sourceFrame?.debugDescription ?? "nil")\n".write(toFile: "/tmp/pastry_debug.txt", atomically: false, encoding: .utf8)
-        if filterPopover != nil {
-            dismissFilterPopover()
-        } else {
-            showFilterPopover(sourceFrame: sourceFrame)
-        }
-    }
-
-    @MainActor
-    private func showFilterPopover(sourceFrame: CGRect?) {
-        guard let panel else {
-            try? "panel nil\n".write(toFile: "/tmp/pastry_debug.txt", atomically: false, encoding: .utf8)
-            return
-        }
-
-        // 用 panel 的 contentView 顶部区域做锚点（简化，不纠结按钮精确定位）
-        guard let contentView = panel.contentView else {
-            return
-        }
-        // 在 contentView 坐标系的顶部偏右位置创建锚点矩形
-        let anchorRect = NSRect(x: contentView.bounds.maxX - 120,
-                                y: contentView.bounds.maxY - 30,
-                                width: 30, height: 10)
-
-        let rootView = FilterPopoverContent(store: StoreManager.shared)
-        let hostingVC = NSHostingController(rootView: rootView)
-        hostingVC.view.frame.size = hostingVC.view.fittingSize
-
-        let p = NSPopover()
-        p.contentViewController = hostingVC
-        p.behavior = .transient
-        p.animates = true
-
-        filterPopoverCloseObserver = NotificationCenter.default.addObserver(
-            forName: NSPopover.didCloseNotification, object: p, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.dismissFilterPopover() }
-        }
-
-        filterPopover = p
-        NotificationCenter.default.post(name: .filterPopoverStateChanged,
-                                        object: nil, userInfo: ["showing": true])
-        p.show(relativeTo: anchorRect, of: contentView, preferredEdge: .minY)
-    }
-
-    @MainActor
-    private func dismissFilterPopover() {
-        if let observer = filterPopoverCloseObserver {
-            NotificationCenter.default.removeObserver(observer)
-            filterPopoverCloseObserver = nil
-        }
-        filterPopover?.close()
-        filterPopover = nil
-        NotificationCenter.default.post(name: .filterPopoverStateChanged,
-                                        object: nil, userInfo: ["showing": false])
-    }
-
-    /// 递归查找指定 accessibilityIdentifier 的子视图
-    private func findView(by identifier: String, in view: NSView) -> NSView? {
-        if view.accessibilityIdentifier() == identifier { return view }
-        for subview in view.subviews {
-            if let found = findView(by: identifier, in: subview) { return found }
-        }
-        return nil
-    }
-
-    /// 诊断用：递归打印视图层级
-    private func dumpViewHierarchy(_ view: NSView, indent: Int) {
-        let pad = String(repeating: "  ", count: indent)
-        let aid = view.accessibilityIdentifier()
-        log.info("\(pad)[\(type(of: view))] accessibilityID=\(aid)")
-        for sub in view.subviews {
-            dumpViewHierarchy(sub, indent: indent + 1)
-        }
-    }
-
     private func cleanup() {
-        MainActor.assumeIsolated { dismissFilterPopover() }
         if let observer = panelResignKeyObserver {
             NotificationCenter.default.removeObserver(observer)
             panelResignKeyObserver = nil
@@ -672,10 +582,6 @@ final class OverlayPanelManager: @unchecked Sendable {
             // Esc：筛选气泡 → 预览 popover → 搜索栏 → 关闭面板（逐层收起）
             if event.keyCode == 53 {
                 if self.alertActive { return event }
-                if self.filterPopover != nil {
-                    DispatchQueue.main.async { self.dismissFilterPopover() }
-                    return nil
-                }
                 if QLPreviewHelper.shared.isShowing {
                     QLPreviewHelper.shared.dismiss()
                     return nil

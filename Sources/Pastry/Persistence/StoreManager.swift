@@ -121,8 +121,10 @@ final class StoreManager: ObservableObject {
     // MARK: 订阅
 
     private var cancellables = Set<AnyCancellable>()
+    private let usesDatabaseSearch: Bool
 
     private init() {
+        usesDatabaseSearch = true
         loadRecent()
 
         ClipboardMonitor.shared.onNewItem = { [weak self] item in
@@ -139,6 +141,7 @@ final class StoreManager: ObservableObject {
 
     /// 测试专用：直接注入剪贴板数据，不经过数据库
     init(items: [ClipboardItem]) {
+        usesDatabaseSearch = false
         self.items = items
         performSearchImmediate()
         refreshAvailableApps()
@@ -179,9 +182,9 @@ final class StoreManager: ObservableObject {
                 .map { URL(fileURLWithPath: String($0)) }
             pb.writeObjects(urls as [NSURL])
         case .image:
-            if let image = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+            if let image = await Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
                 NSImage(contentsOfFile: item.content)
-            }.value {
+            }).value {
                 pb.writeObjects([image])
             }
         }
@@ -385,15 +388,23 @@ final class StoreManager: ObservableObject {
     private func executeSearch() {
         let query = searchQuery.trimmingCharacters(in: .whitespaces)
 
-        // 确定基础数据源
-        var base = items
+        // 确定基础数据源：生产环境关键词搜索走 SQLite FTS，覆盖完整历史和长文本。
+        let searchedInDatabase = usesDatabaseSearch && !query.isEmpty
+        var base = searchedInDatabase
+            ? DatabaseManager.shared.search(query: query, limit: 500)
+            : items
         if pinTab == .pinned {
-            base = items.filter { $0.isPinned }
+            base = base.filter { $0.isPinned }
         }
 
-        // 文本搜索：content + appName 大小写不敏感子串匹配
-        if !query.isEmpty {
+        // 测试注入数据和无数据库路径：content + appName 大小写不敏感子串匹配。
+        if !query.isEmpty && !searchedInDatabase {
             base = base.filtered(by: query)
+        } else if searchedInDatabase {
+            // 保留旧交互：来源 App 名称也可命中。数据库 FTS 负责内容，最近内存列表补 App 名称。
+            let existing = Set(base.map(\.id))
+            let appMatches = items.filtered(by: query).filter { !existing.contains($0.id) }
+            base.append(contentsOf: appMatches)
         }
 
         // 类型筛选（按来源格式）

@@ -647,6 +647,17 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertTrue(longText.hasPrefix(items[0].content))
     }
 
+    /// FTS 搜索应覆盖完整 content，而不是只搜索列表截断的 256 字符
+    func testSearchFindsContentBeyondListTruncation() {
+        let prefix = String(repeating: "A", count: 300)
+        let item = makeItem(content: "\(prefix) uniqueTailNeedle", type: .text)
+        db.insert(item)
+
+        let results = db.search(query: "uniqueTailNeedle")
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].id, item.id)
+    }
+
     /// loadFullContent 返回完整内容（未被截断）
     func testLoadFullContentReturnsFull() {
         let longText = String(repeating: "完整大文本", count: 40) // ~240 字符

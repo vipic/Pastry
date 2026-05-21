@@ -26,6 +26,10 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(UserDefaultsKeys.soundEnabled, "sound_enabled")
     }
 
+    func testLinkPreviewNetworkEnabledKey() {
+        XCTAssertEqual(UserDefaultsKeys.linkPreviewNetworkEnabled, "link_preview_network_enabled")
+    }
+
     // MARK: - AppName
 
     func testAppName() {
