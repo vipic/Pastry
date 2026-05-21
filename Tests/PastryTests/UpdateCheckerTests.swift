@@ -122,6 +122,8 @@ final class UpdateCheckerTests: XCTestCase {
         )
 
         XCTAssertTrue(script.contains("BACKUP=\"$TARGET_PARENT/.${TARGET_NAME}.update-backup-$(date +%s)\""))
+        XCTAssertTrue(script.contains("LOG=\"/tmp/pastry_update.log\""))
+        XCTAssertTrue(script.contains("exec >> \"$LOG\" 2>&1"))
         XCTAssertTrue(script.contains("mv \"$TARGET\" \"$BACKUP\""))
         XCTAssertTrue(script.contains("mv \"$BACKUP\" \"$TARGET\""))
         XCTAssertFalse(script.contains("codesign --force --deep --sign"))

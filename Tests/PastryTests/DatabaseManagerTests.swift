@@ -588,6 +588,49 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(limited.count, 5)
     }
 
+    /// 非收藏历史超过上限后自动淘汰最旧记录
+    func testHistoryLimitPrunesOldestNonPinnedItems() {
+        let max = DatabaseManager.maxHistoryItemsForTesting
+        for i in 0..<(max + 5) {
+            let item = ClipboardItem(
+                timestamp: Date(timeIntervalSince1970: Double(i)),
+                content: "Item \(i)",
+                sourceFormat: .text
+            )
+            assertInserted(item)
+        }
+
+        let items = db.recent(limit: max + 10)
+        XCTAssertEqual(items.count, max)
+        XCTAssertTrue(items.contains { $0.content == "Item \(max + 4)" })
+        XCTAssertFalse(items.contains { $0.content == "Item 0" })
+    }
+
+    /// 自动淘汰不删除收藏项
+    func testHistoryLimitKeepsPinnedItems() {
+        let max = DatabaseManager.maxHistoryItemsForTesting
+        let pinned = ClipboardItem(
+            timestamp: Date(timeIntervalSince1970: 0),
+            content: "Pinned oldest",
+            sourceFormat: .text,
+            isPinned: true
+        )
+        assertInserted(pinned)
+
+        for i in 0..<max {
+            let item = ClipboardItem(
+                timestamp: Date(timeIntervalSince1970: Double(i + 1)),
+                content: "Item \(i)",
+                sourceFormat: .text
+            )
+            assertInserted(item)
+        }
+
+        let items = db.recent(limit: max + 10)
+        XCTAssertEqual(items.count, max + 1)
+        XCTAssertTrue(items.contains { $0.content == "Pinned oldest" })
+    }
+
     /// favorites(limit:) 应遵守 limit
     func testFavoritesLimit() {
         for i in 0..<10 {

@@ -9,6 +9,9 @@ enum UpdateInstallScriptBuilder {
 
         DMG="\(stableDMGPath)"
         TARGET="\(targetPath)"
+        LOG="/tmp/pastry_update.log"
+        exec >> "$LOG" 2>&1
+        echo "Pastry update started at $(date)"
         TARGET_PARENT=$(dirname "$TARGET")
         TARGET_NAME=$(basename "$TARGET")
         BACKUP="$TARGET_PARENT/.${TARGET_NAME}.update-backup-$(date +%s)"
