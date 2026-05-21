@@ -16,7 +16,7 @@ extension AppVersion {
     }
 
     static func displayCurrent(generated: String, bundle: String?) -> String {
-        let source = generated == "0.0.0-dev" ? (bundle ?? "1.0") : generated
+        let source = bundle ?? (generated == "0.0.0-dev" ? "1.0" : generated)
         return UpdateChecker.displayVersion(source)
     }
 
