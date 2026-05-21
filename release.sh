@@ -12,26 +12,34 @@ APP_NAME="Pastry"
 BUILD_DIR="$PROJECT_DIR/.build/release"
 STAGING="$PROJECT_DIR/.release_staging"
 BUNDLE_ID="com.nekutai.pastry"
-VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
+IDENTITY="${CODESIGN_IDENTITY:-}"
+
+# 解析参数
+PUBLISH=false
+FORCE=false
+VERSION=""
+for arg in "$@"; do
+    case "$arg" in
+        --publish) PUBLISH=true ;;
+        --force) FORCE=true ;;
+        --*) ;;
+        *) VERSION="$arg" ;;
+    esac
+done
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
 VERSION="${VERSION#v}"   # 统一剥掉 v 前缀，内部只用裸版本号
 BUILD=$(git rev-list --count HEAD)
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
-IDENTITY="${CODESIGN_IDENTITY:-}"
-
-# 解析 --publish 标志
-PUBLISH=false
-for arg in "$@"; do
-    [[ "$arg" == "--publish" ]] && PUBLISH=true
-done
 
 echo "🏭 Building $APP_NAME $VERSION (release)..."
 echo ""
 
-# ── 检查：是否有新代码（--force 跳过）───
-FORCE=false
-for arg in "$@"; do
-    [[ "$arg" == "--force" ]] && FORCE=true
-done
+# ── 检查：发布输入状态（--force 跳过）───
+if [ -n "$(git status --porcelain)" ] && ! $FORCE; then
+    echo "❌ 工作区有未提交改动。请先提交，或使用 --force 明确跳过。"
+    exit 1
+fi
+
 EXISTING_TAG=$(git tag --points-at HEAD | head -1)
 if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" != "v$VERSION" ] && ! $FORCE; then
     echo "❌ 当前 commit 已有 tag \"$EXISTING_TAG\"，没有新代码"
@@ -40,6 +48,10 @@ if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" != "v$VERSION" ] && ! $FORCE; the
 fi
 
 cd "$PROJECT_DIR"
+
+# ── 0. 测试（默认跳过联网测试，发布流程应可重复） ──
+echo "━━━ 0/6 测试 ━━━"
+swift test 2>&1 | tail -5
 
 # ── 0. 注入版本号到编译时代码（构建后恢复 dev 版本） ──
 mkdir -p "$PROJECT_DIR/Sources/Pastry/Generated"
@@ -61,7 +73,7 @@ enum AppVersion {
 SWIFT
 
 # ── 1. Release 编译（启用优化，去除 assert） ──
-echo "━━━ 1/5 Release 编译 ━━━"
+echo "━━━ 1/6 Release 编译 ━━━"
 swift build -c release -Xswiftc -Osize 2>&1 | tail -3
 
 BIN="$BUILD_DIR/$APP_NAME"
@@ -69,7 +81,7 @@ test -f "$BIN" || { echo "❌ 构建失败"; exit 1; }
 
 # ── 2. 去除符号 ──
 echo ""
-echo "━━━ 2/5 去除调试符号 ━━━"
+echo "━━━ 2/6 去除调试符号 ━━━"
 BIN_SIZE_BEFORE=$(stat -f%z "$BIN")
 strip -S "$BIN" 2>/dev/null || true
 BIN_SIZE_AFTER=$(stat -f%z "$BIN")
@@ -77,7 +89,7 @@ echo "   二进制: $(numfmt --to=iec $BIN_SIZE_BEFORE 2>/dev/null || echo "${BI
 
 # ── 3. 组装 .app ──
 echo ""
-echo "━━━ 3/5 组装 .app bundle ━━━"
+echo "━━━ 3/6 组装 .app bundle ━━━"
 rm -rf "$STAGING"
 mkdir -p "$STAGING/$APP_NAME.app/Contents/MacOS"
 mkdir -p "$STAGING/$APP_NAME.app/Contents/Resources"
@@ -125,7 +137,7 @@ PLIST
 
 # ── 4. 代码签名 ──
 echo ""
-echo "━━━ 4/5 代码签名 ━━━"
+echo "━━━ 4/6 代码签名 ━━━"
 
 # 固定证书签名 = TCC 权限持久保留
 # 通过 CODESIGN_IDENTITY 环境变量指定，未配置则 ad-hoc
@@ -188,7 +200,9 @@ fi
 mkdir -p "$VOLUME/.background"
 cp "$PROJECT_DIR/Resources/dmg-background.png" "$VOLUME/.background/background.png"
 cp "$PROJECT_DIR/Resources/dmg-background@2x.png" "$VOLUME/.background/background@2x.png"
-SetFile -a V "$VOLUME/.background"
+if command -v SetFile >/dev/null 2>&1; then
+    SetFile -a V "$VOLUME/.background"
+fi
 
 # 复制预制的 .DS_Store 模板（窗口大小、图标位置、背景图引用）
 cp "$PROJECT_DIR/Resources/dmg-dsstore" "$VOLUME/.DS_Store"

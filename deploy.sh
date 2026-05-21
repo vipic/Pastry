@@ -31,6 +31,8 @@ cd "$PROJECT_DIR"
 # 1. 编译
 swift build 2>&1 | tail -3
 
+test -f "$BUILD_DIR/$APP_NAME" || { echo "❌ 构建失败"; exit 1; }
+
 # 2. 杀 dev 进程 + 等待退出（只杀 dev，不影响正式版）
 pkill -f "Pastry Dev.app" 2>/dev/null || true
 for i in $(seq 1 10); do
