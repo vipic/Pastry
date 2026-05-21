@@ -118,8 +118,14 @@ final class DatabaseManager {
             kSecAttrLabel as String: "Pastry Clipboard Database Key",
             kSecAttrComment as String: Self.keychainAccessVersion,
         ]
+        let addAttrs: [String: Any]
+        if let access = makeKeychainAccess() {
+            addAttrs = attrs.merging([kSecAttrAccess as String: access]) { _, new in new }
+        } else {
+            addAttrs = attrs
+        }
 
-        let status = SecItemAdd(base.merging(attrs) { _, new in new } as CFDictionary, nil)
+        let status = SecItemAdd(base.merging(addAttrs) { _, new in new } as CFDictionary, nil)
         if status == errSecSuccess { return true }
         if status == errSecDuplicateItem {
             return SecItemUpdate(base as CFDictionary, attrs as CFDictionary) == errSecSuccess
@@ -145,6 +151,27 @@ final class DatabaseManager {
             // 保底保存同一份密钥，避免删除旧 Keychain 项后下次启动无法解密数据库。
             writeKeyToFile(key)
         }
+    }
+
+    private func makeKeychainAccess() -> SecAccess? {
+        var trustedApplication: SecTrustedApplication?
+        let trustedStatus = SecTrustedApplicationCreateFromPath(nil, &trustedApplication)
+        guard trustedStatus == errSecSuccess, let trustedApplication else {
+            log.error("Keychain 当前应用信任对象创建失败: \(trustedStatus)")
+            return nil
+        }
+
+        var access: SecAccess?
+        let accessStatus = SecAccessCreate(
+            "Pastry Clipboard Database Key" as CFString,
+            [trustedApplication] as CFArray,
+            &access
+        )
+        guard accessStatus == errSecSuccess, let access else {
+            log.error("Keychain 访问控制创建失败: \(accessStatus)")
+            return nil
+        }
+        return access
     }
 
     // MARK: 文件密钥存储（设备派生 KEK，AES-256-GCM 加密）
