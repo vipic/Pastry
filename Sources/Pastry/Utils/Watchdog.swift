@@ -57,8 +57,8 @@ final class MainThreadWatchdog {
         }
 
         // 延迟 threshold 后检查主线程是否响应
-        let queue = DispatchQueue.global(qos: .utility)
-        queue.asyncAfter(deadline: .now() + hangThreshold) { [weak self] in
+        Task.detached(priority: .utility) { [weak self] in
+            try? await Task.sleep(for: .seconds(self?.hangThreshold ?? 5.0))
             guard let self else { return }
             let lastResponse = self.lock.withLock { self.lastPong }
             if lastResponse < pingTime {

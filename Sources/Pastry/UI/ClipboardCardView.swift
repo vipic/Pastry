@@ -915,11 +915,12 @@ struct ClipboardCardView: View {
             self.appIcon = nil  // 强制用 SF Symbol
             return
         }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let icon = provider.icon(for: name)
-            DispatchQueue.main.async {
-                self.appIcon = icon
-            }
+        Task {
+            let icon = await Task.detached(priority: .userInitiated) {
+                provider.icon(for: name)
+            }.value
+            guard !Task.isCancelled else { return }
+            self.appIcon = icon
         }
     }
 
