@@ -5,6 +5,16 @@ import Foundation
 // MARK: - UpdateChecker 测试套件
 
 final class UpdateCheckerTests: XCTestCase {
+    private var networkTestsEnabled: Bool {
+        ProcessInfo.processInfo.environment["PASTRY_NETWORK_TESTS"] == "1"
+    }
+
+    private func requireNetworkTestsEnabled() throws {
+        guard networkTestsEnabled else {
+            throw XCTSkip("Set PASTRY_NETWORK_TESTS=1 to run network-dependent updater tests")
+        }
+    }
+
     private final class ProgressRecorder: @unchecked Sendable {
         private var values: [Double] = []
         private let lock = NSLock()
@@ -22,6 +32,8 @@ final class UpdateCheckerTests: XCTestCase {
 
     /// onProgress 在下载过程中被调用，提供 0.0~1.0 范围内的进度值
     func testDownloadBinaryProgressCallback() async throws {
+        try requireNetworkTestsEnabled()
+
         let checker = UpdateChecker.shared
 
         guard let result = await checker.checkForUpdate(force: true) else {
@@ -57,6 +69,8 @@ final class UpdateCheckerTests: XCTestCase {
 
     /// onProgress 为 nil 时不应崩溃
     func testDownloadBinaryNilProgress() async throws {
+        try requireNetworkTestsEnabled()
+
         let checker = UpdateChecker.shared
 
         guard let result = await checker.checkForUpdate(force: true) else {
