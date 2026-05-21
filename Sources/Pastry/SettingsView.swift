@@ -126,39 +126,11 @@ struct SettingsSceneView: View {
                 Toggle(L10n["settings.sound_enabled"], isOn: $soundEnabled)
             }
 
-            Section {
-                Picker(L10n["settings.history.max_items"], selection: Binding(
-                    get: { HistoryRetentionPolicy.sanitizedMaxItems(historyMaxItems) },
-                    set: { value in
-                        historyMaxItems = value
-                        StoreManager.shared.applyHistoryRetentionSettings()
-                    }
-                )) {
-                    ForEach(HistoryRetentionPolicy.maxItemsOptions, id: \.self) { value in
-                        Text(HistoryRetentionPolicy.maxItemsLabel(value)).tag(value)
-                    }
-                }
-
-                Picker(L10n["settings.history.max_age"], selection: Binding(
-                    get: { HistoryRetentionPolicy.sanitizedMaxAgeDays(historyMaxAgeDays) },
-                    set: { value in
-                        historyMaxAgeDays = value
-                        StoreManager.shared.applyHistoryRetentionSettings()
-                    }
-                )) {
-                    ForEach(HistoryRetentionPolicy.maxAgeDayOptions, id: \.self) { value in
-                        Text(HistoryRetentionPolicy.maxAgeLabel(value)).tag(value)
-                    }
-                }
-
-                Text(L10n["settings.history.retention_hint"])
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } header: {
-                Text(L10n["settings.history.section"])
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
+            HistoryRetentionSettingsView(
+                maxItems: $historyMaxItems,
+                maxAgeDays: $historyMaxAgeDays,
+                onPolicyChange: { StoreManager.shared.applyHistoryRetentionSettings() }
+            )
 
             Section {
                 accessibilityPermissionRow
