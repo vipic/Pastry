@@ -277,11 +277,11 @@ struct OverlayView: View {
     private var filterButton: some View {
         Image(systemName: "line.3.horizontal.decrease")
             .font(.system(size: 13))
-            .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(hoverFilter ? 0.7 : 0.35))
+            .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(hoverFilter ? 0.82 : 0.58))
             .frame(width: 28, height: 28)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(hoverFilter ? Color.white.opacity(0.1) : Color.clear)
+                    .fill(showFilterPopover || hasActiveTimeOrTypeFilter ? Color.white.opacity(0.14) : (hoverFilter ? Color.white.opacity(0.1) : Color.clear))
             )
             .contentShape(Rectangle())
             .onTapGesture {
@@ -327,11 +327,15 @@ struct OverlayView: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 10)
         .background(
-            GlassBackground(cornerRadius: 20)
+            ZStack {
+                GlassBackground(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.black.opacity(0.16))
+            }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
         )
         .contentShape(Rectangle())
         .onTapGesture { selection.reset() }
@@ -360,7 +364,7 @@ struct OverlayView: View {
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(hoverSearch ? 0.7 : 0.35))
+                        .foregroundColor(.white.opacity(hoverSearch ? 0.82 : 0.58))
                         .frame(width: 28, height: 28)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -387,7 +391,7 @@ struct OverlayView: View {
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white.opacity(hoverGear ? 0.85 : 0.55))
+                    .foregroundColor(.white.opacity(hoverGear ? 0.9 : 0.66))
                     .frame(width: 28, height: 28)
                     .background(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -401,7 +405,7 @@ struct OverlayView: View {
             if selection.selectedIds.count > 1 {
                 Text(L10n["toolbar.selected_count", selection.selectedIds.count])
                     .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.white.opacity(0.68))
                     .padding(.leading, 12)
             }
         }
@@ -422,13 +426,13 @@ struct OverlayView: View {
                         .font(.system(size: 11))
                 }
             }
-            .foregroundColor(isSelected || isHover ? .white : .white.opacity(0.4))
+            .foregroundColor(isSelected || isHover ? .white : .white.opacity(0.62))
             .padding(.horizontal, showSearch ? 6 : 10)
             .padding(.vertical, 4)
             .frame(height: 28)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? Color.white.opacity(0.12) : (isHover ? Color.white.opacity(0.06) : Color.clear))
+                    .fill(isSelected ? Color.white.opacity(0.18) : (isHover ? Color.white.opacity(0.1) : Color.clear))
             )
         }
         .buttonStyle(.plain)
