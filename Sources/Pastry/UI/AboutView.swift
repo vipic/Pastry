@@ -7,14 +7,14 @@ struct AboutView: View {
         VStack(spacing: 0) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
-                .frame(width: 96, height: 96)
-                .padding(.top, 28)
-                .padding(.bottom, 16)
+                .frame(width: 72, height: 72)
+                .padding(.top, 30)
+                .padding(.bottom, 14)
 
             Text(appDisplayName)
                 .font(.system(size: 18, weight: .semibold))
-            Text("Version \(appVersion) (Build \(appBuild))")
-                .font(.system(size: 11))
+            Text("v\(appVersion) · Build \(appBuild)")
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
                 .padding(.top, 4)
 
@@ -36,7 +36,7 @@ struct AboutView: View {
                 .foregroundColor(.secondary.opacity(0.6))
                 .padding(.bottom, 20)
         }
-        .frame(width: 360, height: 340)
+        .frame(width: 360, height: 320)
         .id(language)  // 触发语言切换时重渲染
     }
 
