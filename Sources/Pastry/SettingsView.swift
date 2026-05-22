@@ -74,7 +74,7 @@ struct SettingsSceneView: View {
             List(SettingsTab.allCases, selection: $selectedTab) { tab in
                 Label(tab.label, systemImage: tab.icon).tag(tab)
             }
-            .navigationSplitViewColumnWidth(min: 160, ideal: 180)
+            .navigationSplitViewColumnWidth(min: 136, ideal: 148)
         } detail: {
             if let tab = selectedTab { detail(for: tab) }
         }
@@ -175,7 +175,11 @@ struct SettingsSceneView: View {
             }
         }
         .formStyle(.grouped)
-        .padding(20)
+        .frame(maxWidth: 400, alignment: .topLeading)
+        .padding(.vertical, 16)
+        .padding(.leading, 18)
+        .padding(.trailing, 26)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     // MARK: - 快捷键 Tab
@@ -207,7 +211,11 @@ struct SettingsSceneView: View {
             }
         }
         .formStyle(.grouped)
-        .padding(20)
+        .frame(maxWidth: 400, alignment: .topLeading)
+        .padding(.vertical, 16)
+        .padding(.leading, 18)
+        .padding(.trailing, 26)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     @State private var versionHovered = false
@@ -268,7 +276,11 @@ struct SettingsSceneView: View {
             }
         }
         .formStyle(.grouped)
-        .padding(20)
+        .frame(maxWidth: 400, alignment: .topLeading)
+        .padding(.vertical, 16)
+        .padding(.leading, 18)
+        .padding(.trailing, 26)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             excludedBundleIDs = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
         }
