@@ -352,6 +352,19 @@ final class FilePreviewTests: XCTestCase {
         )
     }
 
+    func testMultiURLSelectionPayloadKeepsTextAndSeparateWebURLs() {
+        let items = [
+            ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
+            ClipboardItem(content: "https://example.com/b", sourceFormat: .text, tags: ContentTags(isURL: true)),
+        ]
+
+        let payload = DragPayloadBuilder.payloadForSelection(items)
+
+        XCTAssertEqual(payload.text, "https://example.com/a\nhttps://example.com/b")
+        XCTAssertEqual(payload.webURLs.map(\.absoluteString), ["https://example.com/a", "https://example.com/b"])
+        XCTAssertTrue(payload.fileURLs.isEmpty)
+    }
+
     func testMixedURLAndTextSelectionDoesNotUseSeparateWebURLDragItems() {
         let items = [
             ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
@@ -405,6 +418,24 @@ final class FilePreviewTests: XCTestCase {
         ]
 
         XCTAssertEqual(DragPayloadBuilder.multiSelectText(items), "plain note")
+    }
+
+    func testMultiSelectionPayloadIncludesExistingImageFileURL() throws {
+        let imageURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pastry-drag-image-\(UUID().uuidString).png")
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: imageURL)
+        defer { try? FileManager.default.removeItem(at: imageURL) }
+
+        let items = [
+            ClipboardItem(content: imageURL.path, sourceFormat: .image),
+            ClipboardItem(content: "plain note", sourceFormat: .text),
+        ]
+
+        let payload = DragPayloadBuilder.payloadForSelection(items)
+
+        XCTAssertEqual(payload.text, "plain note")
+        XCTAssertEqual(payload.fileURLs, [imageURL])
+        XCTAssertTrue(payload.webURLs.isEmpty)
     }
 
     func testMultiSelectionUsesFullContentProvider() {

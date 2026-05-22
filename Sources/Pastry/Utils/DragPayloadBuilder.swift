@@ -3,6 +3,16 @@ import Foundation
 import UniformTypeIdentifiers
 
 enum DragPayloadBuilder {
+    struct SelectionPayload: Equatable {
+        let text: String
+        let webURLs: [URL]
+        let fileURLs: [URL]
+
+        var isEmpty: Bool {
+            text.isEmpty && webURLs.isEmpty && fileURLs.isEmpty
+        }
+    }
+
     static func provider(
         for item: ClipboardItem,
         loadFullContent: (ClipboardItem) -> String? = { _ in nil }
@@ -45,6 +55,17 @@ enum DragPayloadBuilder {
         return NSItemProvider(object: text as NSString)
     }
 
+    static func payloadForSelection(
+        _ items: [ClipboardItem],
+        loadFullContent: (ClipboardItem) -> String? = { _ in nil }
+    ) -> SelectionPayload {
+        SelectionPayload(
+            text: multiSelectText(items, loadFullContent: loadFullContent),
+            webURLs: webURLsForLinkSelection(items, loadFullContent: loadFullContent),
+            fileURLs: fileURLsForSelection(items)
+        )
+    }
+
     static func webURLsForLinkSelection(
         _ items: [ClipboardItem],
         loadFullContent: (ClipboardItem) -> String? = { _ in nil }
@@ -73,6 +94,25 @@ enum DragPayloadBuilder {
                 return nil
             }
         }.joined(separator: "\n")
+    }
+
+    static func fileURLsForSelection(_ items: [ClipboardItem]) -> [URL] {
+        items.flatMap { item -> [URL] in
+            switch item.sourceFormat {
+            case .fileURL:
+                return item.content
+                    .split(whereSeparator: \.isNewline)
+                    .map(String.init)
+                    .filter { FileManager.default.fileExists(atPath: $0) }
+                    .map { URL(fileURLWithPath: $0) }
+            case .image:
+                let path = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
+                guard FileManager.default.fileExists(atPath: path) else { return [] }
+                return [URL(fileURLWithPath: path)]
+            default:
+                return []
+            }
+        }
     }
 
     static func webURLs(
