@@ -82,27 +82,12 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     }
 
     private func makeDraggingItems() -> [NSDraggingItem] {
-        var draggingItems: [NSDraggingItem] = []
-
-        let usesSeparateWebURLs = !payloadWebURLs.isEmpty
-        if usesSeparateWebURLs {
-            for url in payloadWebURLs {
-                draggingItems.append(draggingItem(writer: WebURLDragPasteboardItem(url: url), showsImage: draggingItems.isEmpty))
-            }
-        }
-
-        for url in payloadFileURLs {
-            draggingItems.append(draggingItem(writer: url as NSURL, showsImage: draggingItems.isEmpty))
-        }
-
-        if !payloadText.isEmpty && !usesSeparateWebURLs {
-            draggingItems.append(draggingItem(writer: payloadText as NSString, showsImage: draggingItems.isEmpty))
-        }
-
-        if draggingItems.isEmpty {
-            draggingItems.append(draggingItem(writer: "" as NSString, showsImage: true))
-        }
-        return draggingItems
+        let writer = MultiSelectionPasteboardItem(
+            text: payloadText,
+            webURLs: payloadWebURLs,
+            fileURLs: payloadFileURLs
+        )
+        return [draggingItem(writer: writer, showsImage: true)]
     }
 
     private func draggingItem(writer: NSPasteboardWriting, showsImage: Bool) -> NSDraggingItem {
@@ -170,21 +155,46 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     }
 }
 
-private final class WebURLDragPasteboardItem: NSObject, NSPasteboardWriting {
-    private let url: URL
+final class MultiSelectionPasteboardItem: NSObject, NSPasteboardWriting {
+    private let text: String
+    private let webURLs: [URL]
+    private let fileURLs: [URL]
     private static let plainTextType = NSPasteboard.PasteboardType(UTType.utf8PlainText.identifier)
 
-    init(url: URL) {
-        self.url = url
+    init(text: String, webURLs: [URL], fileURLs: [URL]) {
+        self.text = text
+        self.webURLs = webURLs
+        self.fileURLs = fileURLs
     }
 
     func writableTypes(for pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType] {
-        [.URL, .string, Self.plainTextType]
+        var types: [NSPasteboard.PasteboardType] = []
+        if !text.isEmpty {
+            types.append(.string)
+            types.append(Self.plainTextType)
+        }
+        if !webURLs.isEmpty {
+            types.append(.URL)
+        }
+        if !fileURLs.isEmpty {
+            types.append(.fileURL)
+        }
+        if types.isEmpty { types.append(.string) }
+        return Array(NSOrderedSet(array: types).compactMap { $0 as? NSPasteboard.PasteboardType })
     }
 
     func pasteboardPropertyList(
         forType type: NSPasteboard.PasteboardType
     ) -> Any? {
-        url.absoluteString
+        switch type {
+        case .string, Self.plainTextType:
+            return text
+        case .URL:
+            return webURLs.first?.absoluteString ?? fileURLs.first?.absoluteString
+        case .fileURL:
+            return fileURLs.first?.absoluteString
+        default:
+            return nil
+        }
     }
 }
