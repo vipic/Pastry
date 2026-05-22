@@ -1,6 +1,6 @@
 # Pastry — Agent Onboarding
 
-> macOS 26+ 剪贴板管理器。纯 Swift + SwiftUI，零第三方依赖。全屏半透明 overlay 面板 + 应用主题色卡片。
+> macOS 26+ 剪贴板管理器。Swift + SwiftUI，SQLCipher 静态库 vendored 到仓库内，无需包管理器拉第三方依赖。全屏半透明 overlay 面板 + 应用主题色卡片。
 
 ## Build & Deploy
 
@@ -13,7 +13,8 @@
 ### 生产发布
 
 ```bash
-./release.sh [version]   # release 编译 → DMG，发布到 /Applications/Pastry.app
+./release.sh [version]   # 测试 → release 编译 → 签名 → DMG → 烟测，产物在 dist/
+./release.sh [version] --publish   # 额外推 tag 并创建 GitHub Release
 ```
 
 ### 一次性设置：代码签名证书
@@ -57,15 +58,20 @@ pkill -f Pastry; sleep 0.5; open ~/Applications/Pastry.app
 ## Architecture
 
 ```
-Sources/Pastry/                    （~4550 行）
+Sources/Pastry/
 ├── PastryApp.swift                # @main + AppDelegate (LSUIElement)
+├── SettingsView.swift             # 设置窗口（General / Shortcut / Security）
 ├── Core/
-│   ├── ClipboardItem.swift        # Codable 数据模型 (ClipType enum)
-│   └── ClipboardMonitor.swift     # NSPasteboard 轮询引擎 (588 行)
+│   ├── ClipboardItem.swift        # Codable 数据模型 (SourceFormat + ContentTags)
+│   ├── ClipboardMonitor.swift     # NSPasteboard 轮询引擎
+│   ├── ClipboardMonitorReaders.swift # 文本/RTF/HTML/文件/图片读取器
+│   └── ImageCacheManager.swift    # 图片缓存与原图映射
 ├── Persistence/
 │   ├── DatabaseManager.swift      # SQLite3 C API + FTS5 全文搜索 + SQLCipher 全库加密
+│   ├── DatabaseKeyManager.swift   # 数据库密钥文件 + 旧 Keychain 迁移
+│   ├── DatabaseMigrator.swift     # 明文数据库 → SQLCipher 迁移
 │   └── StoreManager.swift         # @MainActor ObservableObject 桥接
-├── CSQLCipher/                    # SQLCipher 静态库（vendored，零外部依赖）
+├── CSQLCipher/                    # SQLCipher 静态库（vendored，无需外部下载）
 │   ├── libsqlcipher.a             # 预编译静态库（CommonCrypto 后端）
 │   ├── include/shim.h             # 定义 SQLITE_HAS_CODEC + SQLCIPHER_CRYPTO_CC
 │   ├── include/module.modulemap   # SPM module 定义
@@ -73,25 +79,40 @@ Sources/Pastry/                    （~4550 行）
 ├── UI/
 │   ├── OverlayPanelManager.swift  # NSPanel 全屏 overlay 管理
 │   ├── OverlayView.swift          # SwiftUI 内容层（透明底 + 卡片托盘）
-│   ├── ClipboardCardView.swift    # 卡片视图（920 行，最大文件，含 RemoteThumbnail + LinkPreviewLoader + ClipboardCardView）
+│   ├── ClipboardCardView.swift    # 卡片视图主体
+│   ├── ClipboardCardActions.swift # 右键菜单、打开、预览、分享
+│   ├── MultiSelectionDragSourceView.swift # 多选拖拽源（单 dragging item）
+│   ├── LinkPreviewLoader.swift    # 链接预览抓取 + 图片选取
+│   ├── RemoteThumbnail.swift      # 远程缩略图渲染
+│   ├── FilePreviewContent.swift   # 文件/多文件卡片内容
+│   ├── SelectionState.swift       # 多选状态机
+│   ├── UpdateView.swift           # 更新检查窗口
 │   ├── GlassBackground.swift      # NSVisualEffectView(.hudWindow) 托盘背景
 │   ├── HotkeyRecorder.swift       # 快捷键录制器
 │   └── MenuBarManager.swift       # NSStatusBar 菜单栏入口
 └── Utils/
+    ├── AppDirectories.swift       # 应用数据目录
     ├── AppIconProvider.swift      # 提取应用图标 + 主题色
+    ├── AppVersionInfo.swift       # About / Settings 版本展示
     ├── Constants.swift            # SF Symbols、UserDefaults key、颜色
+    ├── DragPayloadBuilder.swift   # 单选/多选拖拽载荷
     ├── GlobalHotkeyManager.swift  # Carbon RegisterEventHotKey 全局快捷键
+    ├── HistoryRetentionPolicy.swift # 历史容量/保留周期策略
+    ├── L10n.swift                 # 本地化读取
+    ├── NetworkAccessPolicy.swift  # 远程预览 URL 安全过滤
+    ├── PasteboardWriter.swift     # 写回剪贴板
     └── RemoteImageLoader.swift    # 远程图片下载 + 内存缓存
 
-Tests/PastryTests/                 （~1820 行，179 个测试用例）
-├── ClipboardMonitorTests.swift    # 剪贴板轮询逻辑
-├── DatabaseManagerTests.swift     # SQLite CRUD + FTS
+Tests/PastryTests/
+├── ClipboardMonitorTests.swift    # 剪贴板读取/过滤
+├── DatabaseManagerTests.swift     # SQLite CRUD + FTS + 迁移
 ├── StoreManagerTests.swift        # 存储层桥接
 ├── LinkPreviewLoaderTests.swift   # 链接预览抓取 + 图片选取逻辑
-├── FilePreviewTests.swift         # 文件缩略图生成
-├── AppIconProviderTests.swift     # 图标提取
-├── HotkeyUtilsTests.swift         # 快捷键工具
-└── ConstantsTests.swift           # 常量验证
+├── FilePreviewTests.swift         # 文件预览 + 拖拽载荷核心逻辑
+├── PasteboardWriterTests.swift    # 写回剪贴板
+├── SelectionStateTests.swift      # 多选状态机
+├── UpdateCheckerTests.swift       # 更新检查/版本比较
+└── 其他：目录、版本、图标、热键、本地化、网络策略、签名配置等
 ```
 
 ## Critical Pitfalls
@@ -281,9 +302,22 @@ swift test -v 2>&1 | grep -E "(PASS|FAIL|test) "
 
 ### 剪贴板清除策略
 
-三条删除路径的不同行为：
-- **菜单「清空全部记录」** 和 **⌘A+Delete 批量删** → 一并清空系统剪贴板
+删除路径的不同行为：
+- **菜单栏「清空历史」** → 清空非收藏记录，收藏保留，并清空系统剪贴板
+- **设置页「清空全部记录」** → 清空全部记录，并清空系统剪贴板
+- **面板内批量删除** → 删除选中记录，并清空系统剪贴板
 - **单条右键删除** → 只删历史记录，不动系统剪贴板（用户可继续 ⌘V）
+
+### 多选拖拽策略
+
+多选拖拽使用 `MultiSelectionDragSourceView` 的单个 `NSDraggingItem`，避免 macOS 对多个 dragging item 自动叠加系统数量角标。自定义拖拽图固定显示两张重叠卡片和 Pastry 自绘数量角标。
+
+`DragPayloadBuilder.payloadForSelection` 同时计算三类载荷：
+- `text`：文本、RTF、HTML、链接和文件路径拼接为多行文本
+- `webURLs`：仅当所选条目全部是链接时记录 URL 列表；拖拽 pasteboard 只暴露首个 URL flavor，保证编辑器优先接收多行文本
+- `fileURLs`：多选中存在本地文件或图片时，记录存在于磁盘的文件 URL；单个 dragging item 只能稳定暴露首个 file URL
+
+当前取舍：多选链接拖到桌面不再生成多个 `.webloc`，而是和多选文本一样生成一个包含多行链接的文本剪贴内容；拖到编辑器则插入多行链接文本。
 
 ### 链接预览图片选取
 
@@ -300,7 +334,12 @@ swift test -v 2>&1 | grep -E "(PASS|FAIL|test) "
 
 ### 自动关闭面板
 
-监听 `NSWorkspace.didActivateApplicationNotification`，非本 App 激活时自动关闭。但粘贴流程中（`isPasting = true`）跳过此规则。
+面板失焦通过 `NSWindow.didResignKeyNotification` 自动收起。拖拽开始时调用 `beginDragThrough()`，先 `orderOut` 面板并临时允许鼠标事件穿透，避免覆盖层截断目标应用的拖拽接收。
+
+## GitHub Actions
+
+- `.github/workflows/tests.yml`：`main` push 和 pull request 自动触发，执行脚本语法检查、`swift test`、`swift build -c release -Xswiftc -Osize`
+- `.github/workflows/release-artifact.yml`：仅 `workflow_dispatch` 手动触发，输入裸版本号，执行 `./release.sh "${{ inputs.version }}" --force` 并上传 DMG artifact；不会自动创建 tag 或 GitHub Release
 
 ## macOS 26 Specifics
 
