@@ -566,25 +566,24 @@ struct OverlayView: View {
                 isActive: drag != nil,
                 itemCount: drag?.count ?? 0,
                 payloadText: drag?.text ?? "",
-                payloadURLs: drag?.urls ?? []
+                payloadWebURLs: drag?.webURLs ?? [],
+                payloadFileURLs: drag?.fileURLs ?? []
             )
         }
     }
 
     // MARK: - 选择交互
 
-    private func multiSelectionDragPayload(for item: ClipboardItem) -> (text: String, urls: [URL], count: Int)? {
+    private func multiSelectionDragPayload(for item: ClipboardItem) -> (text: String, webURLs: [URL], fileURLs: [URL], count: Int)? {
         let ids = selection.selectedIds
         guard ids.count > 1, ids.contains(item.id) else { return nil }
 
         let selected = visibleItems.filter { ids.contains($0.id) }
-        let urls = DragPayloadBuilder.webURLsForLinkSelection(selected) { item in
+        let payload = DragPayloadBuilder.payloadForSelection(selected) { item in
             DatabaseManager.shared.loadFullContent(id: item.id)
         }
-        let text = DragPayloadBuilder.multiSelectText(selected) { item in
-            DatabaseManager.shared.loadFullContent(id: item.id)
-        }
-        return (text, urls, selected.count)
+        guard !payload.isEmpty else { return nil }
+        return (payload.text, payload.webURLs, payload.fileURLs, selected.count)
     }
 
     /// 卡片单击：委托给 SelectionState

@@ -1,11 +1,13 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MultiSelectionDragSourceView: NSViewRepresentable {
     let isActive: Bool
     let itemCount: Int
     let payloadText: String
-    let payloadURLs: [URL]
+    let payloadWebURLs: [URL]
+    let payloadFileURLs: [URL]
 
     func makeNSView(context: Context) -> MultiSelectionDragSourceNSView {
         MultiSelectionDragSourceNSView()
@@ -15,7 +17,8 @@ struct MultiSelectionDragSourceView: NSViewRepresentable {
         nsView.isActive = isActive
         nsView.itemCount = itemCount
         nsView.payloadText = payloadText
-        nsView.payloadURLs = payloadURLs
+        nsView.payloadWebURLs = payloadWebURLs
+        nsView.payloadFileURLs = payloadFileURLs
     }
 }
 
@@ -23,7 +26,8 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     var isActive = false
     var itemCount = 0
     var payloadText = ""
-    var payloadURLs: [URL] = []
+    var payloadWebURLs: [URL] = []
+    var payloadFileURLs: [URL] = []
     private var mouseDownEvent: NSEvent?
     private var didStartDrag = false
 
@@ -48,6 +52,7 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
         guard let startEvent = mouseDownEvent ?? window?.currentEvent else { return }
         let session = beginDraggingSession(with: draggingItems, event: startEvent, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = false
+        session.draggingFormation = .none
 
         Task { @MainActor in
             OverlayPanelManager.shared.beginDragThrough()
@@ -77,18 +82,34 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     }
 
     private func makeDraggingItems() -> [NSDraggingItem] {
-        if !payloadURLs.isEmpty {
-            return payloadURLs.enumerated().map { index, url in
-                let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-                let contents: Any? = index == 0 ? dragImage : NSImage(size: .zero)
-                item.setDraggingFrame(index == 0 ? draggingFrame : draggingFrame.offsetBy(dx: 1, dy: -1), contents: contents)
-                return item
+        var draggingItems: [NSDraggingItem] = []
+
+        let usesSeparateWebURLs = !payloadWebURLs.isEmpty
+        if usesSeparateWebURLs {
+            for url in payloadWebURLs {
+                draggingItems.append(draggingItem(writer: WebURLDragPasteboardItem(url: url), showsImage: draggingItems.isEmpty))
             }
         }
 
-        let item = NSDraggingItem(pasteboardWriter: payloadText as NSString)
-        item.setDraggingFrame(draggingFrame, contents: dragImage)
-        return [item]
+        for url in payloadFileURLs {
+            draggingItems.append(draggingItem(writer: url as NSURL, showsImage: draggingItems.isEmpty))
+        }
+
+        if !payloadText.isEmpty && !usesSeparateWebURLs {
+            draggingItems.append(draggingItem(writer: payloadText as NSString, showsImage: draggingItems.isEmpty))
+        }
+
+        if draggingItems.isEmpty {
+            draggingItems.append(draggingItem(writer: "" as NSString, showsImage: true))
+        }
+        return draggingItems
+    }
+
+    private func draggingItem(writer: NSPasteboardWriting, showsImage: Bool) -> NSDraggingItem {
+        let item = NSDraggingItem(pasteboardWriter: writer)
+        let contents: Any? = showsImage ? dragImage : NSImage(size: .zero)
+        item.setDraggingFrame(showsImage ? draggingFrame : draggingFrame.offsetBy(dx: 1, dy: -1), contents: contents)
+        return item
     }
 
     private var dragImage: NSImage {
@@ -146,5 +167,24 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
             xRadius: 3.5,
             yRadius: 3.5
         ).fill()
+    }
+}
+
+private final class WebURLDragPasteboardItem: NSObject, NSPasteboardWriting {
+    private let url: URL
+    private static let plainTextType = NSPasteboard.PasteboardType(UTType.utf8PlainText.identifier)
+
+    init(url: URL) {
+        self.url = url
+    }
+
+    func writableTypes(for pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType] {
+        [.URL, .string, Self.plainTextType]
+    }
+
+    func pasteboardPropertyList(
+        forType type: NSPasteboard.PasteboardType
+    ) -> Any? {
+        url.absoluteString
     }
 }
