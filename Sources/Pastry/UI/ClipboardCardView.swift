@@ -181,10 +181,14 @@ struct ClipboardCardView: View {
     private func cmdBadge(_ idx: Int) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color.black.opacity(0.45))
+                .fill(Color.black.opacity(0.18))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color.black.opacity(0.14), lineWidth: 0.5)
+                )
             Text("\(idx)")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundColor(.primary.opacity(0.68))
         }
         .frame(width: 18, height: 18)
         .padding(6)
@@ -217,7 +221,14 @@ struct ClipboardCardView: View {
             Spacer()
         }
         .frame(height: UIConstants.Card.headerHeight)
-        .background(themeColor)
+        .background(
+            LinearGradient(
+                colors: [themeColor.opacity(0.74), themeColor.opacity(0.58)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .overlay(Color.white.opacity(0.06))
         .clipped()
         .overlay(alignment: .topTrailing) {
             appIconOverlay
