@@ -102,12 +102,6 @@ struct ClipboardCardView: View {
                 cmdBadge(idx)
             }
         }
-        .overlay(alignment: .topLeading) {
-            if isSelected {
-                selectedBadge
-                    .padding(6)
-            }
-        }
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
         .scaleEffect(didPaste ? UIConstants.Card.pasteScale : 1.0)
@@ -194,15 +188,6 @@ struct ClipboardCardView: View {
         .padding(6)
     }
 
-    private var selectedBadge: some View {
-        Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 15, weight: .semibold))
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(.white, .blue)
-            .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
-            .accessibilityLabel(L10n["card.selected"])
-    }
-
     // MARK: - 顶部栏（始终使用主题色背景）
 
     private var topBar: some View {
@@ -284,44 +269,38 @@ struct ClipboardCardView: View {
 
     @ViewBuilder
     private func linkContent(_ url: URL) -> some View {
-        let preview = linkPreview
-        let title: String = {
-            if let t = preview?.title, !t.isEmpty { return t }
-            return url.host ?? url.absoluteString
-        }()
-        let desc: String? = {
-            if let d = preview?.description, !d.isEmpty { return d }
-            return nil
-        }()
-        let host: String = {
-            if let h = preview?.host, !h.isEmpty { return h }
-            return url.host ?? ""
-        }()
+        let text = Self.linkCardText(url: url, preview: linkPreview)
 
         VStack(spacing: 0) {
-            linkThumbnail(imageURL: preview?.imageURL)
-                .frame(height: 115)  // 1.91:1 at 220px content width
+            linkThumbnail(imageURL: linkPreview?.imageURL)
+                .frame(height: 106)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                .padding(.bottom, 4)
+                .padding(.bottom, 6)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(text.title)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.primary)
-                    .lineLimit(2)
+                    .lineLimit(text.titleLineLimit)
+                    .truncationMode(.tail)
+                    .lineSpacing(1)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if let desc = desc {
+                    .layoutPriority(1)
+                if let desc = text.description {
                     Text(desc)
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
-                Text(host)
+                Text(text.host)
                     .font(.system(size: 8))
                     .foregroundColor(.secondary.opacity(0.6))
                     .lineLimit(1)
+                    .truncationMode(.middle)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -652,6 +631,61 @@ struct ClipboardCardView: View {
     }
 
     // MARK: - 链接
+
+    struct LinkCardText: Equatable {
+        let title: String
+        let description: String?
+        let host: String
+        let titleLineLimit: Int
+    }
+
+    static func linkCardText(url: URL, preview: LinkPreviewLoader.Preview?) -> LinkCardText {
+        let host = normalizedLinkText(preview?.host) ?? url.host ?? ""
+        let rawTitle = normalizedLinkText(preview?.title)
+        let rawDescription = normalizedLinkText(preview?.description)
+        let title = sanitizedLinkTitle(rawTitle, host: host) ?? fallbackLinkTitle(for: url)
+        let usesCompactDescription = title.count <= 34
+        let description = usesCompactDescription ? rawDescription : nil
+
+        return LinkCardText(
+            title: title,
+            description: description,
+            host: host,
+            titleLineLimit: description == nil ? 2 : 1
+        )
+    }
+
+    private static func normalizedLinkText(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let collapsed = text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return collapsed.isEmpty ? nil : collapsed
+    }
+
+    private static func sanitizedLinkTitle(_ title: String?, host: String) -> String? {
+        guard var title else { return nil }
+        let bareHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        let siteNames = [host, bareHost]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        for site in siteNames {
+            for separator in [" - ", " | ", " · ", " — "] where title.hasSuffix(separator + site) {
+                title.removeLast((separator + site).count)
+                return normalizedLinkText(title)
+            }
+        }
+        return title
+    }
+
+    private static func fallbackLinkTitle(for url: URL) -> String {
+        let host = url.host ?? url.absoluteString
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !path.isEmpty else { return host }
+        return "\(host)/\(path)"
+    }
 
     private var detectedLink: URL? {
         let trimmed = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
