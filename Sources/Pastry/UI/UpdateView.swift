@@ -27,9 +27,9 @@ struct UpdateView: View {
             // App 图标
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
-                .frame(width: 64, height: 64)
-                .padding(.top, 28)
-                .padding(.bottom, 16)
+                .frame(width: 72, height: 72)
+                .padding(.top, 30)
+                .padding(.bottom, 14)
 
             // 标题行（状态文字 + 指示器）
             headingRow
@@ -129,17 +129,17 @@ struct UpdateView: View {
     private var versionRow: some View {
         switch state {
         case .upToDate(let version, let build, _, _):
-            Text("v\(UpdateChecker.displayVersion(version)) · Build \(build)")
+            Text("\(L10n["update.current"]) v\(UpdateChecker.displayVersion(version)) · Build \(build)")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
 
         case .updateAvailable(let result):
             HStack(spacing: 6) {
-                Text("v\(UpdateChecker.displayVersion(result.currentVersion))")
+                Text("\(L10n["update.current"]) v\(UpdateChecker.displayVersion(result.currentVersion))")
                     .foregroundColor(.secondary)
                 Text("→")
                     .foregroundColor(.secondary.opacity(0.5))
-                Text("v\(UpdateChecker.displayVersion(result.latestVersion))")
+                Text("\(L10n["update.latest"]) v\(UpdateChecker.displayVersion(result.latestVersion))")
                     .fontWeight(.medium)
             }
             .font(.system(size: 13))
@@ -151,9 +151,9 @@ struct UpdateView: View {
             // 保留版本箭头（由 currentVersion/latestVersion 提供）
             if let cur = currentVersion, let lat = latestVersion {
                 HStack(spacing: 6) {
-                    Text("v\(UpdateChecker.displayVersion(cur))").foregroundColor(.secondary)
+                    Text("\(L10n["update.current"]) v\(UpdateChecker.displayVersion(cur))").foregroundColor(.secondary)
                     Text("→").foregroundColor(.secondary.opacity(0.5))
-                    Text("v\(UpdateChecker.displayVersion(lat))").fontWeight(.medium)
+                    Text("\(L10n["update.latest"]) v\(UpdateChecker.displayVersion(lat))").fontWeight(.medium)
                 }
                 .font(.system(size: 13))
             } else {

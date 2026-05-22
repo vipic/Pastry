@@ -136,7 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 340),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 320),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
