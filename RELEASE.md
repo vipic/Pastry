@@ -75,6 +75,34 @@ dist/Pastry-1.2.3.dmg
 
 脚本会推送 tag `v1.2.3` 并创建 GitHub Release。
 
+## GitHub Actions 构建 Artifact
+
+仓库里有两个 workflow：
+
+- `Tests`：`main` 分支 push 和 pull request 自动触发，执行脚本语法检查、`swift test` 和 release build。
+- `Release Artifact`：只支持手动触发，不会因为 push、tag 或 PR 自动运行。
+
+手动构建 DMG artifact：
+
+1. 打开 GitHub 仓库的 **Actions**
+2. 选择 **Release Artifact**
+3. 点击 **Run workflow**
+4. 输入裸版本号，例如 `1.2.3`
+
+该 workflow 会执行：
+
+```bash
+./release.sh "1.2.3" --force
+```
+
+然后校验 DMG、校验 `CFBundleShortVersionString`，并上传：
+
+```text
+Pastry-1.2.3.dmg
+```
+
+作为 workflow artifact。它只生成 artifact，不会创建 GitHub Release，也不会推送 tag。
+
 ## 没有开发者账号时的限制
 
 当前发布产物没有 notarization。用户首次打开时可能遇到 Gatekeeper 提示，需要在系统设置中允许打开。

@@ -26,16 +26,33 @@ Vibe 的产物，但细节是经过打磨的，基本上每个点都是 "开发-
 
 ## 构建
 
+开发版一键部署：
+
 ```bash
 git clone https://github.com/vipic/Pastry.git
 cd Pastry
-swift build -c release
+./deploy.sh
 ```
-之后双击 DMG 文件拖拽安装。
+
+这会编译 debug 版本、组装并签名 `~/Applications/Pastry Dev.app`，然后启动应用。
+
+只做本地 release 构建：
+
+```bash
+swift build -c release -Xswiftc -Osize
+```
+
+需要生成可安装的 DMG 时使用：
+
+```bash
+./release.sh 1.2.3
+```
+
+之后双击 `dist/Pastry-1.2.3.dmg`，将 `Pastry.app` 拖入 `/Applications`。
 
 发布流程见 [RELEASE.md](RELEASE.md)。
 
-零外部依赖，仅支持 macOS 26+ (至少我的要求是这样，它支持更低那算它厉害)。
+不依赖第三方包管理下载；SQLCipher 静态库已 vendored 到仓库内。仅支持 macOS 26+ (至少我的要求是这样，它支持更低那算它厉害)。
 
 > **首次编译须知**：macOS 的辅助功能权限绑定到应用签名。如果每次都用 ad-hoc 签名，重新编译后可能需要重新去「系统设置 → 隐私与安全性 → 辅助功能」里打勾授权。解决方法是创建或复用一张作者级自签名证书（30 秒），同一个作者的多个应用可以共用，不需要每个应用都准备 Dev/Release 两张证书：
 > ```
@@ -89,6 +106,8 @@ swift build -c release
 |---|---|
 | 拖拽单条 | 按住卡片拖到目标应用 |
 | 拖拽多条 | 先多选，再拖任意一张 |
+
+多选拖拽使用单个拖拽载荷，避免 macOS 额外叠加系统数量角标。多选文本和多选链接会作为多行文本拖出；拖到编辑器会插入文本，拖到桌面会生成一个包含多行内容的文本剪贴文件。多选中包含本地文件或图片时，会尽量附带第一个可用文件 URL；如果目标应用只接收文本，仍会保留文本部分。
 
 ## 项目结构
 
