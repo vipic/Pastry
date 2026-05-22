@@ -340,7 +340,7 @@ final class FilePreviewTests: XCTestCase {
         wait(for: [exp], timeout: 1)
     }
 
-    func testMultiURLSelectionExtractsSeparateWebURLsForFileDrops() {
+    func testMultiURLSelectionStillTracksWebURLsForPrimaryURLFlavor() {
         let items = [
             ClipboardItem(content: "https://example.com/a", sourceFormat: .text, tags: ContentTags(isURL: true)),
             ClipboardItem(content: "https://example.com/b", sourceFormat: .text, tags: ContentTags(isURL: true)),
