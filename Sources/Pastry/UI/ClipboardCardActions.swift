@@ -89,6 +89,7 @@ extension ClipboardCardView {
     /// 右键菜单（使用系统 NSMenu.popUpContextMenu）
     func showContextMenu(with event: NSEvent, for view: NSView) {
         let menu = NSMenu()
+        menu.minimumWidth = UIConstants.ContextMenu.cardMinimumWidth
         let handler = _MenuHandler { title, object in
             // representedObject 传递的动作标识优先
             if let appURL = object as? URL {

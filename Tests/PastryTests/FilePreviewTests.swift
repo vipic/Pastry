@@ -51,6 +51,47 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertTrue(exts.contains("heic"))
     }
 
+    // MARK: - LinkCardText 展示策略
+
+    func testLongLinkTitleKeepsTwoLinesAndHidesDescription() {
+        let preview = LinkPreviewLoader.Preview(
+            title: "这是一个非常长的链接标题用于验证卡片会优先保留标题可读性而不是继续显示描述",
+            description: "描述会让小卡片文本区域过于拥挤",
+            imageURL: nil,
+            host: "example.com"
+        )
+        let text = ClipboardCardView.linkCardText(url: URL(string: "https://example.com/post/1")!, preview: preview)
+
+        XCTAssertEqual(text.titleLineLimit, 2)
+        XCTAssertNil(text.description)
+        XCTAssertEqual(text.host, "example.com")
+    }
+
+    func testShortLinkTitleAllowsDescription() {
+        let preview = LinkPreviewLoader.Preview(
+            title: "Pastry Release",
+            description: "Latest release notes",
+            imageURL: nil,
+            host: "example.com"
+        )
+        let text = ClipboardCardView.linkCardText(url: URL(string: "https://example.com/releases")!, preview: preview)
+
+        XCTAssertEqual(text.titleLineLimit, 1)
+        XCTAssertEqual(text.description, "Latest release notes")
+    }
+
+    func testLinkTitleRemovesDuplicatedHostSuffix() {
+        let preview = LinkPreviewLoader.Preview(
+            title: "Pastry Release - example.com",
+            description: nil,
+            imageURL: nil,
+            host: "example.com"
+        )
+        let text = ClipboardCardView.linkCardText(url: URL(string: "https://example.com/releases")!, preview: preview)
+
+        XCTAssertEqual(text.title, "Pastry Release")
+    }
+
     // MARK: - ClipboardMonitor 读取优先级：fileURL 优于 image
     // 使用独立 pasteboard，不污染系统剪贴板
 

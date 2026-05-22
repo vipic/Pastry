@@ -30,4 +30,8 @@ enum UIConstants {
         static let iconButtonSize: CGFloat = 28
         static let cornerRadius: CGFloat = 6
     }
+
+    enum ContextMenu {
+        static let cardMinimumWidth: CGFloat = 190
+    }
 }
