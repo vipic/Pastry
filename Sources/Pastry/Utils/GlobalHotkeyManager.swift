@@ -123,6 +123,7 @@ final class GlobalHotkeyManager {
     // MARK: - 回调
 
     private let hotkeyHandler: EventHandlerProcPtr = { _, _, _ -> OSStatus in
+        OverlayPanelManager.hotkeyFiredAt = CFAbsoluteTimeGetCurrent()
         DispatchQueue.main.async {
             OverlayPanelManager.shared.toggle()
         }
