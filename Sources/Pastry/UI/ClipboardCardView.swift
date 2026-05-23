@@ -149,17 +149,14 @@ struct ClipboardCardView: View {
             if item.tags.hasSegments { return .mixedMedia }
             if isMultiURL { return .multiLink(detectedLinks) }
             if item.tags.isURL, let url = detectedLink { return .link(url) }
-            if let url = detectedLink { return .link(url) }
             return .richText
         case .rtf:
             if isMultiURL { return .multiLink(detectedLinks) }
             if item.tags.isURL, let url = detectedLink { return .link(url) }
-            if let url = detectedLink { return .link(url) }
             return .richText
         case .text:
             if isMultiURL { return .multiLink(detectedLinks) }
             if item.tags.isURL, let url = detectedLink { return .link(url) }
-            if let url = detectedLink { return .link(url) }
             return .plainText
         }
     }
@@ -260,7 +257,7 @@ struct ClipboardCardView: View {
         case .html:    htmlWithImagePreview
         default:
             if isMultiURL { multiLinkContent(detectedLinks) }
-            else if let url = detectedLink { linkContent(url) }
+            else if item.tags.isURL, let url = detectedLink { linkContent(url) }
             else { textPreview }
         }
     }
@@ -568,7 +565,7 @@ struct ClipboardCardView: View {
             }
         } else if isMultiURL {
             multiLinkContent(detectedLinks)
-        } else if let url = detectedLink {
+        } else if item.tags.isURL, let url = detectedLink {
             linkContent(url)
         } else {
             textPreview
