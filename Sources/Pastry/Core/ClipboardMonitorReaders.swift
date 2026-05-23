@@ -206,22 +206,48 @@ extension ClipboardMonitor {
     }
 
     func readFileURLs(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
-        guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-              !urls.isEmpty
-        else { return nil }
-        // 只保留 file:// URL，过滤掉 Handoff 同步来的 http/https 等非文件 URL
-        let fileURLs = urls.filter { $0.isFileURL }
-        guard !fileURLs.isEmpty else { return nil }
-        let paths = fileURLs.map(\.path).joined(separator: "\n")
+        var paths: [String] = []
 
-        // 所有文件都是图片 → 归为 .image，显示图片预览而非文件图标
-        let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "heic", "heif"]
-        let allImages = fileURLs.allSatisfy { imageExtensions.contains($0.pathExtension.lowercased()) }
-        if allImages {
-            return ClipboardItem(content: paths, sourceFormat: .image, appName: appName, isHandoff: isHandoff)
+        // 1. NSFilenamesPboardType：Finder / NSPasteboard 多文件写入的标准格式
+        let filenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
+        if let filenames = pb.propertyList(forType: filenamesType) as? [String], !filenames.isEmpty {
+            paths = filenames
         }
 
-        return ClipboardItem(content: paths, sourceFormat: .fileURL, appName: appName, isHandoff: isHandoff)
+        // 2. 逐 item 读 public.file-url（NSPasteboardItem.setString 写入的单文件格式）
+        if paths.isEmpty, let items = pb.pasteboardItems, !items.isEmpty {
+            for item in items {
+                if let urlStr = item.string(forType: .fileURL),
+                   let url = URL(string: urlStr),
+                   url.isFileURL {
+                    paths.append(url.path)
+                }
+            }
+        }
+
+        // 3. 回退：readObjects(forClasses:)（向后兼容）
+        if paths.isEmpty {
+            guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+                  !urls.isEmpty
+            else { return nil }
+            let fileURLs = urls.filter { $0.isFileURL }
+            guard !fileURLs.isEmpty else { return nil }
+            paths = fileURLs.map(\.path)
+        }
+
+        guard !paths.isEmpty else { return nil }
+        let content = paths.joined(separator: "\n")
+
+        // 所有文件都是图片 → 归为 .image
+        let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "heic", "heif"]
+        let allImages = paths.allSatisfy { p in
+            imageExtensions.contains(URL(fileURLWithPath: p).pathExtension.lowercased())
+        }
+        if allImages {
+            return ClipboardItem(content: content, sourceFormat: .image, appName: appName, isHandoff: isHandoff)
+        }
+
+        return ClipboardItem(content: content, sourceFormat: .fileURL, appName: appName, isHandoff: isHandoff)
     }
 
     /// 检测剪贴板中的 URL 链接（http/https），优于纯文本捕获
