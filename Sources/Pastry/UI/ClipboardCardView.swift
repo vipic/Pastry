@@ -735,7 +735,7 @@ struct ClipboardCardView: View {
     // MARK: - 辅助
 
     private var previewText: String {
-        let t = item.content.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: " ")
+        let t = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.count > 240 ? String(t.prefix(240)) + "…" : t
     }
 
