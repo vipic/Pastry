@@ -1,17 +1,135 @@
 #!/bin/bash
 # Pastry 性能基准测试
-# 用法: ./bench.sh           # 跑一次输出指标
-#       ./bench.sh --baseline # 保存为基线（覆盖上一次基线）
-#       ./bench.sh --diff     # 对比当前与基线
+# 用法: ./bench.sh              # 跑一次输出指标
+#       ./bench.sh --baseline    # 保存为基线（覆盖上一次基线）
+#       ./bench.sh --diff        # 对比当前与基线
+#       ./bench.sh --report      # 从 perf.log 生成 p50/p95/p99 统计
 
 set -euo pipefail
 cd "$(dirname "$0")"
 BASELINE_FILE=".bench_baseline"
 APP_BIN="$HOME/Applications/Pastry.app/Contents/MacOS/Pastry"
 BUILD_BIN=".build/release/Pastry"
+PERF_LOG="$HOME/Library/Logs/Pastry/perf.log"
 
 # macOS 毫秒时间戳
 now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
+
+# ── 性能日志分析 ──
+do_report() {
+    if [[ ! -f "$PERF_LOG" ]]; then
+        echo "❌ 无 perf.log 文件 ($PERF_LOG)"
+        echo "   请先运行 Pastry 并使用面板和粘贴功能生成日志。"
+        exit 1
+    fi
+
+    python3 << 'PYEOF'
+import re, sys
+from collections import defaultdict
+
+log_path = "/Users/mason/Library/Logs/Pastry/perf.log"
+with open(log_path) as f:
+    lines = [line.strip() for line in f if line.strip()]
+
+def stats(values, label):
+    if not values:
+        return
+    s = sorted(values)
+    n = len(s)
+    p50 = s[int(n * 0.50)] if n > 0 else 0
+    p95 = s[int(n * 0.95)] if n > 1 else s[0]
+    p99 = s[int(n * 0.99)] if n > 1 else s[0]
+    mean = sum(s) // n
+    rng = f"{s[0]}–{s[-1]}"
+    print(f"  {label}: n={n}  p50={p50}ms  p95={p95}ms  p99={p99}ms  avg={mean}ms  range={rng}")
+
+# Parse each line by type
+groups = defaultdict(lambda: defaultdict(list))
+type_counts = defaultdict(int)
+
+for line in lines:
+    fields = {}
+    parts = line.split(" | ")
+    for p in parts[1:]:  # skip date
+        if ": " in p:
+            k, v = p.split(": ", 1)
+            # extract numeric ms values
+            if v.endswith("ms"):
+                try:
+                    fields[k] = int(v[:-2])
+                except ValueError:
+                    fields[k] = v
+            else:
+                try:
+                    fields[k] = int(v)
+                except ValueError:
+                    fields[k] = v
+
+    t = fields.get("type", "unknown")
+    type_counts[t] += 1
+
+    if t == "panel":
+        for key in ("hotkeyDispatch", "panelInit", "overlayView", "hostingInit",
+                     "hostingLayout", "orderFront", "total"):
+            if key in fields:
+                groups[t][key].append(fields[key])
+    elif t == "paste":
+        for key in ("clipboardWrite", "activateApp", "orderOut", "simulatePaste", "total"):
+            if key in fields:
+                groups[t][key].append(fields[key])
+    elif t == "pasteMulti":
+        for key in ("writeText", "activateApp", "orderOut", "simulatePaste", "total"):
+            if key in fields:
+                groups[t][key].append(fields[key])
+
+print()
+print("═══ 性能统计（perf.log）═══")
+print()
+print(f"总条目: {len(lines)}  (panel: {type_counts.get('panel',0)}, paste: {type_counts.get('paste',0)}, pasteMulti: {type_counts.get('pasteMulti',0)})")
+print()
+
+for t in ("panel", "paste", "pasteMulti"):
+    if t not in groups:
+        continue
+    g = groups[t]
+    label_map = {
+        "panel": "面板启动",
+        "paste": "卡片粘贴",
+        "pasteMulti": "多选粘贴",
+    }
+    field_labels = {
+        "hotkeyDispatch":  "  快捷键→主线程调度",
+        "panelInit":       "  NSPanel 创建",
+        "overlayView":     "  OverlayView 构建",
+        "hostingInit":     "  NSHostingView 初始化",
+        "hostingLayout":   "  NSHostingView 布局",
+        "orderFront":      "  orderFront+makeKey",
+        "clipboardWrite":  "  写剪贴板",
+        "writeText":       "  拼接+写文本",
+        "activateApp":     "  激活目标 App",
+        "orderOut":        "  面板隐藏",
+        "simulatePaste":   "  ⌘V 模拟",
+        "total":           "  总耗时",
+    }
+    print(f"── {label_map.get(t, t)} ──")
+    # always show total first
+    if "total" in g:
+        stats(g["total"], field_labels["total"])
+    for key in g:
+        if key == "total":
+            continue
+        stats(g[key], field_labels.get(key, f"  {key}"))
+    print()
+
+print("注：p50/p95/p99 基于运行中自然产生的数据，非受控基准测试。")
+PYEOF
+}
+
+# ── 若为 --report 模式，直接跑报告并退出 ──
+if [[ "${1:-}" == "--report" ]]; then
+    do_report
+    exit 0
+fi
 
 # ── 1. 编译时间 ──
 echo "═══ 编译时间 ═══"
@@ -86,4 +204,10 @@ elif [[ "${1:-}" == "--diff" ]]; then
     else
         echo "❌ 无基线文件，先运行 ./bench.sh --baseline"
     fi
+fi
+
+# ── 提示可选 perf 报告 ──
+if [[ -f "$PERF_LOG" ]]; then
+    echo ""
+    echo "💡 perf.log 存在，可运行 ./bench.sh --report 查看面板/粘贴统计"
 fi

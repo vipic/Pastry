@@ -258,6 +258,25 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     // MARK: - 显示/隐藏
 
+    /// 热键触发时刻 — 由 GlobalHotkeyManager 在 Carbon 回调中设置，
+    /// showPanel() 读取后清零
+    nonisolated(unsafe) static var hotkeyFiredAt: CFAbsoluteTime?
+
+    /// 性能日志写入（~/Library/Logs/Pastry/perf.log）
+    private static func writePerfLog(_ line: String) {
+        guard let logDirBase = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else { return }
+        let logDir = logDirBase.appendingPathComponent("Logs/Pastry")
+        try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
+        let logFile = logDir.appendingPathComponent("perf.log")
+        if let handle = try? FileHandle(forWritingTo: logFile) {
+            handle.seekToEndOfFile()
+            handle.write(Data((line + "\n").utf8))
+            try? handle.close()
+        } else {
+            try? (line + "\n").write(to: logFile, atomically: true, encoding: .utf8)
+        }
+    }
+
     @MainActor
     func show() {
         guard panel == nil else { return }
@@ -286,6 +305,9 @@ final class OverlayPanelManager: @unchecked Sendable {
     func hideAndPaste(_ item: ClipboardItem) async {
         guard panel != nil else { return }
 
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let fmt = item.sourceFormat
+
         isPasting = true
         let targetApp = previousFrontApp
         previousFrontApp = nil
@@ -295,6 +317,7 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         // 2. 写剪贴板（文本/文件立即，图片 I/O 后台完成）
         let result = await PasteboardWriter.write(item, options: .overlaySingle)
+        let t1 = CFAbsoluteTimeGetCurrent()
         guard result == .written else {
             // 文件全部缺失或图片读取失败时，静默取消粘贴，关闭面板
             ClipboardMonitor.shared.resume()
@@ -311,15 +334,18 @@ final class OverlayPanelManager: @unchecked Sendable {
             DispatchQueue.main.async { Self.pasteSound?.play() }
         }
 
-        // 3. 激活目标 App + 隐藏面板（并行）
+        // 3. 激活目标 App + 隐藏面板
         targetApp?.activate()
+        let t2 = CFAbsoluteTimeGetCurrent()
         panel?.orderOut(nil)
         panel = nil
         removeKeyboardMonitor()
         NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+        let t3 = CFAbsoluteTimeGetCurrent()
 
         // 4. ⌘V（面板已隐藏，目标 App 在前台）
         Self.simulatePaste()
+        let t4 = CFAbsoluteTimeGetCurrent()
 
         // 5. 后台收尾：DB / 恢复监听 / 刷新
         DatabaseManager.shared.bumpTimestamp(id: item.id.uuidString)
@@ -327,12 +353,20 @@ final class OverlayPanelManager: @unchecked Sendable {
         ClipboardMonitor.shared.resume()
         StoreManager.shared.refresh()
         isPasting = false
+
+        // 性能日志
+        let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
+        let perfLine = "\(Date()) | type: paste | sourceFormat: \(fmt) | clipboardWrite: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+        log.info("⏱ \(perfLine, privacy: .public)")
+        Self.writePerfLog(perfLine)
     }
 
     /// 多选粘贴：将所有选中条目的文本拼接后一次性 ⌘V
     @MainActor
     func hideAndPasteMultiple(_ items: [ClipboardItem]) {
         guard panel != nil, !items.isEmpty else { return }
+
+        let t0 = CFAbsoluteTimeGetCurrent()
 
         isPasting = true
         let targetApp = previousFrontApp
@@ -353,6 +387,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         }
         let combined = lines.joined(separator: "\n")
         PasteboardWriter.writePlainText(combined)
+        let t1 = CFAbsoluteTimeGetCurrent()
 
         // 音效
         if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
@@ -361,13 +396,16 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         // 激活目标 App + 隐藏面板
         targetApp?.activate()
+        let t2 = CFAbsoluteTimeGetCurrent()
         panel?.orderOut(nil)
         panel = nil
         removeKeyboardMonitor()
         NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+        let t3 = CFAbsoluteTimeGetCurrent()
 
         // ⌘V
         Self.simulatePaste()
+        let t4 = CFAbsoluteTimeGetCurrent()
 
         // 后台收尾：每个条目更新 DB
         for item in items {
@@ -377,6 +415,12 @@ final class OverlayPanelManager: @unchecked Sendable {
         ClipboardMonitor.shared.resume()
         StoreManager.shared.refresh()
         isPasting = false
+
+        // 性能日志
+        let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
+        let perfLine = "\(Date()) | type: pasteMulti | itemCount: \(items.count) | writeText: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+        log.info("⏱ \(perfLine, privacy: .public)")
+        Self.writePerfLog(perfLine)
     }
 
     /// 拖拽开始时临时透传鼠标事件，让拖拽能到达目标应用
@@ -416,6 +460,12 @@ final class OverlayPanelManager: @unchecked Sendable {
     @MainActor
     private func showPanel() {
         let t0 = CFAbsoluteTimeGetCurrent()
+
+        // 若有快捷键触发时刻，预取并计算调用链延迟
+        let hotkeyAt = Self.hotkeyFiredAt
+        let hotkeyDispatchMs: Int? = hotkeyAt.map { hotkey in
+            Int(((t0 - hotkey) * 1000).rounded())
+        }
 
         let mouseLocation = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) ?? NSScreen.main ?? NSScreen.screens.first else {
@@ -470,27 +520,18 @@ final class OverlayPanelManager: @unchecked Sendable {
         // 性能日志（OSLog + 文件持久化）
         let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
         let itemCount = StoreManager.shared.items.count
-        // 统计最大 content 长度，检测是否有未被截断的大文本
         let maxLen = StoreManager.shared.items.map { $0.content.count }.max() ?? 0
         let totalLen = StoreManager.shared.items.reduce(0) { $0 + $1.content.count }
-        let perfLine = "\(Date()) | items: \(itemCount) | maxContent: \(maxLen) | totalContent: \(totalLen) | panel: \(ms(t1-t0))ms | overlayView: \(ms(t2-t1))ms | hostingInit: \(ms(t2a-t2))ms | hostingLayout: \(ms(t3-t2a))ms | orderFront: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
-        log.info("⏱ \(perfLine, privacy: .public)")
 
-        // 追加写入文件（~/Library/Logs/Pastry/perf.log）
-        guard let logDirBase = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
-            log.error("无法获取 Library 目录，性能日志写入跳过")
-            return
+        var perfLine = "\(Date()) | type: panel | items: \(itemCount) | maxContent: \(maxLen) | totalContent: \(totalLen)"
+        if let dispatchMs = hotkeyDispatchMs {
+            perfLine += " | hotkeyDispatch: \(dispatchMs)ms"
         }
-        let logDir = logDirBase.appendingPathComponent("Logs/Pastry")
-        try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
-        let logFile = logDir.appendingPathComponent("perf.log")
-        if let handle = try? FileHandle(forWritingTo: logFile) {
-            handle.seekToEndOfFile()
-            handle.write(Data((perfLine + "\n").utf8))
-            try? handle.close()
-        } else {
-            try? (perfLine + "\n").write(to: logFile, atomically: true, encoding: .utf8)
-        }
+        perfLine += " | panelInit: \(ms(t1-t0))ms | overlayView: \(ms(t2-t1))ms | hostingInit: \(ms(t2a-t2))ms | hostingLayout: \(ms(t3-t2a))ms | orderFront: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+
+        log.info("⏱ \(perfLine, privacy: .public)")
+        Self.writePerfLog(perfLine)
+        Self.hotkeyFiredAt = nil
 
         // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起（拖拽穿透期间除外）
         panelResignKeyObserver = NotificationCenter.default.addObserver(
