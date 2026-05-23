@@ -57,6 +57,34 @@ extension ClipboardCardView {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
+    /// 复制到系统剪贴板（不隐藏面板、不触发粘贴）
+    /// 多选时复制所有选中卡片的文本内容
+    private func copyItem() {
+        let isMulti = selectedIds.count > 1 && selectedIds.contains(item.id)
+        let copyTargets: [ClipboardItem]
+
+        if isMulti {
+            copyTargets = StoreManager.shared.items.filter { selectedIds.contains($0.id) }
+        } else {
+            copyTargets = [item]
+        }
+
+        if copyTargets.count == 1 {
+            Task {
+                _ = await PasteboardWriter.write(copyTargets[0], options: .storeSingle)
+            }
+        } else {
+            // 多选：拼接所有文本内容
+            let lines = copyTargets.map { target in
+                if target.sourceFormat == .fileURL || target.sourceFormat == .image {
+                    return target.content  // 文件路径
+                }
+                return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
+            }
+            PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
+        }
+    }
+
     /// 构建系统的"打开方式"子菜单
     private func buildOpenWithSubmenu(for handler: _MenuHandler) -> NSMenu? {
         guard let url = openableURL else { return nil }
@@ -102,6 +130,7 @@ extension ClipboardCardView {
                     onPin(item, selectedIds)
                 case "open":       openItem()
                 case "show_in_finder": showInFinder()
+                case "copy":       copyItem()
                 case "preview":    previewItem(from: view)
                 case "share":      shareItem(from: view)
                 case "delete":     onDelete(item)
@@ -121,6 +150,13 @@ extension ClipboardCardView {
         pinItem.representedObject = "pin" as NSString
         pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: nil)
         menu.addItem(pinItem)
+
+        // Copy
+        let copyMenuItem = NSMenuItem(title: L10n["context.copy"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        copyMenuItem.target = handler
+        copyMenuItem.representedObject = "copy" as NSString
+        copyMenuItem.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)
+        menu.addItem(copyMenuItem)
 
         let isFileBased = item.sourceFormat == .fileURL || item.sourceFormat == .image
         let hasAnyFile = isFileBased && !existingFileURLs.isEmpty
