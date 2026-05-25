@@ -44,6 +44,18 @@ final class LinkPreviewLoaderTests: XCTestCase {
         XCTAssertEqual(result, "https://example.com/thumb.jpg")
     }
 
+    func testOGImageContentBeforeProperty() {
+        let html = "<meta content=\"https://example.com/reversed.jpg\" property=\"og:image\">"
+        let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:image")
+        XCTAssertEqual(result, "https://example.com/reversed.jpg")
+    }
+
+    func testOGImageSecureURL() {
+        let html = "<meta property=\"og:image:secure_url\" content=\"https://example.com/secure.jpg\">"
+        let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:image:secure_url")
+        XCTAssertEqual(result, "https://example.com/secure.jpg")
+    }
+
     func testOGImageNotPresent() {
         let html = "<html><head></head><body>no og:image</body></html>"
         let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "og:image")
@@ -68,6 +80,18 @@ final class LinkPreviewLoaderTests: XCTestCase {
         let html = "<meta property=\"twitter:image\" content=\"https://example.com/tw-prop.jpg\">"
         let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "twitter:image")
         XCTAssertEqual(result, "https://example.com/tw-prop.jpg")
+    }
+
+    func testTwitterImageSrcExtracted() {
+        let html = "<meta name=\"twitter:image:src\" content=\"https://example.com/tw-src.jpg\">"
+        let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "twitter:image:src")
+        XCTAssertEqual(result, "https://example.com/tw-src.jpg")
+    }
+
+    func testItempropImageExtracted() {
+        let html = "<meta itemprop=\"image\" content=\"https://example.com/itemprop.jpg\">"
+        let result = LinkPreviewLoader.extractMetaForTesting(from: html, tag: "itemprop:image")
+        XCTAssertEqual(result, "https://example.com/itemprop.jpg")
     }
 
     // MARK: - 图片 URL 解析
@@ -258,6 +282,42 @@ final class LinkPreviewLoaderTests: XCTestCase {
         XCTAssertEqual(result, "https://example.com/real-photo.jpg")
     }
 
+    func testLazyLoadedImageDataLazySrc() {
+        let html = "<img src='data:image/gif;base64,abc' data-lazy-src='/lazy-photo.jpg'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/lazy-photo.jpg")
+    }
+
+    func testSrcsetChoosesLargestImage() {
+        let html = "<img srcset='/small.jpg 320w, /medium.jpg 800w, /large.jpg 1600w'>"
+        let result = LinkPreviewLoader.extractBestImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com")!
+        )
+        XCTAssertEqual(result, "https://example.com/large.jpg")
+    }
+
+    func testLinkPreloadImageIsUsedWhenNoMetaImageExists() {
+        let html = "<link as='image' rel='preload' href='/preloaded.jpg'>"
+        let result = LinkPreviewLoader.extractLinkImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com/article")!
+        )
+        XCTAssertEqual(result, "https://example.com/preloaded.jpg")
+    }
+
+    func testLinkImageSrcIsUsedWhenNoMetaImageExists() {
+        let html = "<link rel='image_src' href='https://cdn.example.com/share.jpg'>"
+        let result = LinkPreviewLoader.extractLinkImageForTesting(
+            from: html,
+            baseURL: URL(string: "https://example.com/article")!
+        )
+        XCTAssertEqual(result, "https://cdn.example.com/share.jpg")
+    }
+
     // MARK: - 尺寸过滤（新增）
 
     func testSkipsSmallImageByWidth() {
@@ -269,14 +329,13 @@ final class LinkPreviewLoaderTests: XCTestCase {
         XCTAssertEqual(result, "https://example.com/big.jpg")
     }
 
-    func testSkipsSmallImageByHeight() {
+    func testKeepsShortWideBanner() {
         let html = "<img width='800' height='60' src='/banner.gif'><img src='/photo.jpg'>"
         let result = LinkPreviewLoader.extractBestImageForTesting(
             from: html,
             baseURL: URL(string: "https://example.com")!
         )
-        // banner.gif 高仅 60 → 被当小图标过滤
-        XCTAssertEqual(result, "https://example.com/photo.jpg")
+        XCTAssertEqual(result, "https://example.com/banner.gif")
     }
 
     // MARK: - 保底：全部被过滤时返回最大尺寸图（新增）

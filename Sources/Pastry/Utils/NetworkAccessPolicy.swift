@@ -1,7 +1,7 @@
 import Foundation
 
 enum NetworkAccessPolicy {
-    static let maxHTMLBytes = 1_000_000
+    static let maxHTMLBytes = 2_000_000
     static let maxImageBytes = 5_000_000
 
     static var isLinkPreviewEnabled: Bool {
