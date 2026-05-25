@@ -42,4 +42,8 @@ final class NetworkAccessPolicyTests: XCTestCase {
             XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: raw)!), raw)
         }
     }
+
+    func testHTMLByteLimitAllowsLargeModernPages() {
+        XCTAssertEqual(NetworkAccessPolicy.maxHTMLBytes, 2_000_000)
+    }
 }
