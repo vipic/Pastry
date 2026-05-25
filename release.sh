@@ -6,6 +6,7 @@
 #   ./release.sh 1.0.1 --publish    # 构建 + 推 tag + 创建 GitHub Release
 #   ./release.sh                    # 自动取 git tag，没有则用 1.0
 set -e
+set -o pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Pastry"
@@ -78,7 +79,21 @@ SWIFT
 }
 
 step 1 "测试"
-swift test 2>&1 | tail -5
+# 自动检测：无 Xcode 则跳过测试（XCTest 需要完整 Xcode）
+RUN_TESTS="${RUN_TESTS:-}"
+if [ "$RUN_TESTS" = "" ]; then
+    if xcode-select -p 2>/dev/null | grep -q "/Xcode.app/"; then
+        RUN_TESTS=true
+    else
+        RUN_TESTS=false
+        echo "⚠️  未检测到 Xcode，自动跳过测试（XCTest 需要完整 Xcode）"
+    fi
+fi
+if [ "$RUN_TESTS" = "true" ]; then
+    swift test 2>&1 | tail -5
+else
+    echo "   跳过测试"
+fi
 
 step 2 "注入版本号"
 mkdir -p "$PROJECT_DIR/Sources/Pastry/Generated"

@@ -3,6 +3,7 @@
 # 每次修改代码后执行：编译 → 打包 → 重启应用
 # 用法: ./deploy.sh
 set -e
+set -o pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Pastry"
