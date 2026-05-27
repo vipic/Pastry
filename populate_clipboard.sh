@@ -24,13 +24,13 @@ if [[ ! -x "$PBWRITE" ]]; then
     swiftc pbwrite.swift -o pbwrite || { echo "✗ 编译失败"; exit 1; }
 fi
 
-# 确认目标文件存在
-MISSING=""
-for f in "$HOME/.zshrc" "$HOME/.gitconfig" "$HOME/.zprofile"; do
-    [[ -f "$f" ]] || MISSING="$MISSING $f"
+# 选择存在的样本文件。.zprofile 在不少环境里不存在，优先用常见 dotfile 兜底。
+SAMPLE_FILES=()
+for f in "$HOME/.zshrc" "$HOME/.gitconfig" "$HOME/.zprofile" "$HOME/.zshenv" "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc"; do
+    [[ -f "$f" ]] && SAMPLE_FILES+=("$f")
 done
-if [[ -n "$MISSING" ]]; then
-    echo "✗ 以下文件不存在，跳过文件类条目:$MISSING"
+if (( ${#SAMPLE_FILES[@]} == 0 )); then
+    echo "✗ 未找到可用的样本文件，跳过文件类条目"
 fi
 
 if ! pgrep -x Pastry >/dev/null 2>&1; then
@@ -94,16 +94,18 @@ rm -f "$RTF_FILE"
 sleep "$SLEEP"
 
 # ── 5. 单文件路径 ──
-if [[ -z "$MISSING" ]]; then
+if (( ${#SAMPLE_FILES[@]} >= 1 )); then
     log "fileURL — 单个文件"
-    "$PBWRITE" file "$HOME/.zshrc" && ok || err "单文件写入失败"
+    "$PBWRITE" file "${SAMPLE_FILES[0]}" && ok || err "单文件写入失败"
     sleep "$SLEEP"
 fi
 
 # ── 6. 多文件路径（3 个文件合并为 1 条）──
-if [[ -z "$MISSING" ]]; then
-    log "fileURL — 多个文件（3 个合并为 1 条）"
-    "$PBWRITE" file "$HOME/.gitconfig" "$HOME/.zprofile" "$HOME/.zshrc" && ok || err "多文件写入失败"
+if (( ${#SAMPLE_FILES[@]} >= 2 )); then
+    count=${#SAMPLE_FILES[@]}
+    (( count > 3 )) && count=3
+    log "fileURL — 多个文件（${count} 个合并为 1 条）"
+    "$PBWRITE" file "${SAMPLE_FILES[@]:0:$count}" && ok || err "多文件写入失败"
     sleep "$SLEEP"
 fi
 
