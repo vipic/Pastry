@@ -10,10 +10,8 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
 
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
-
-    // MARK: - 菜单项
-    private let statsItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let storageItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private var statsItem: NSMenuItem?
+    private var storageItem: NSMenuItem?
 
     private override init() {
         super.init()
@@ -54,89 +52,35 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
 
     // MARK: - 构建菜单
 
+    @MainActor
     private func buildMenu() {
-        menu = NSMenu()
+        let result = MenuBarMenuFactory.build(
+            target: self,
+            actions: MenuBarMenuActions(
+                openOverlay: #selector(openOverlay),
+                clearHistory: #selector(clearHistoryAction),
+                openAbout: #selector(openAboutAction),
+                openSettings: #selector(openSettingsAction),
+                checkUpdate: #selector(checkUpdateAction),
+                quit: #selector(quitApp)
+            ),
+            stats: StoreManager.shared.stats,
+            isUpdateDevBuild: isUpdateDevBuild
+        )
+        menu = result.menu
         menu.delegate = self
-        menu.autoenablesItems = false
-
-        let openItem = NSMenuItem(
-            title: L10n["menu.open_clipboard"],
-            action: #selector(openOverlay),
-            keyEquivalent: ""
-        )
-        openItem.target = self
-        openItem.image = NSImage(systemSymbolName: "rectangle.on.rectangle", accessibilityDescription: nil)
-        menu.addItem(openItem)
-        menu.addItem(.separator())
-
-        statsItem.isEnabled = false
-        menu.addItem(statsItem)
-        storageItem.isEnabled = false
-        menu.addItem(storageItem)
-        menu.addItem(.separator())
-
-        let clearItem = NSMenuItem(
-            title: L10n["menu.clear_history"],
-            action: #selector(clearHistoryAction),
-            keyEquivalent: ""
-        )
-        clearItem.target = self
-        clearItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
-        menu.addItem(clearItem)
-        menu.addItem(.separator())
-
-        let aboutItem = NSMenuItem(
-            title: L10n["menu.about"],
-            action: #selector(openAboutAction),
-            keyEquivalent: ""
-        )
-        aboutItem.target = self
-        aboutItem.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil)
-        menu.addItem(aboutItem)
-
-        let settingsItem = NSMenuItem(
-            title: L10n["menu.settings"],
-            action: #selector(openSettingsAction),
-            keyEquivalent: ","
-        )
-        settingsItem.keyEquivalentModifierMask = .command
-        settingsItem.target = self
-        settingsItem.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
-        menu.addItem(settingsItem)
-        menu.addItem(.separator())
-
-        let updateItem = NSMenuItem(
-            title: L10n["menu.check_update"],
-            action: #selector(checkUpdateAction),
-            keyEquivalent: ""
-        )
-        updateItem.target = self
-        updateItem.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
-        updateItem.isEnabled = !isUpdateDevBuild
-        menu.addItem(updateItem)
-        menu.addItem(.separator())
-
-        let quitItem = NSMenuItem(
-            title: L10n["menu.quit"],
-            action: #selector(quitApp),
-            keyEquivalent: "q"
-        )
-        quitItem.keyEquivalentModifierMask = .command
-        quitItem.target = self
-        quitItem.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
-        menu.addItem(quitItem)
+        statsItem = result.statsItem
+        storageItem = result.storageItem
     }
 
     @MainActor
     private func refreshStats() {
-        let stats = StoreManager.shared.stats
-        statsItem.title = String(format: L10n["menu.stats"], stats.totalItems, stats.todayItems)
-        if stats.storageSizeKB > 0 {
-            storageItem.title = String(format: L10n["menu.storage"], stats.storageSizeKB)
-            storageItem.isHidden = false
-        } else {
-            storageItem.isHidden = true
-        }
+        guard let statsItem, let storageItem else { return }
+        MenuBarMenuFactory.updateStats(
+            statsItem: statsItem,
+            storageItem: storageItem,
+            stats: StoreManager.shared.stats
+        )
     }
 
     // MARK: - 操作

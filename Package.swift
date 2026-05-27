@@ -42,7 +42,8 @@ let package = Package(
         .testTarget(
             name: "PastryTests",
             dependencies: ["Pastry"],
-            path: "Tests/PastryTests"
+            path: "Tests/PastryTests",
+            exclude: ["__Snapshots__"]
         ),
     ]
 )
