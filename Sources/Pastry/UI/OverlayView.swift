@@ -65,6 +65,7 @@ struct OverlayView: View {
             .animation(.easeInOut(duration: 0.2), value: showSearch)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.root)
     }
 
     private func applyModifiers<Content: View>(_ content: Content) -> AnyView {
@@ -247,6 +248,7 @@ struct OverlayView: View {
                 .foregroundColor(.white)
                 .focused($isSearchFocused)
                 .frame(maxWidth: 400)
+                .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
 
             Button {
                 store.searchQuery = ""
@@ -256,6 +258,7 @@ struct OverlayView: View {
                     .foregroundColor(.white.opacity(0.4))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.clearSearchButton)
             .opacity(store.searchQuery.isEmpty ? 0 : 1)
             .allowsHitTesting(!store.searchQuery.isEmpty)
             .onHover { hovering in
@@ -295,6 +298,7 @@ struct OverlayView: View {
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
             }
+            .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
     }
 
     private var hasActiveTimeOrTypeFilter: Bool {
@@ -339,6 +343,7 @@ struct OverlayView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { selection.reset() }
+        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.cardContainer)
     }
 
     // MARK: - Header
@@ -372,6 +377,7 @@ struct OverlayView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
                 .onHover { hoverSearch = $0 }
                 .padding(.trailing, 6)
 
@@ -399,6 +405,7 @@ struct OverlayView: View {
                     )
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.settingsButton)
             .onHover { hoverGear = $0 }
         }
         .overlay(alignment: .leading) {
@@ -436,6 +443,7 @@ struct OverlayView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(tab == .all ? AccessibilityIdentifiers.Overlay.allTab : AccessibilityIdentifiers.Overlay.pinnedTab)
         .onHover { hovering in
             hoverTab = hovering ? tab : nil
         }
@@ -544,6 +552,7 @@ struct OverlayView: View {
             }
         )
         .id(item.id)
+        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.card(item.id.uuidString))
         .onAppear { renderedIds.insert(item.id) }
         .onDisappear { renderedIds.remove(item.id) }
         .onDrag {
@@ -643,6 +652,7 @@ struct OverlayView: View {
         }
         .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, minHeight: UIConstants.Overlay.emptyStateMinHeight)
+        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.emptyState)
     }
 }
 

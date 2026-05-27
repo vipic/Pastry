@@ -1,6 +1,5 @@
 import SwiftUI
 import OSLog
-import ServiceManagement
 
 // MARK: - 设置视图
 
@@ -74,10 +73,12 @@ struct SettingsSceneView: View {
             List(SettingsTab.allCases, selection: $selectedTab) { tab in
                 Label(tab.label, systemImage: tab.icon).tag(tab)
             }
+            .accessibilityIdentifier(AccessibilityIdentifiers.Settings.sidebar)
             .navigationSplitViewColumnWidth(min: 136, ideal: 148)
         } detail: {
             if let tab = selectedTab { detail(for: tab) }
         }
+        .accessibilityIdentifier(AccessibilityIdentifiers.Settings.root)
         .id(selectedLanguage.rawValue)
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -113,17 +114,19 @@ struct SettingsSceneView: View {
                 )) {
                     ForEach(Language.allCases) { Text($0.label).tag($0) }
                 }
+                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.languagePicker)
                 Toggle(L10n["settings.launch_at_login"], isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, enabled in
                         do {
-                            if enabled { try SMAppService.mainApp.register() }
-                            else       { try SMAppService.mainApp.unregister() }
+                            try LaunchAtLoginManager.shared.setEnabled(enabled)
                         } catch {
                             Logger(subsystem: "com.nekutai.pastry", category: "settings")
                                 .error("开机启动切换失败: \(error.localizedDescription)")
                         }
                     }
+                    .accessibilityIdentifier(AccessibilityIdentifiers.Settings.launchAtLoginToggle)
                 Toggle(L10n["settings.sound_enabled"], isOn: $soundEnabled)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.Settings.soundToggle)
             }
 
             HistoryRetentionSettingsView(
@@ -165,6 +168,7 @@ struct SettingsSceneView: View {
                     Spacer()
                     Button(L10n["settings.clear_btn"]) { showingClearConfirm = true }
                         .buttonStyle(.borderedProminent).tint(.red).controlSize(.small)
+                        .accessibilityIdentifier(AccessibilityIdentifiers.Settings.clearAllButton)
                 }
                 .alert(L10n["settings.clear_confirm_title"], isPresented: $showingClearConfirm) {
                     Button(L10n["settings.clear_cancel"], role: .cancel) {}
@@ -234,6 +238,7 @@ struct SettingsSceneView: View {
 
             Section {
                 Toggle(L10n["settings.link_preview_network"], isOn: $linkPreviewNetworkEnabled)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.Settings.linkPreviewNetworkToggle)
                 Text(L10n["settings.link_preview_network_hint"])
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -266,6 +271,7 @@ struct SettingsSceneView: View {
                     }
                 }
                 .buttonStyle(.plain).foregroundColor(.secondary)
+                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.excludedAddButton)
             } header: {
                 Text(L10n["settings.excluded_apps"])
                     .font(.system(size: 11, weight: .medium))
@@ -289,27 +295,29 @@ struct SettingsSceneView: View {
     // MARK: - 辅助
 
     private var accessibilityPermissionRow: some View {
-        HStack {
-            Image(systemName: accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
-                .foregroundColor(accessibilityTrusted ? .green : .orange).font(.title3)
+        let model = AccessibilityPermissionRowModel.resolve(isTrusted: accessibilityTrusted)
+        return HStack {
+            Image(systemName: model.iconName)
+                .foregroundColor(model.iconColor).font(.title3)
             VStack(alignment: .leading, spacing: 2) {
-                Text(accessibilityTrusted ? L10n["settings.accessibility_granted"] : L10n["settings.accessibility_denied"]).font(.body)
-                Text(accessibilityTrusted ? L10n["settings.accessibility_paste_ok"] : L10n["settings.accessibility_paste_need"])
+                Text(model.title).font(.body)
+                Text(model.subtitle)
                     .font(.caption).foregroundColor(.secondary)
             }
             Spacer()
-            if !accessibilityTrusted {
+            if model.showsGrantButton {
                 Button(L10n["settings.accessibility_grant_btn"]) {
                     openAccessibilitySettings()
                 }
+                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.accessibilityGrantButton)
             }
         }
         .padding(.vertical, 4)
+        .accessibilityIdentifier(AccessibilityIdentifiers.Settings.accessibilityRow)
     }
 
     private func refreshAccessibilityStatus() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
-        accessibilityTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        accessibilityTrusted = AccessibilityPermissionChecker.shared.isTrusted()
     }
 
     private func openAccessibilitySettings() {

@@ -20,6 +20,7 @@ jobs:
         run: |
           bash -n deploy.sh
           bash -n release.sh
+          bash -n smoke.sh
 
       - name: Run Tests
         run: swift test
