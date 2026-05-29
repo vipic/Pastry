@@ -28,7 +28,6 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     var payloadText = ""
     var payloadWebURLs: [URL] = []
     var payloadFileURLs: [URL] = []
-    private var mouseDownEvent: NSEvent?
     private var didStartDrag = false
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -39,7 +38,6 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     }
 
     override func mouseDown(with event: NSEvent) {
-        mouseDownEvent = event
         didStartDrag = false
     }
 
@@ -48,9 +46,7 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
         didStartDrag = true
 
         let draggingItems = makeDraggingItems()
-
-        guard let startEvent = mouseDownEvent ?? window?.currentEvent else { return }
-        let session = beginDraggingSession(with: draggingItems, event: startEvent, source: self)
+        let session = beginDraggingSession(with: draggingItems, event: event, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = false
         session.draggingFormation = .none
 
@@ -60,7 +56,6 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
     }
 
     override func mouseUp(with event: NSEvent) {
-        mouseDownEvent = nil
         didStartDrag = false
     }
 
@@ -173,10 +168,10 @@ final class MultiSelectionPasteboardItem: NSObject, NSPasteboardWriting {
             types.append(.string)
             types.append(Self.plainTextType)
         }
-        if !webURLs.isEmpty {
+        if webURLs.count == 1 {
             types.append(.URL)
         }
-        if !fileURLs.isEmpty {
+        if fileURLs.count == 1 {
             types.append(.fileURL)
         }
         if types.isEmpty { types.append(.string) }
