@@ -310,6 +310,7 @@ struct OverlayView: View {
     @ViewBuilder
     private var cardContainer: some View {
         let displayItems = store.filteredItems
+        let multiSelectDrag = multiSelectionDragPayload(items: displayItems)
 
         VStack(spacing: 0) {
             headerRow
@@ -318,7 +319,7 @@ struct OverlayView: View {
                 if displayItems.isEmpty {
                     emptyState
                 } else {
-                    cardList(displayItems)
+                    cardList(displayItems, multiSelectDrag: multiSelectDrag)
                         .padding(3)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
@@ -458,13 +459,13 @@ struct OverlayView: View {
     }()
 
     @ViewBuilder
-    private func cardList(_ items: [ClipboardItem]) -> some View {
+    private func cardList(_ items: [ClipboardItem], multiSelectDrag: DragPayloadBuilder.SelectionPayload?) -> some View {
         if isHorizontalLayout {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                            cardView(item, index: idx)
+                            cardView(item, index: idx, multiSelectDrag: multiSelectDrag)
                         }
                     }
                     .padding(.vertical, 3)
@@ -494,7 +495,7 @@ struct OverlayView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                            cardView(item, index: idx)
+                            cardView(item, index: idx, multiSelectDrag: multiSelectDrag)
                                 .frame(maxWidth: UIConstants.Overlay.compactCardMaxWidth)
                         }
                     }
@@ -524,7 +525,8 @@ struct OverlayView: View {
     }
 
     @ViewBuilder
-    private func cardView(_ item: ClipboardItem, index: Int) -> some View {
+    private func cardView(_ item: ClipboardItem, index: Int, multiSelectDrag: DragPayloadBuilder.SelectionPayload?) -> some View {
+        let isInMultiSelection = multiSelectDrag != nil && selection.selectedIds.contains(item.id)
         ClipboardCardView(
             item: item,
             isSelected: selection.selectedIds.contains(item.id),
@@ -556,9 +558,8 @@ struct OverlayView: View {
         .onAppear { renderedIds.insert(item.id) }
         .onDisappear { renderedIds.remove(item.id) }
         .onDrag {
-            let ids = selection.selectedIds
-            if ids.count > 1, ids.contains(item.id) {
-                let selected = visibleItems.filter { ids.contains($0.id) }
+            if isInMultiSelection {
+                let selected = visibleItems.filter { selection.selectedIds.contains($0.id) }
                 return DragPayloadBuilder.providerForSelection(selected) { item in
                     DatabaseManager.shared.loadFullContent(id: item.id)
                 }
@@ -570,29 +571,29 @@ struct OverlayView: View {
             }
         }
         .overlay {
-            let drag = multiSelectionDragPayload(for: item)
-            MultiSelectionDragSourceView(
-                isActive: drag != nil,
-                itemCount: drag?.count ?? 0,
-                payloadText: drag?.text ?? "",
-                payloadWebURLs: drag?.webURLs ?? [],
-                payloadFileURLs: drag?.fileURLs ?? []
-            )
+            if let drag = multiSelectDrag, isInMultiSelection {
+                MultiSelectionDragSourceView(
+                    isActive: true,
+                    itemCount: selection.selectedIds.count,
+                    payloadText: drag.text,
+                    payloadWebURLs: drag.webURLs,
+                    payloadFileURLs: drag.fileURLs
+                )
+            }
         }
     }
 
     // MARK: - 选择交互
 
-    private func multiSelectionDragPayload(for item: ClipboardItem) -> (text: String, webURLs: [URL], fileURLs: [URL], count: Int)? {
+    private func multiSelectionDragPayload(items: [ClipboardItem]) -> DragPayloadBuilder.SelectionPayload? {
         let ids = selection.selectedIds
-        guard ids.count > 1, ids.contains(item.id) else { return nil }
-
-        let selected = visibleItems.filter { ids.contains($0.id) }
+        guard ids.count > 1 else { return nil }
+        let selected = items.filter { ids.contains($0.id) }
+        guard !selected.isEmpty else { return nil }
         let payload = DragPayloadBuilder.payloadForSelection(selected) { item in
             DatabaseManager.shared.loadFullContent(id: item.id)
         }
-        guard !payload.isEmpty else { return nil }
-        return (payload.text, payload.webURLs, payload.fileURLs, selected.count)
+        return payload.isEmpty ? nil : payload
     }
 
     /// 卡片单击：委托给 SelectionState
