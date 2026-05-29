@@ -556,7 +556,6 @@ struct OverlayView: View {
         .onAppear { renderedIds.insert(item.id) }
         .onDisappear { renderedIds.remove(item.id) }
         .onDrag {
-            OverlayPanelManager.shared.beginDragThrough()
             let ids = selection.selectedIds
             if ids.count > 1, ids.contains(item.id) {
                 let selected = visibleItems.filter { ids.contains($0.id) }
@@ -564,6 +563,7 @@ struct OverlayView: View {
                     DatabaseManager.shared.loadFullContent(id: item.id)
                 }
             } else {
+                OverlayPanelManager.shared.beginDragThrough()
                 return DragPayloadBuilder.provider(for: item) { item in
                     DatabaseManager.shared.loadFullContent(id: item.id)
                 }
