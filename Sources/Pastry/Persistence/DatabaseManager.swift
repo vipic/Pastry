@@ -225,6 +225,13 @@ final class DatabaseManager {
 
     // MARK: - CRUD
 
+    /// 列表查询的公共列（不含 raw_format_data BLOB，该字段仅在粘贴时按需加载）
+    private static let listColumns = """
+        id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, \
+        text_annotation, image_urls, segments, is_favorite, display_count, \
+        is_handoff, is_url, link_title
+        """
+
     enum InsertResult: Equatable {
         case inserted
         case replaced(oldID: String)
@@ -369,7 +376,7 @@ final class DatabaseManager {
         // FTS5 搜索（带前缀通配）
         let ftsSQL = """
         SELECT c.id, c.timestamp, substr(c.content, 1, 256) AS content, c.content_type, c.app_name,
-               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff, c.raw_format_data, c.raw_format_type, c.is_url, c.link_title
+               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff, c.is_url, c.link_title
         FROM clips c
         JOIN clips_fts f ON c.rowid = f.rowid
         WHERE clips_fts MATCH ?
@@ -402,7 +409,7 @@ final class DatabaseManager {
     /// LIKE 降级搜索
     private func fallbackSearch(query: String, limit: Int) -> [ClipboardItem] {
         let sql = """
-        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, link_title
+        SELECT \(Self.listColumns)
         FROM clips
         WHERE content LIKE ? OR link_title LIKE ?
         ORDER BY timestamp DESC
@@ -429,7 +436,7 @@ final class DatabaseManager {
         lock.lock()
         defer { lock.unlock() }
         let sql = """
-        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, link_title
+        SELECT \(Self.listColumns)
         FROM clips
         ORDER BY timestamp DESC
         LIMIT ?;
@@ -452,7 +459,7 @@ final class DatabaseManager {
         lock.lock()
         defer { lock.unlock() }
         let sql = """
-        SELECT id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, link_title
+        SELECT \(Self.listColumns)
         FROM clips
         WHERE is_favorite = 1
         ORDER BY timestamp DESC
@@ -651,7 +658,7 @@ final class DatabaseManager {
                 guard let ptr = sqlite3_column_text(stmt, 5) else { return nil }
                 return String(cString: ptr)
             }()
-            // image_urls 仅用于保留列位置（imageURLs 现从 segments 计算）
+            // image_urls (col 6) 仅用于保留列位置（imageURLs 现从 segments 计算）
             let segmentsJSON: String? = {
                 guard let ptr = sqlite3_column_text(stmt, 7) else { return nil }
                 return String(cString: ptr)
@@ -659,20 +666,10 @@ final class DatabaseManager {
             let pinned = sqlite3_column_int(stmt, 8) != 0
             let dispCount = Int(sqlite3_column_int(stmt, 9))
             let isHandoff = sqlite3_column_int(stmt, 10) != 0
-            let rawFormatData: Data? = {
-                guard let ptr = sqlite3_column_blob(stmt, 11),
-                      sqlite3_column_bytes(stmt, 11) > 0
-                else { return nil }
-                let count = Int(sqlite3_column_bytes(stmt, 11))
-                return Data(bytes: ptr, count: count)
-            }()
-            let rawFormatType: String? = {
-                guard let ptr = sqlite3_column_text(stmt, 12) else { return nil }
-                return String(cString: ptr)
-            }()
-            let isURL = sqlite3_column_int(stmt, 13) != 0
+            // raw_format_data / raw_format_type 不在列表查询中，粘贴时按需加载
+            let isURL = sqlite3_column_int(stmt, 11) != 0
             let linkTitle: String? = {
-                guard let ptr = sqlite3_column_text(stmt, 14) else { return nil }
+                guard let ptr = sqlite3_column_text(stmt, 12) else { return nil }
                 return String(cString: ptr)
             }()
 
@@ -695,8 +692,6 @@ final class DatabaseManager {
                 textAnnotation: textAnnotation,
                 linkTitle: linkTitle,
                 segmentsJSON: segmentsJSON,
-                rawFormatData: rawFormatData,
-                rawFormatType: rawFormatType,
                 displayCount: dispCount,
                 isPinned: pinned
             )
@@ -733,6 +728,29 @@ final class DatabaseManager {
         guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
         let result = String(cString: sqlite3_column_text(stmt, 0))
         return result
+    }
+
+    /// 按需加载 raw_format_data / raw_format_type（列表查询不含此 BLOB，粘贴时按需获取）
+    func loadRawFormatData(id: UUID) -> (data: Data?, type: String?) {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = "SELECT raw_format_data, raw_format_type FROM clips WHERE id = ? LIMIT 1;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return (nil, nil) }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (id.uuidString as NSString).utf8String, -1, nil)
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return (nil, nil) }
+        let data: Data? = {
+            guard let ptr = sqlite3_column_blob(stmt, 0),
+                  sqlite3_column_bytes(stmt, 0) > 0
+            else { return nil }
+            return Data(bytes: ptr, count: Int(sqlite3_column_bytes(stmt, 0)))
+        }()
+        let type: String? = {
+            guard let ptr = sqlite3_column_text(stmt, 1) else { return nil }
+            return String(cString: ptr)
+        }()
+        return (data, type)
     }
 
     @discardableResult

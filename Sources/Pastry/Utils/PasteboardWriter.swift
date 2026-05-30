@@ -34,6 +34,10 @@ struct PasteboardWriter {
         loadFullContent: (ClipboardItem) -> String? = { item in
             DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
         },
+        loadRawFormatData: (ClipboardItem) -> (data: Data?, type: String?)? = { item in
+            let result = DatabaseManager.shared.loadRawFormatData(id: item.id)
+            return result.data == nil && result.type == nil ? nil : result
+        },
         originalImagePath: (String) -> String? = { thumbnailPath in
             ImageCacheManager.shared.originalPath(forThumbnail: thumbnailPath)
         }
@@ -47,8 +51,13 @@ struct PasteboardWriter {
 
         case .rtf, .html:
             pasteboard.setString(loadFullContent(item) ?? item.content, forType: .string)
-            if let raw = item.rawFormatData, let typeStr = item.rawFormatType {
-                pasteboard.setData(raw, forType: NSPasteboard.PasteboardType(typeStr))
+            // 优先用内存中的 rawFormatData，否则按需从 DB 加载
+            let raw: (data: Data?, type: String?) = {
+                if let d = item.rawFormatData, let t = item.rawFormatType { return (d, t) }
+                return loadRawFormatData(item) ?? (nil, nil)
+            }()
+            if let rawData = raw.data, let typeStr = raw.type {
+                pasteboard.setData(rawData, forType: NSPasteboard.PasteboardType(typeStr))
             }
             return .written
 

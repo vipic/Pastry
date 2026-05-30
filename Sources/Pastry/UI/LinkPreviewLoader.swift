@@ -33,6 +33,15 @@ final class LinkPreviewLoader {
         return URLSession(configuration: config)
     }()
 
+    private static let htmlTagRegexes: [String: NSRegularExpression] = {
+        ["meta", "link", "img"].reduce(into: [:]) { dict, name in
+            dict[name] = try? NSRegularExpression(
+                pattern: "<\(name)\\b[^>]*>",
+                options: .caseInsensitive
+            )
+        }
+    }()
+
     private init() {}
 
     /// 同步查询缓存（不发起网络请求）
@@ -233,10 +242,7 @@ final class LinkPreviewLoader {
     // MARK: - 图片语义分析辅助
 
     private func htmlTags(named name: String, from html: String) -> [String] {
-        guard let regex = try? NSRegularExpression(
-            pattern: "<\(name)\\b[^>]*>",
-            options: .caseInsensitive
-        ) else { return [] }
+        guard let regex = Self.htmlTagRegexes[name] else { return [] }
         let range = NSRange(html.startIndex..., in: html)
         return regex.matches(in: html, range: range).compactMap { match in
             guard let tagRange = Range(match.range, in: html) else { return nil }

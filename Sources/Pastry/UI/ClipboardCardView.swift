@@ -19,7 +19,6 @@ struct ClipboardCardView: View {
     @State private var didPaste = false
     @State private var isHovered = false
 
-    @State private var linkPreviewTask: Task<Void, Never>?
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
     @State private var previewLoadTrigger = 0
 
@@ -59,13 +58,10 @@ struct ClipboardCardView: View {
                     showContextMenu(with: event, for: view)
                 }
             )
-            .onAppear {
-                loadAppInfo()
-                fetchLinkPreviewIfNeeded()
-            }
+            .onAppear { loadAppInfo() }
+            .task(id: item.id) { await fetchLinkPreviewIfNeeded() }
             .onChange(of: item.content) { old, _ in
                 Self.imageCache.removeObject(forKey: old as NSString)
-                fetchLinkPreviewIfNeeded()
             }
             .task(id: filePreviewTaskID) { await loadFilePreviewsIfNeeded() }
     }
@@ -710,24 +706,22 @@ struct ClipboardCardView: View {
 
     private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
-    private func fetchLinkPreviewIfNeeded() {
+    private func fetchLinkPreviewIfNeeded() async {
         guard let url = detectedLink else { return }
-        // 缓存命中：计算属性已读取，无需额外操作
         if linkPreview != nil { return }
 
-        // 缓存未命中：延迟后加载
-        linkPreviewTask?.cancel()
-        linkPreviewTask = Task {
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
+        try? await Task.sleep(for: .milliseconds(300))
+        guard !Task.isCancelled else { return }
+
+        await withCheckedContinuation { continuation in
             LinkPreviewLoader.shared.load(url: url) { preview in
-                guard let preview else { return }
-                // 持久化抓取的标题（空标题不覆盖已有值）
+                guard let preview else { continuation.resume(); return }
                 let title = preview.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !title.isEmpty {
                     StoreManager.shared.updateLinkTitle(item.id, linkTitle: title)
                 }
                 self.previewLoadTrigger &+= 1
+                continuation.resume()
             }
         }
     }

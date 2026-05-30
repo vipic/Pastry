@@ -684,11 +684,12 @@ final class DatabaseManagerTests: XCTestCase {
 
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
-        XCTAssertEqual(items[0].rawFormatData, raw)
-        XCTAssertEqual(items[0].rawFormatType, "public.rtf")
+        let loaded = db.loadRawFormatData(id: items[0].id)
+        XCTAssertEqual(loaded.data, raw)
+        XCTAssertEqual(loaded.type, "public.rtf")
     }
 
-    /// HTML 原始格式数据写入后完整回读
+    /// HTML 原始格式数据写入后通过按需加载回读
     func testRawFormatDataRoundTripHTML() {
         let raw = Data("<p>hello</p>".utf8)
         let item = ClipboardItem(
@@ -701,8 +702,9 @@ final class DatabaseManagerTests: XCTestCase {
 
         let items = db.recent()
         XCTAssertEqual(items.count, 1)
-        XCTAssertEqual(items[0].rawFormatData, raw)
-        XCTAssertEqual(items[0].rawFormatType, "public.html")
+        let loaded = db.loadRawFormatData(id: items[0].id)
+        XCTAssertEqual(loaded.data, raw)
+        XCTAssertEqual(loaded.type, "public.html")
     }
 
     /// 普通条目（.text）无原始格式数据

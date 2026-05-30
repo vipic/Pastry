@@ -40,6 +40,8 @@ struct OverlayView: View {
     @FocusState private var isSearchFocused: Bool
     @StateObject private var keyHandler = KeyboardEventHandler()
 
+    @State private var cachedMultiSelectDrag: DragPayloadBuilder.SelectionPayload?
+
     // MARK: - Body
 
     var body: some View {
@@ -96,9 +98,14 @@ struct OverlayView: View {
                     let ids = Set(visibleItems.map { $0.id })
                     withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+                    updateLayoutForCurrentScreen()
+                }
+                .onChange(of: selection.selectedIds) { _ in
+                    cachedMultiSelectDrag = nil
+                }
                 .onReceive(store.$items) { items in
-                    // 删除后自动清掉已不存在的选中 ID
-                    let existing = Set(items.map { $0.id })
+                    let existing = Set(items.map(\.id))
                     selection.selectedIds = selection.selectedIds.intersection(existing)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayMoveUp)) { note in
@@ -113,9 +120,6 @@ struct OverlayView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .overlayMoveRight)) { note in
                     handleArrowNotify(delta: 1, note: note)
                 }
-        )
-        let step2 = AnyView(
-            step1
                 .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
                     let ids = selection.selectedIds
                     guard !ids.isEmpty else { return }
@@ -126,6 +130,9 @@ struct OverlayView: View {
                         OverlayPanelManager.shared.hideAndPasteMultiple(selected)
                     }
                 }
+        )
+        return AnyView(
+            step1
                 .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
                     guard !selection.selectedIds.isEmpty else { return }
                     showDeleteConfirm = true
@@ -145,9 +152,6 @@ struct OverlayView: View {
                     deleteSelected()
                     showDeleteConfirm = false
                 }
-        )
-        return AnyView(
-            step2
                 .onReceive(NotificationCenter.default.publisher(for: .overlayCmdStateChanged)) { note in
                     cmdDown = (note.userInfo?["cmdDown"] as? Bool) ?? false
                 }
@@ -158,7 +162,6 @@ struct OverlayView: View {
                     Task { await OverlayPanelManager.shared.hideAndPaste(item) }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlaySearchEnterPaste)) { _ in
-                    // 搜索栏聚焦时按 Enter → 粘贴第一条可见卡片
                     guard let first = visibleItems.first else { return }
                     Task { await OverlayPanelManager.shared.hideAndPaste(first) }
                 }
@@ -458,6 +461,16 @@ struct OverlayView: View {
         return (screen?.frame.width ?? NSScreen.main?.frame.width ?? 1440) > 1200
     }()
 
+    /// 屏幕配置变化时重新评估布局方向（用户拖面板到不同分辨率屏幕）
+    private func updateLayoutForCurrentScreen() {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+        let useHorizontal = (screen?.frame.width ?? NSScreen.main?.frame.width ?? 1440) > 1200
+        if useHorizontal != isHorizontalLayout {
+            isHorizontalLayout = useHorizontal
+        }
+    }
+
     @ViewBuilder
     private func cardList(_ items: [ClipboardItem], multiSelectDrag: DragPayloadBuilder.SelectionPayload?) -> some View {
         if isHorizontalLayout {
@@ -587,13 +600,19 @@ struct OverlayView: View {
 
     private func multiSelectionDragPayload(items: [ClipboardItem]) -> DragPayloadBuilder.SelectionPayload? {
         let ids = selection.selectedIds
-        guard ids.count > 1 else { return nil }
+        guard ids.count > 1 else {
+            if cachedMultiSelectDrag != nil { cachedMultiSelectDrag = nil }
+            return nil
+        }
+        if let cached = cachedMultiSelectDrag { return cached }
         let selected = items.filter { ids.contains($0.id) }
         guard !selected.isEmpty else { return nil }
         let payload = DragPayloadBuilder.payloadForSelection(selected) { item in
             DatabaseManager.shared.loadFullContent(id: item.id)
         }
-        return payload.isEmpty ? nil : payload
+        let result = payload.isEmpty ? nil : payload
+        cachedMultiSelectDrag = result
+        return result
     }
 
     /// 卡片单击：委托给 SelectionState
