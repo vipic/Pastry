@@ -150,12 +150,11 @@ final class ImageCacheManager {
         let ratio = min(maxSize.width / max(image.size.width, 1),
                         maxSize.height / max(image.size.height, 1))
         let newSize = NSSize(width: image.size.width * ratio, height: image.size.height * ratio)
-        let thumb = NSImage(size: newSize)
-        thumb.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: newSize),
-                   from: NSRect(origin: .zero, size: image.size),
-                   operation: .copy, fraction: 1.0)
-        thumb.unlockFocus()
-        return thumb
+        return NSImage(size: newSize, flipped: false) { rect in
+            image.draw(in: rect,
+                       from: NSRect(origin: .zero, size: image.size),
+                       operation: .copy, fraction: 1.0)
+            return true
+        }
     }
 }

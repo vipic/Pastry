@@ -126,9 +126,7 @@ enum DragPayloadBuilder {
             .compactMap { webURL(from: String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
         if !lineURLs.isEmpty { return lineURLs }
 
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
-            return []
-        }
+        guard let detector = Self.linkDetector else { return [] }
         let range = NSRange(content.startIndex..<content.endIndex, in: content)
         return detector.matches(in: content, options: [], range: range).compactMap { match in
             guard let url = match.url,
@@ -176,6 +174,8 @@ enum DragPayloadBuilder {
             return nil
         }
     }
+
+    private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
     private static func webURL(from text: String) -> URL? {
         guard let url = URL(string: text),

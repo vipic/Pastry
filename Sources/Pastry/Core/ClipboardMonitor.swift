@@ -31,12 +31,6 @@ final class ClipboardMonitor: ObservableObject {
     private var lastEventTargetPID: pid_t?
     private var lastEventTime: Date?
 
-    /// 高频 Accessibility 焦点缓存（0.1s 间隔刷新）——在 poll 触发前持续记录焦点，
-    /// 解决浮动面板（1Password Quick Open）在 poll 时已关闭导致焦点丢失的问题
-    private var cachedAXBundleID: String?
-    private var cachedAXFocusTime: Date?
-    private var focusTrackingTimer: Timer?
-
     /// 自定义复制提示音
     private static let copySound: NSSound? = {
         guard let path = Bundle.main.path(forResource: "Copy", ofType: "aiff") else {
@@ -84,14 +78,6 @@ final class ClipboardMonitor: ObservableObject {
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t
-
-        // 高频 Accessibility 焦点追踪：0.1s 间隔刷新缓存。
-        // 浮动面板（1Password Quick Open）在 poll 触发时可能已关闭——此缓存保存关闭前的焦点。
-        let ft = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
-            self?.refreshAXFocusCache()
-        }
-        RunLoop.main.add(ft, forMode: .common)
-        focusTrackingTimer = ft
 
         // CGEvent tap 延迟到首次需要时创建，避免启动时弹出辅助功能授权对话框。
         // 在 poll() 首次检测到剪贴板变化时调用 setupEventTap()。
@@ -158,8 +144,6 @@ final class ClipboardMonitor: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
-        focusTrackingTimer?.invalidate()
-        focusTrackingTimer = nil
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             CFMachPortInvalidate(tap)
@@ -169,53 +153,21 @@ final class ClipboardMonitor: ObservableObject {
         log.info("剪贴板监听已停止")
     }
 
-    // MARK: - 辅助功能焦点 App
-
-    /// 通过 Accessibility API 获取当前拥有键盘焦点的进程。
-    /// 能正确检测 1Password Quick Open、Alfred 等浮动面板——它们的键盘焦点在面板进程，
-    /// 但 `frontmostApplication` 仍返回后台主 App（因为没有激活面板进程的菜单栏）。
-    /// 返回 nil 表示辅助功能权限未授予或当前无焦点进程，调用方应回退到 `frontmostApplication`。
-    private func focusedAppViaAccessibility() -> (name: String, bundleID: String)? {
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedApp: CFTypeRef?
-        let result = AXUIElementCopyAttributeValue(
-            systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp
-        )
-        guard result == .success, let app = focusedApp else { return nil }
-
-        var pid: pid_t = 0
-        guard AXUIElementGetPid(app as! AXUIElement, &pid) == .success, pid > 0 else { return nil }
-        guard let runningApp = NSRunningApplication(processIdentifier: pid),
-              let bundleID = runningApp.bundleIdentifier
-        else { return nil }
-
-        return (runningApp.localizedName ?? "", bundleID)
-    }
-
-    /// 高频刷新 Accessibility 焦点缓存（0.1s 间隔调用）。
-    /// 当浮动面板（1Password Quick Open）获取焦点时立即记录，不依赖 poll 时机。
-    private func refreshAXFocusCache() {
-        guard let ax = focusedAppViaAccessibility() else { return }
-        cachedAXBundleID = ax.bundleID
-        cachedAXFocusTime = Date()
-    }
-
     // MARK: - 轮询
 
     /// 来源检测（按优先级）：
-    /// 1. 高频 AX 缓存（0.1s 刷新，0.15s 窗口）— 捕获浮动面板关闭前的焦点
+    /// 1. CGEvent tap 捕获的按键目标 PID（事件瞬间记录，解决浮动面板关闭时序问题）
     /// 2. 前台 App（`NSWorkspace.shared.frontmostApplication`）
     private func resolveSourceApp() -> (name: String?, bundleID: String?) {
         let frontApp = NSWorkspace.shared.frontmostApplication
 
-        // Layer 1: 高频 AX 焦点缓存（独立 0.1s 轮询，与剪贴板 poll 解耦）
-        if let cachedBundleID = cachedAXBundleID,
-           let cachedTime = cachedAXFocusTime,
-           Date().timeIntervalSince(cachedTime) < 0.15,
-           cachedBundleID != frontApp?.bundleIdentifier,
-           let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == cachedBundleID }),
-           let bundleID = app.bundleIdentifier {
-            log.debug("来源覆盖(高频AX): 前台=\(frontApp?.localizedName ?? "nil"), 缓存焦点=\(app.localizedName ?? "?")")
+        // Layer 1: CGEvent tap 捕获的按键目标进程（事件瞬间记录，比 AX 轮询更精确）
+        if let eventPID = lastEventTargetPID,
+           let eventTime = lastEventTime,
+           Date().timeIntervalSince(eventTime) < 0.3,
+           let app = NSRunningApplication(processIdentifier: eventPID),
+           let bundleID = app.bundleIdentifier,
+           bundleID != frontApp?.bundleIdentifier {
             return (app.localizedName, bundleID)
         }
 

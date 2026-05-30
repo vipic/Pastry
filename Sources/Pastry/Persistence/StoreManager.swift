@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 import Cocoa
 import CoreGraphics
 import OSLog
@@ -117,10 +116,6 @@ final class StoreManager: ObservableObject {
     // MARK: 防抖
 
     private var searchTask: Task<Void, Never>?
-
-    // MARK: 订阅
-
-    private var cancellables = Set<AnyCancellable>()
     private let usesDatabaseSearch: Bool
 
     private init() {
@@ -130,13 +125,6 @@ final class StoreManager: ObservableObject {
         ClipboardMonitor.shared.onNewItem = { [weak self] item in
             self?.handleNewItem(item)
         }
-
-        Timer.publish(every: 30, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                self?.refreshStats()
-            }
-            .store(in: &cancellables)
     }
 
     /// 测试专用：直接注入剪贴板数据，不经过数据库
