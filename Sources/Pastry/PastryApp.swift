@@ -290,6 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let tempURL = try await UpdateChecker.shared.downloadBinary(
                 from: result.downloadURL,
+                expectedSize: result.downloadSize,
                 onProgress: { [weak hostingView, notes, curVersion, latVersion] progress in
                     DispatchQueue.main.async {
                         hostingView?.rootView = UpdateView(

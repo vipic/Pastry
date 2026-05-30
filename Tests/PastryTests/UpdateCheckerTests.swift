@@ -44,6 +44,7 @@ final class UpdateCheckerTests: XCTestCase {
 
         let url = try await checker.downloadBinary(
             from: result.downloadURL,
+            expectedSize: result.downloadSize,
             onProgress: { value in
                 progress.append(value)
             }
@@ -74,14 +75,14 @@ final class UpdateCheckerTests: XCTestCase {
             throw XCTSkip("无可用更新或网络不可达，跳过下载测试")
         }
 
-        let url = try await checker.downloadBinary(from: result.downloadURL, onProgress: nil)
+        let url = try await checker.downloadBinary(from: result.downloadURL, expectedSize: result.downloadSize, onProgress: nil)
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         try? FileManager.default.removeItem(at: url)
     }
 
     func testDownloadBinaryRejectsInsecureURL() async {
         do {
-            _ = try await UpdateChecker.shared.downloadBinary(from: "http://example.com/Pastry.dmg")
+            _ = try await UpdateChecker.shared.downloadBinary(from: "http://example.com/Pastry.dmg", expectedSize: 0)
             XCTFail("HTTP 下载链接应被拒绝")
         } catch let error as UpdateChecker.UpdateError {
             XCTAssertEqual(error, .insecureURL)
