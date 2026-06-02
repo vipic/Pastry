@@ -221,8 +221,7 @@ final class HotkeyRecorderField: NSControl {
         case .unset:
             drawText(L10n["hotkey.not_set"], color: .disabledControlTextColor, centered: true)
         case .set:
-            let text = shortcutDisplayString(keyCode: displayKeyCode, modifiers: displayModifiers)
-            drawText(text, color: .secondaryLabelColor, centered: true)
+            drawShortcutText(keyCode: displayKeyCode, modifiers: displayModifiers, color: .secondaryLabelColor)
             drawClearButton()
         case .recording:
             drawText(L10n["hotkey.recording"], color: .tertiaryLabelColor, centered: true)
@@ -254,6 +253,44 @@ final class HotkeyRecorderField: NSControl {
         text.draw(in: textRect, withAttributes: attrs)
     }
 
+    private func drawShortcutText(keyCode: Int, modifiers: Int, color: NSColor) {
+        let segments = shortcutDisplaySegments(keyCode: keyCode, modifiers: modifiers)
+        guard !segments.isEmpty else { return }
+
+        let symbolAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+            .foregroundColor: color
+        ]
+        let keyAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .bold),
+            .foregroundColor: color
+        ]
+        let spacing: CGFloat = 5
+
+        let measured = segments.map { segment -> (text: String, attrs: [NSAttributedString.Key: Any], size: NSSize, yOffset: CGFloat) in
+            let isModifier = segment.count == 1 && "⌃⌥⇧⌘".contains(segment)
+            let attrs = isModifier ? symbolAttrs : keyAttrs
+            return (segment, attrs, segment.size(withAttributes: attrs), isModifier ? 0 : -0.35)
+        }
+
+        let totalWidth = measured.reduce(CGFloat(0)) { $0 + $1.size.width }
+            + spacing * CGFloat(max(0, measured.count - 1))
+        let maxHeight = measured.map(\.size.height).max() ?? 0
+        var x = bounds.midX - totalWidth / 2
+        let baseY = bounds.midY - maxHeight / 2
+
+        for item in measured {
+            let rect = NSRect(
+                x: x,
+                y: baseY + (maxHeight - item.size.height) / 2 + item.yOffset,
+                width: item.size.width,
+                height: item.size.height
+            )
+            item.text.draw(in: rect, withAttributes: item.attrs)
+            x += item.size.width + spacing
+        }
+    }
+
     private func drawClearButton() {
         let clearRect = NSRect(x: bounds.width - 28, y: 0, width: 28, height: bounds.height)
         let cross = "✕" as NSString
@@ -273,6 +310,10 @@ final class HotkeyRecorderField: NSControl {
 // MARK: - 快捷键显示字符串
 
 func shortcutDisplayString(keyCode: Int, modifiers: Int) -> String {
+    shortcutDisplaySegments(keyCode: keyCode, modifiers: modifiers).joined(separator: " ")
+}
+
+private func shortcutDisplaySegments(keyCode: Int, modifiers: Int) -> [String] {
     let mods = UInt32(modifiers)
     var parts: [String] = []
     if mods & UInt32(controlKey) != 0 { parts.append("⌃") }
@@ -284,7 +325,7 @@ func shortcutDisplayString(keyCode: Int, modifiers: Int) -> String {
         parts.append(char)
     }
 
-    return parts.joined(separator: " ")   // 单空格分隔
+    return parts
 }
 
 /// NSEvent.ModifierFlags → Carbon 修饰键位
