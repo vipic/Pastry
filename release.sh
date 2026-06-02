@@ -106,6 +106,7 @@ enum AppVersion {
     static let build = "$BUILD"
 }
 SWIFT
+echo "   ✅ 版本号已注入: $VERSION (build $BUILD)"
 
 step 3 "Release 编译"
 swift build -c release -Xswiftc -Osize 2>&1 | tail -3
@@ -164,6 +165,7 @@ cat > "$STAGING/$APP_NAME.app/Contents/Info.plist" << PLIST
 </dict>
 </plist>
 PLIST
+echo "   ✅ .app bundle 已组装: $STAGING/$APP_NAME.app"
 
 step 6 "代码签名"
 
