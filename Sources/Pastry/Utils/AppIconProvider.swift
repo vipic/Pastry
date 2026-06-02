@@ -80,7 +80,7 @@ final class AppIconProvider {
             ?? NSImage()
     }
 
-    /// 通过应用名查找实际图标（先检查路径存在性，再取图标）
+    /// 通过应用名查找实际图标（优先读取 bundle 原始图标，避免系统为替身/快捷方式叠加角标）
     private func findAppIcon(named name: String) -> NSImage {
         // 1. 已知系统路径 — 先确认 .app 存在再取图标，避免 NSWorkspace 返回 GenericApplicationIcon
         let paths = [
@@ -94,6 +94,9 @@ final class AppIconProvider {
         ]
         for path in paths {
             guard FileManager.default.fileExists(atPath: path) else { continue }
+            if let icon = bundleIcon(at: URL(fileURLWithPath: path)) {
+                return icon
+            }
             let icon = NSWorkspace.shared.icon(forFile: path)
             return icon
         }
@@ -101,11 +104,47 @@ final class AppIconProvider {
         // 2. 运行中的应用（不依赖文件系统）
         if let runningApp = NSWorkspace.shared.runningApplications.first(where: {
             $0.localizedName == name
-        }), let icon = runningApp.icon {
-            return icon
+        }) {
+            if let bundleURL = runningApp.bundleURL,
+               let icon = bundleIcon(at: bundleURL) {
+                return icon
+            }
+            if let icon = runningApp.icon {
+                return icon
+            }
         }
 
         return defaultIcon
+    }
+
+    /// 读取 .app bundle 自己声明的原始 .icns，绕开 NSWorkspace 对 alias / shortcut 的装饰图标。
+    private func bundleIcon(at appURL: URL) -> NSImage? {
+        guard let bundle = Bundle(url: appURL),
+              let resourcesURL = bundle.resourceURL,
+              let rawIconName = bundle.infoDictionary?["CFBundleIconFile"] as? String,
+              !rawIconName.isEmpty
+        else {
+            return nil
+        }
+
+        let iconNames: [String]
+        if (rawIconName as NSString).pathExtension.isEmpty {
+            iconNames = [rawIconName + ".icns", rawIconName]
+        } else {
+            iconNames = [rawIconName]
+        }
+
+        for iconName in iconNames {
+            let iconURL = resourcesURL.appendingPathComponent(iconName)
+            guard FileManager.default.fileExists(atPath: iconURL.path),
+                  let icon = NSImage(contentsOf: iconURL)
+            else {
+                continue
+            }
+            return icon
+        }
+
+        return nil
     }
 
     /// 从应用图标提取主色
