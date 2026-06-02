@@ -113,7 +113,7 @@ final class UpdateChecker {
         UserDefaults.standard.string(forKey: lastReleaseNotesKey)
     }
 
-    /// 下载二进制到临时目录，返回文件路径。onProgress 在主线程回调 0.0~1.0。
+    /// 下载二进制到临时目录，返回文件路径。onProgress 回调 0.0~1.0；调用方负责切回主线程更新 UI。
     /// expectedSize 用于 CDN 不返回 Content-Length 时的进度计算。
     func downloadBinary(from urlString: String, expectedSize: Int, onProgress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         guard let url = URL(string: urlString) else {
@@ -123,19 +123,10 @@ final class UpdateChecker {
             throw UpdateError.insecureURL
         }
 
-        let delegate = ProgressDownloadDelegate(expectedSize: expectedSize, onProgress: onProgress)
-        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: .main)
-        onProgress?(0.02)
+        let delegate = StreamingDownloadDelegate(expectedSize: expectedSize, onProgress: onProgress)
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
 
-        let (tempURL, response) = try await session.download(from: url)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw UpdateError.downloadFailed
-        }
-
-        onProgress?(1.0)
-        return tempURL
+        return try await delegate.download(from: url, using: session)
     }
 
     /// 应用更新：挂载 DMG → 校验签名 → 备份替换整个 .app → 重启
@@ -192,6 +183,29 @@ final class UpdateChecker {
             .replacingOccurrences(of: #"^v+"#, with: "", options: .regularExpression)
     }
 
+    static func downloadProgressForTesting(
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64,
+        expectedSize: Int
+    ) -> Double? {
+        downloadProgress(
+            totalBytesWritten: totalBytesWritten,
+            totalBytesExpectedToWrite: totalBytesExpectedToWrite,
+            expectedSize: expectedSize
+        )
+    }
+
+    fileprivate static func downloadProgress(
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64,
+        expectedSize: Int
+    ) -> Double? {
+        let totalBytes = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : Int64(expectedSize)
+        guard totalBytes > 0 else { return nil }
+        let progress = Double(totalBytesWritten) / Double(totalBytes)
+        return min(max(progress, 0), 0.99)
+    }
+
     // MARK: - 网络请求
 
     private func fetchLatestRelease() async -> ReleaseInfo? {
@@ -234,39 +248,119 @@ final class UpdateChecker {
 }
 
 // MARK: - 下载进度代理
-private final class ProgressDownloadDelegate: NSObject, URLSessionDownloadDelegate {
+private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate {
 
     private let onProgress: (@Sendable (Double) -> Void)?
     private let expectedSize: Int
     private var lastProgress = 0.0
+    private var totalBytesWritten: Int64 = 0
+    private var totalBytesExpectedToWrite: Int64 = 0
+    private var continuation: CheckedContinuation<URL, Error>?
+    private var fileURL: URL?
+    private var fileHandle: FileHandle?
+    private var didReceiveSuccessfulResponse = false
+    private var didFinish = false
 
     init(expectedSize: Int, onProgress: (@Sendable (Double) -> Void)?) {
         self.expectedSize = expectedSize
         self.onProgress = onProgress
     }
 
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                    didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
-                    totalBytesExpectedToWrite: Int64) {
-        let progress: Double
-        if totalBytesExpectedToWrite > 0 {
-            progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        } else {
-            // GitHub CDN 重定向后可能无 Content-Length，用 API 返回的 asset.size
-            progress = Double(totalBytesWritten) / Double(expectedSize)
+    func download(from url: URL, using session: URLSession) async throws -> URL {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pastry-update-\(UUID().uuidString).dmg")
+        FileManager.default.createFile(atPath: tempURL.path, contents: nil)
+
+        do {
+            fileHandle = try FileHandle(forWritingTo: tempURL)
+        } catch {
+            try? FileManager.default.removeItem(at: tempURL)
+            throw error
         }
-        guard progress > lastProgress else { return }
+
+        fileURL = tempURL
+
+        return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            session.dataTask(with: url).resume()
+        }
+    }
+
+    func urlSession(_ session: URLSession,
+                    dataTask: URLSessionDataTask,
+                    didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            completionHandler(.cancel)
+            finish(with: UpdateChecker.UpdateError.downloadFailed)
+            return
+        }
+
+        didReceiveSuccessfulResponse = true
+        totalBytesExpectedToWrite = response.expectedContentLength
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        do {
+            try fileHandle?.write(contentsOf: data)
+        } catch {
+            dataTask.cancel()
+            finish(with: error)
+            return
+        }
+
+        totalBytesWritten += Int64(data.count)
+        guard let progress = UpdateChecker.downloadProgress(
+            totalBytesWritten: totalBytesWritten,
+            totalBytesExpectedToWrite: totalBytesExpectedToWrite,
+            expectedSize: expectedSize
+        ), progress > lastProgress else {
+            return
+        }
+
         lastProgress = progress
         onProgress?(progress)
     }
 
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                    didFinishDownloadingTo location: URL) {
-        // no-op — async/await 会处理
-    }
-
     func urlSession(_ session: URLSession, task: URLSessionTask,
                     didCompleteWithError error: Error?) {
-        // no-op — async/await 会处理
+        defer { session.finishTasksAndInvalidate() }
+        if let error {
+            finish(with: error)
+            return
+        }
+        guard didReceiveSuccessfulResponse, let fileURL else {
+            finish(with: UpdateChecker.UpdateError.downloadFailed)
+            return
+        }
+
+        onProgress?(1.0)
+        finish(with: fileURL)
+    }
+
+    private func finish(with url: URL) {
+        guard !didFinish else { return }
+        didFinish = true
+        closeFile()
+        continuation?.resume(returning: url)
+        continuation = nil
+    }
+
+    private func finish(with error: Error) {
+        guard !didFinish else { return }
+        didFinish = true
+        closeFile()
+        if let fileURL {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+        continuation?.resume(throwing: error)
+        continuation = nil
+    }
+
+    private func closeFile() {
+        try? fileHandle?.close()
+        fileHandle = nil
     }
 }

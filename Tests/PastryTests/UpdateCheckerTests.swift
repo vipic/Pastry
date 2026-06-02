@@ -91,6 +91,33 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    func testDownloadProgressUsesResponseContentLength() throws {
+        let progress = UpdateChecker.downloadProgressForTesting(
+            totalBytesWritten: 250,
+            totalBytesExpectedToWrite: 1_000,
+            expectedSize: 2_000
+        )
+        XCTAssertEqual(try XCTUnwrap(progress), 0.25, accuracy: 0.001)
+    }
+
+    func testDownloadProgressFallsBackToReleaseAssetSize() throws {
+        let progress = UpdateChecker.downloadProgressForTesting(
+            totalBytesWritten: 250,
+            totalBytesExpectedToWrite: -1,
+            expectedSize: 1_000
+        )
+        XCTAssertEqual(try XCTUnwrap(progress), 0.25, accuracy: 0.001)
+    }
+
+    func testDownloadProgressCapsBeforeCompletion() throws {
+        let progress = UpdateChecker.downloadProgressForTesting(
+            totalBytesWritten: 1_500,
+            totalBytesExpectedToWrite: -1,
+            expectedSize: 1_000
+        )
+        XCTAssertEqual(try XCTUnwrap(progress), 0.99, accuracy: 0.001)
+    }
+
     // MARK: - isDevBuild
 
     func testIsDevBuildDetection() {
