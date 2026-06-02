@@ -17,9 +17,9 @@ IDENTITY="${CODESIGN_IDENTITY:-Nekutai}"
 echo "⚡ Deploying $APP_NAME (debug)..."
 
 if [ "$IDENTITY" = "-" ]; then
-    echo "   签名身份: ad-hoc"
+    echo "🔐 签名身份: ad-hoc"
 else
-    echo "   签名身份: $IDENTITY"
+    echo "🔐 签名身份: $IDENTITY"
 fi
 
 cd "$PROJECT_DIR"
@@ -28,6 +28,7 @@ cd "$PROJECT_DIR"
 swift build 2>&1 | tail -3
 
 test -f "$BUILD_DIR/$APP_NAME" || { echo "❌ 构建失败"; exit 1; }
+echo "✅ Debug 编译完成"
 
 # 2. 杀 dev 进程 + 等待退出（只杀 dev，不影响正式版）
 pkill -f "Pastry Dev.app" 2>/dev/null || true
@@ -35,6 +36,7 @@ for i in $(seq 1 10); do
     if ! pgrep -f "Pastry Dev.app" > /dev/null 2>&1; then break; fi
     sleep 0.2
 done
+echo "✅ 旧开发版进程已停止"
 
 # 3. 确保 bundle 结构存在（保留 inode → TCC 权限不丢）
 if [ ! -d "$MACOS_DIR" ]; then
@@ -50,6 +52,7 @@ cp "$PROJECT_DIR/Resources/Copy.aiff"    "$RESOURCES_DIR/Copy.aiff"    2>/dev/nu
 cp "$PROJECT_DIR/Resources/Paste.aiff"   "$RESOURCES_DIR/Paste.aiff"   2>/dev/null || true
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns" 2>/dev/null || true
 cp "$PROJECT_DIR/Sources/Pastry/Resources/Localizable.xcstrings" "$RESOURCES_DIR/Localizable.xcstrings" 2>/dev/null || true
+echo "✅ .app bundle 已更新: $APP_DIR"
 
 # 5. 版本号（semver: tag-dev+hash）和 git hash
 DEPLOY_HASH=$(cd "$PROJECT_DIR" && git rev-parse --short HEAD)
@@ -93,6 +96,7 @@ else
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${DEPLOY_HASH}" "$CONTENTS/Info.plist" 2>/dev/null
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${DEV_VERSION}" "$CONTENTS/Info.plist" 2>/dev/null
 fi
+echo "✅ 版本号已注入: $DEV_VERSION"
 
 # 6. 清除残留签名（二进制替换后签名失效）并重签
 rm -rf "$APP_DIR/_CodeSignature" 2>/dev/null || true
@@ -108,6 +112,7 @@ else
     codesign --force --sign - "$APP_DIR" 2>/dev/null || true
     echo "⚠️  已用 ad-hoc 签名（TCC/Keychain 授权不持久）"
 fi
+echo "✅ 代码签名完成"
 
 # 7. 启动
 echo "🚀 启动 $APP_NAME..."

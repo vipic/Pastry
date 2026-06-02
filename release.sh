@@ -51,14 +51,14 @@ fi
 EXISTING_TAG=$(git tag --points-at HEAD | head -1)
 if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" != "$TAG" ] && ! $FORCE; then
     echo "❌ 当前 commit 已有 tag \"$EXISTING_TAG\"，没有新代码"
-    echo "   如需强制重新发布：先 commit 改动后再运行"
+    echo "ℹ️  如需强制重新发布：先 commit 改动后再运行"
     exit 1
 fi
 
 CURRENT_BRANCH=$(git branch --show-current)
 if $PUBLISH && [ "$CURRENT_BRANCH" != "main" ] && ! $FORCE; then
     echo "❌ 当前分支是 \"$CURRENT_BRANCH\"，发布必须在 main 分支执行。"
-    echo "   如需强制发布：使用 --force。"
+    echo "ℹ️  如需强制发布：使用 --force。"
     exit 1
 fi
 
@@ -92,7 +92,7 @@ fi
 if [ "$RUN_TESTS" = "true" ]; then
     swift test 2>&1 | tail -5
 else
-    echo "   跳过测试"
+    echo "⚠️  跳过测试"
 fi
 
 step 2 "注入版本号"
@@ -106,7 +106,7 @@ enum AppVersion {
     static let build = "$BUILD"
 }
 SWIFT
-echo "   ✅ 版本号已注入: $VERSION (build $BUILD)"
+echo "✅ 版本号已注入: $VERSION (build $BUILD)"
 
 step 3 "Release 编译"
 swift build -c release -Xswiftc -Osize 2>&1 | tail -3
@@ -118,7 +118,7 @@ step 4 "去除调试符号"
 BIN_SIZE_BEFORE=$(stat -f%z "$BIN")
 strip -S "$BIN" 2>/dev/null || true
 BIN_SIZE_AFTER=$(stat -f%z "$BIN")
-echo "   二进制: $(numfmt --to=iec $BIN_SIZE_BEFORE 2>/dev/null || echo "${BIN_SIZE_BEFORE}") → $(numfmt --to=iec $BIN_SIZE_AFTER 2>/dev/null || echo "${BIN_SIZE_AFTER}")"
+echo "✅ 二进制已去除调试符号: $(numfmt --to=iec $BIN_SIZE_BEFORE 2>/dev/null || echo "${BIN_SIZE_BEFORE}") → $(numfmt --to=iec $BIN_SIZE_AFTER 2>/dev/null || echo "${BIN_SIZE_AFTER}")"
 
 step 5 "组装 .app bundle"
 rm -rf "$STAGING"
@@ -165,16 +165,16 @@ cat > "$STAGING/$APP_NAME.app/Contents/Info.plist" << PLIST
 </dict>
 </plist>
 PLIST
-echo "   ✅ .app bundle 已组装: $STAGING/$APP_NAME.app"
+echo "✅ .app bundle 已组装: $STAGING/$APP_NAME.app"
 
 step 6 "代码签名"
 
 # 固定作者级证书签名 = TCC/Keychain 授权持久保留
 # 默认使用 Nekutai；通过 CODESIGN_IDENTITY 环境变量指定其他作者证书；显式传 "-" 可强制 ad-hoc。
 if [ "$IDENTITY" = "-" ]; then
-    echo "   签名身份: ad-hoc"
+    echo "🔐 签名身份: ad-hoc"
 else
-    echo "   签名身份: $IDENTITY"
+    echo "🔐 签名身份: $IDENTITY"
 fi
 
 # 公证提醒（需要付费开发者账号）
@@ -243,7 +243,7 @@ hdiutil detach "$VOLUME" -quiet
 hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" 2>&1 | tail -1
 rm -f "$STAGING/tmp.dmg"
 
-echo "   烟测 DMG..."
+echo "🧪 烟测 DMG..."
 SMOKE_MOUNT=$(hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH")
 SMOKE_DEVICE=$(echo "$SMOKE_MOUNT" | awk '/\/Volumes\// {print $1; exit}')
 SMOKE_VOLUME=$(echo "$SMOKE_MOUNT" | awk '/\/Volumes\// {for (i=3; i<=NF; i++) printf "%s%s", (i==3 ? "" : " "), $i; print ""; exit}')
@@ -274,9 +274,9 @@ if $PUBLISH; then
     
     # 创建 tag 并推送
     if git rev-parse "$TAG" &>/dev/null; then
-        echo "   ⚠️  tag $TAG 已存在，跳过创建"
+        echo "⚠️  tag $TAG 已存在，跳过创建"
     else
-        echo "   🏷  创建 tag $TAG..."
+        echo "🏷  创建 tag $TAG..."
         git tag "$TAG"
     fi
     
@@ -284,10 +284,10 @@ if $PUBLISH; then
     
     # 检查是否已有同名 Release
     if gh release view "$TAG" &>/dev/null 2>&1; then
-        echo "   ⚠️  Release $TAG 已存在，仅上传资产..."
+        echo "⚠️  Release $TAG 已存在，仅上传资产..."
         gh release upload "$TAG" "$DMG_PATH" --clobber
     else
-        echo "   📦 创建 Release $TAG..."
+        echo "📦 创建 Release $TAG..."
 
         # 生成更新日志：从上一个 tag 到 HEAD 的 Conventional Commits
         last_tag=$(git describe --tags --abbrev=0 HEAD~ 2>/dev/null || echo "")
@@ -306,11 +306,11 @@ if $PUBLISH; then
             "$DMG_PATH"
     fi
     
-    echo "   ✅ 发布完成"
-    echo "   🔗 $(gh release view "$TAG" --json url -q '.url')"
+    echo "✅ 发布完成"
+    echo "🔗 $(gh release view "$TAG" --json url -q '.url')"
 else
     step 8 "跳过 GitHub Releases 发布"
-    echo "   未传入 --publish，仅生成本地 DMG。"
+    echo "ℹ️  未传入 --publish，仅生成本地 DMG。"
 fi
 
 echo ""
