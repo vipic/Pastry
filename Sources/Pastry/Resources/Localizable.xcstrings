@@ -69,6 +69,57 @@
         }
       }
     },
+    "settings.diagnostics_section": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "诊断"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics"
+          }
+        }
+      }
+    },
+    "settings.performance_logging": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记录性能日志"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record Performance Logs"
+          }
+        }
+      }
+    },
+    "settings.performance_logging_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启后会记录面板唤醒和粘贴耗时到 ~/Library/Logs/Pastry/perf.log。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When enabled, Pastry writes panel and paste timing to ~/Library/Logs/Pastry/perf.log."
+          }
+        }
+      }
+    },
     "settings.history.section": {
       "extractionState": "manual",
       "localizations": {

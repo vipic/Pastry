@@ -23,9 +23,13 @@ jobs:
           bash -n smoke.sh
           bash -n populate_clipboard.sh
           bash -n bench.sh
+          bash -n scripts/check_coverage.sh
 
       - name: Run Tests With Coverage
         run: swift test --enable-code-coverage
+
+      - name: Check Coverage
+        run: scripts/check_coverage.sh 20
 
       - name: Build Release
         run: swift build -c release -Xswiftc -Osize

@@ -13,6 +13,8 @@ struct SettingsSceneView: View {
 
     @AppStorage(UserDefaultsKeys.linkPreviewNetworkEnabled)
     private var linkPreviewNetworkEnabled = false
+    @AppStorage(UserDefaultsKeys.performanceLoggingEnabled)
+    private var performanceLoggingEnabled = false
     @AppStorage(UserDefaultsKeys.historyMaxItems)
     private var historyMaxItems = HistoryRetentionPolicy.defaultMaxItems
     @AppStorage(UserDefaultsKeys.historyMaxAgeDays)
@@ -241,6 +243,18 @@ struct SettingsSceneView: View {
                     .accessibilityIdentifier(AccessibilityIdentifiers.Settings.linkPreviewNetworkToggle)
                 Text(L10n["settings.link_preview_network_hint"])
                     .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
+                Toggle(L10n["settings.performance_logging"], isOn: $performanceLoggingEnabled)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.Settings.performanceLoggingToggle)
+                Text(L10n["settings.performance_logging_hint"])
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text(L10n["settings.diagnostics_section"])
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
             }
 
