@@ -282,10 +282,11 @@ let pasteboard = NSPasteboard.withUniqueName()  // "test.hermes.pastry.<uuid>"
 ### 运行测试
 
 ```bash
-swift test
-# 或详细输出
-swift test -v 2>&1 | grep -E "(PASS|FAIL|test) "
+swift test --enable-code-coverage
+scripts/check_coverage.sh
 ```
+
+完整命令速查（snapshot、coverage、smoke、release 前检查）见 `docs/TESTING.md`。
 
 ## Key Design Patterns
 
@@ -338,7 +339,7 @@ swift test -v 2>&1 | grep -E "(PASS|FAIL|test) "
 
 ## GitHub Actions
 
-- `.github/workflows/tests.yml`：`main` push 和 pull request 自动触发，执行脚本语法检查、`swift test`、`swift build -c release -Xswiftc -Osize`
+- `.github/workflows/tests.yml`：`main` push 和 pull request 自动触发，执行脚本语法检查、`swift test --enable-code-coverage`、`scripts/check_coverage.sh 20`、`swift build -c release -Xswiftc -Osize`
 - `.github/workflows/release-artifact.yml`：仅 `workflow_dispatch` 手动触发，输入裸版本号，执行 `./release.sh "${{ inputs.version }}" --force` 并上传 DMG artifact；不会自动创建 tag 或 GitHub Release
 
 ## macOS 26 Specifics
