@@ -123,7 +123,10 @@ struct OverlayView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
                     let ids = selection.selectedIds
                     guard !ids.isEmpty else { return }
-                    let selected = visibleItems.filter { ids.contains($0.id) }
+                    let selected = OverlayInteractionModel.selectedItems(
+                        visibleItems: visibleItems,
+                        selectedIds: ids
+                    )
                     if selected.count == 1 {
                         Task { await OverlayPanelManager.shared.hideAndPaste(selected[0]) }
                     } else {
@@ -543,7 +546,7 @@ struct OverlayView: View {
         ClipboardCardView(
             item: item,
             isSelected: selection.selectedIds.contains(item.id),
-            cmdBadgeIndex: cmdDown && index < 9 ? index + 1 : nil,
+            cmdBadgeIndex: OverlayInteractionModel.commandBadgeIndex(cmdDown: cmdDown, itemIndex: index),
             selectedIds: Binding(
                 get: { selection.selectedIds },
                 set: { selection.selectedIds = $0 }
@@ -647,10 +650,14 @@ struct OverlayView: View {
     // MARK: - 空状态
 
     private var emptyState: some View {
-        let hasActiveFilters = !store.searchQuery.isEmpty
-            || store.typeFilter != nil
-            || store.appFilter != nil
-            || store.timeFilter != .any
+        let hasActiveFilters = OverlayInteractionModel.hasActiveFilters(
+            searchQuery: store.searchQuery,
+            typeFilter: store.typeFilter,
+            appFilter: store.appFilter,
+            timeFilter: store.timeFilter,
+            urlFilter: store.urlFilter,
+            handoffFilter: store.handoffFilter
+        )
         let model = OverlayEmptyStateModel.resolve(
             isPinnedTab: store.pinTab == .pinned,
             hasActiveFilters: hasActiveFilters

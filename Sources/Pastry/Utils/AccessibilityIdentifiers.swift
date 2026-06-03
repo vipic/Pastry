@@ -20,6 +20,7 @@ enum AccessibilityIdentifiers {
         static let launchAtLoginToggle = "settings.launch-at-login-toggle"
         static let soundToggle = "settings.sound-toggle"
         static let linkPreviewNetworkToggle = "settings.link-preview-network-toggle"
+        static let performanceLoggingToggle = "settings.performance-logging-toggle"
         static let clearAllButton = "settings.clear-all-button"
         static let accessibilityRow = "settings.accessibility-row"
         static let accessibilityGrantButton = "settings.accessibility-grant-button"

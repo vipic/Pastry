@@ -18,24 +18,35 @@ enum SnapshotTestSupport {
         }
 
         let pngData = try renderPNG(view: view, size: size)
-        let digest = SHA256.hash(data: pngData)
-            .map { String(format: "%02x", $0) }
-            .joined()
-        let snapshotURL = snapshotDirectory(file: file)
-            .appendingPathComponent("\(name).sha256")
+        let snapshotDir = snapshotDirectory(file: file)
+        let snapshotURL = snapshotDir.appendingPathComponent("\(name).png")
 
         if environment["PASTRY_RECORD_SNAPSHOTS"] == "1" {
             try FileManager.default.createDirectory(
                 at: snapshotURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try "\(digest)\n".write(to: snapshotURL, atomically: true, encoding: .utf8)
+            try pngData.write(to: snapshotURL, options: .atomic)
             return
         }
 
-        let expected = try String(contentsOf: snapshotURL, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        XCTAssertEqual(digest, expected, "Snapshot mismatch: \(name)", file: file, line: line)
+        let expectedData = try Data(contentsOf: snapshotURL)
+        let actualDigest = digest(for: pngData)
+        let expectedDigest = digest(for: expectedData)
+        guard actualDigest == expectedDigest else {
+            let failureDir = snapshotDir.appendingPathComponent("__Failures__", isDirectory: true)
+            try? FileManager.default.createDirectory(at: failureDir, withIntermediateDirectories: true)
+            let actualURL = failureDir.appendingPathComponent("\(name).actual.png")
+            let expectedURL = failureDir.appendingPathComponent("\(name).expected.png")
+            try? pngData.write(to: actualURL, options: .atomic)
+            try? expectedData.write(to: expectedURL, options: .atomic)
+            XCTFail(
+                "Snapshot mismatch: \(name). Wrote actual PNG to \(actualURL.path)",
+                file: file,
+                line: line
+            )
+            return
+        }
     }
 
     @MainActor
@@ -59,6 +70,12 @@ enum SnapshotTestSupport {
         URL(fileURLWithPath: "\(file)")
             .deletingLastPathComponent()
             .appendingPathComponent("__Snapshots__", isDirectory: true)
+    }
+
+    private static func digest(for data: Data) -> String {
+        SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 
     private enum SnapshotError: Error {

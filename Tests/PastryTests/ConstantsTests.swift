@@ -39,6 +39,10 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(UserDefaultsKeys.performanceLoggingEnabled, "performance_logging_enabled")
     }
 
+    func testSettingsAccessibilityIdentifiers() {
+        XCTAssertEqual(AccessibilityIdentifiers.Settings.performanceLoggingToggle, "settings.performance-logging-toggle")
+    }
+
     func testHistoryRetentionPolicySanitizesValues() {
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(500), 500)
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(-1), HistoryRetentionPolicy.defaultMaxItems)
