@@ -101,7 +101,7 @@ struct OverlayView: View {
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                     updateLayoutForCurrentScreen()
                 }
-                .onChange(of: selection.selectedIds) { _ in
+                .onChange(of: selection.selectedIds) { _, _ in
                     cachedMultiSelectDrag = nil
                 }
                 .onReceive(store.$items) { items in

@@ -116,6 +116,7 @@ final class StoreManager: ObservableObject {
     // MARK: 防抖
 
     private var searchTask: Task<Void, Never>?
+    private var searchGeneration = 0
     private let usesDatabaseSearch: Bool
 
     private init() {
@@ -336,7 +337,9 @@ final class StoreManager: ObservableObject {
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000) // 300ms 防抖
             guard !Task.isCancelled else { return }
-            executeSearch()
+            await MainActor.run {
+                executeSearch()
+            }
         }
     }
 
@@ -347,12 +350,38 @@ final class StoreManager: ObservableObject {
 
     private func executeSearch() {
         let query = searchQuery.trimmingCharacters(in: .whitespaces)
+        searchGeneration += 1
 
         // 确定基础数据源：生产环境关键词搜索走 SQLite FTS，覆盖完整历史和长文本。
         let searchedInDatabase = usesDatabaseSearch && !query.isEmpty
-        var base = searchedInDatabase
-            ? DatabaseManager.shared.search(query: query, limit: 500)
-            : items
+        guard searchedInDatabase else {
+            filteredItems = filteredResults(base: items, query: query, searchedInDatabase: false)
+            return
+        }
+
+        let generation = searchGeneration
+        searchTask?.cancel()
+        searchTask = Task { [weak self] in
+            let databaseResults = await Task.detached(priority: .userInitiated) {
+                DatabaseManager.shared.search(query: query, limit: 500)
+            }.value
+
+            await MainActor.run {
+                guard let self,
+                      !Task.isCancelled,
+                      self.searchGeneration == generation
+                else { return }
+                self.filteredItems = self.filteredResults(
+                    base: databaseResults,
+                    query: query,
+                    searchedInDatabase: true
+                )
+            }
+        }
+    }
+
+    private func filteredResults(base initialBase: [ClipboardItem], query: String, searchedInDatabase: Bool) -> [ClipboardItem] {
+        var base = initialBase
         if pinTab == .pinned {
             base = base.filter { $0.isPinned }
         }
@@ -392,8 +421,7 @@ final class StoreManager: ObservableObject {
             base = base.filter { range.contains($0.timestamp) }
         }
 
-        guard !Task.isCancelled else { return }
-        filteredItems = base
+        return base
     }
 
     private func clearNonPinnedWithClipboard() {

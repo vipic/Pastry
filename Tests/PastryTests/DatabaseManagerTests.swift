@@ -77,6 +77,10 @@ final class DatabaseManagerTests: XCTestCase {
         }
     }
 
+    private func enableImmediateRetentionCleanup() {
+        db.setRetentionCleanupIntervalForTesting(1)
+    }
+
     // MARK: - 基本 CRUD
 
     func testBuildsPreferFileKeyStorage() {
@@ -580,6 +584,7 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 非收藏历史超过上限后自动淘汰最旧记录
     func testHistoryLimitPrunesOldestNonPinnedItems() {
+        enableImmediateRetentionCleanup()
         let max = DatabaseManager.maxHistoryItemsForTesting
         for i in 0..<(max + 5) {
             let item = ClipboardItem(
@@ -598,6 +603,7 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 自动淘汰不删除收藏项
     func testHistoryLimitKeepsPinnedItems() {
+        enableImmediateRetentionCleanup()
         let max = DatabaseManager.maxHistoryItemsForTesting
         let pinned = ClipboardItem(
             timestamp: Date(timeIntervalSince1970: 0),
@@ -623,6 +629,7 @@ final class DatabaseManagerTests: XCTestCase {
 
     /// 用户设置的历史容量应即时影响非收藏记录淘汰
     func testHistoryLimitUsesUserConfiguredCapacity() {
+        enableImmediateRetentionCleanup()
         UserDefaults.standard.set(100, forKey: UserDefaultsKeys.historyMaxItems)
         for i in 0..<105 {
             let item = ClipboardItem(
@@ -637,6 +644,25 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(items.count, 100)
         XCTAssertTrue(items.contains { $0.content == "Configured 104" })
         XCTAssertFalse(items.contains { $0.content == "Configured 0" })
+    }
+
+    /// 插入热路径应节流保留策略清理，降低高频复制时的 DELETE 查询成本。
+    func testHistoryRetentionCleanupIsThrottledDuringInsert() {
+        db.setRetentionCleanupIntervalForTesting(3)
+        UserDefaults.standard.set(100, forKey: UserDefaultsKeys.historyMaxItems)
+
+        for i in 0..<101 {
+            assertInserted(makeItem(content: "Item \(i)", timestamp: Date(timeIntervalSince1970: Double(i))))
+        }
+
+        XCTAssertEqual(db.recent(limit: 110).count, 101)
+
+        assertInserted(makeItem(content: "Item 101", timestamp: Date(timeIntervalSince1970: 101)))
+
+        let items = db.recent(limit: 110)
+        XCTAssertEqual(items.count, 100)
+        XCTAssertEqual(items.first?.content, "Item 101")
+        XCTAssertFalse(items.contains { $0.content == "Item 0" })
     }
 
     /// 用户设置的清理周期应删除过期非收藏记录，但保留收藏项

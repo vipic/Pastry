@@ -16,6 +16,8 @@ final class DatabaseManager {
     // 上次插入的去重 key + 时间，5 秒内连续相同才跳过
     private var lastKey: String?
     private var lastKeyTime: Date = .distantPast
+    private var insertionsSinceRetentionCleanup = 0
+    private var retentionCleanupInterval = 25
     static var maxHistoryItemsForTesting: Int {
         HistoryRetentionPolicy.defaultMaxItems
     }
@@ -36,6 +38,12 @@ final class DatabaseManager {
         openDatabase(useEncryption: false)
         createTables()
         runMigrations()
+    }
+
+    /// 测试专用：控制插入时保留策略清理频率。
+    func setRetentionCleanupIntervalForTesting(_ interval: Int) {
+        retentionCleanupInterval = max(1, interval)
+        insertionsSinceRetentionCleanup = 0
     }
 
     deinit {
@@ -315,9 +323,8 @@ final class DatabaseManager {
 
         guard rc == SQLITE_DONE else { return .skipped }
 
-        // 同步到 FTS 索引
         syncFTS(item)
-        enforceHistoryRetention()
+        enforceHistoryRetentionIfNeeded()
 
         // 更新去重缓存
         lastKey = key
@@ -325,6 +332,14 @@ final class DatabaseManager {
 
         if let oldID { return .replaced(oldID: oldID) }
         return .inserted
+    }
+
+    /// 插入热路径上节流执行历史保留策略，避免每次复制都触发 DELETE 查询。
+    private func enforceHistoryRetentionIfNeeded() {
+        insertionsSinceRetentionCleanup += 1
+        guard insertionsSinceRetentionCleanup >= retentionCleanupInterval else { return }
+        insertionsSinceRetentionCleanup = 0
+        enforceHistoryRetention()
     }
 
     /// 自动淘汰过期或超出容量的非收藏记录，收藏项不计入上限。
