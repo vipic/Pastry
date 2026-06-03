@@ -112,6 +112,15 @@ final class StoreManager: ObservableObject {
         }
     }
 
+    private struct SearchFilterSnapshot {
+        let query: String
+        let pinTab: PinTab
+        let typeFilter: SourceFormat?
+        let urlFilter: Bool
+        let appFilter: String?
+        let handoffFilter: Bool
+        let dateRange: Range<Date>?
+    }
 
     // MARK: 防抖
 
@@ -350,20 +359,41 @@ final class StoreManager: ObservableObject {
 
     private func executeSearch() {
         let query = searchQuery.trimmingCharacters(in: .whitespaces)
+        let filters = SearchFilterSnapshot(
+            query: query,
+            pinTab: pinTab,
+            typeFilter: typeFilter,
+            urlFilter: urlFilter,
+            appFilter: appFilter,
+            handoffFilter: handoffFilter,
+            dateRange: timeFilter.dateRange
+        )
+        let recentItems = items
         searchGeneration += 1
 
         // 确定基础数据源：生产环境关键词搜索走 SQLite FTS，覆盖完整历史和长文本。
         let searchedInDatabase = usesDatabaseSearch && !query.isEmpty
         guard searchedInDatabase else {
-            filteredItems = filteredResults(base: items, query: query, searchedInDatabase: false)
+            filteredItems = Self.filteredResults(
+                base: recentItems,
+                recentItems: recentItems,
+                filters: filters,
+                searchedInDatabase: false
+            )
             return
         }
 
         let generation = searchGeneration
         searchTask?.cancel()
         searchTask = Task { [weak self] in
-            let databaseResults = await Task.detached(priority: .userInitiated) {
-                DatabaseManager.shared.search(query: query, limit: 500)
+            let filteredResults = await Task.detached(priority: .userInitiated) {
+                let databaseResults = DatabaseManager.shared.search(query: query, limit: 500)
+                return Self.filteredResults(
+                    base: databaseResults,
+                    recentItems: recentItems,
+                    filters: filters,
+                    searchedInDatabase: true
+                )
             }.value
 
             await MainActor.run {
@@ -371,53 +401,54 @@ final class StoreManager: ObservableObject {
                       !Task.isCancelled,
                       self.searchGeneration == generation
                 else { return }
-                self.filteredItems = self.filteredResults(
-                    base: databaseResults,
-                    query: query,
-                    searchedInDatabase: true
-                )
+                self.filteredItems = filteredResults
             }
         }
     }
 
-    private func filteredResults(base initialBase: [ClipboardItem], query: String, searchedInDatabase: Bool) -> [ClipboardItem] {
+    nonisolated private static func filteredResults(
+        base initialBase: [ClipboardItem],
+        recentItems: [ClipboardItem],
+        filters: SearchFilterSnapshot,
+        searchedInDatabase: Bool
+    ) -> [ClipboardItem] {
         var base = initialBase
-        if pinTab == .pinned {
+        if filters.pinTab == .pinned {
             base = base.filter { $0.isPinned }
         }
 
         // 测试注入数据和无数据库路径：content + appName 大小写不敏感子串匹配。
-        if !query.isEmpty && !searchedInDatabase {
-            base = base.filtered(by: query)
+        if !filters.query.isEmpty && !searchedInDatabase {
+            base = base.filtered(by: filters.query)
         } else if searchedInDatabase {
             // 保留旧交互：来源 App 名称也可命中。数据库 FTS 负责内容，最近内存列表补 App 名称。
             let existing = Set(base.map(\.id))
-            let appMatches = items.filtered(by: query).filter { !existing.contains($0.id) }
+            let appMatches = recentItems.filtered(by: filters.query).filter { !existing.contains($0.id) }
             base.append(contentsOf: appMatches)
         }
 
         // 类型筛选（按来源格式）
-        if let type = typeFilter {
+        if let type = filters.typeFilter {
             base = base.filter { $0.sourceFormat == type }
         }
 
         // URL 筛选（独立于类型）
-        if urlFilter {
+        if filters.urlFilter {
             base = base.filter { $0.tags.isURL }
         }
 
         // App 筛选
-        if let app = appFilter {
+        if let app = filters.appFilter {
             base = base.filter { $0.appName == app }
         }
 
         // 其他设备（Handoff）筛选
-        if handoffFilter {
+        if filters.handoffFilter {
             base = base.filter { $0.isHandoff }
         }
 
         // 时间筛选
-        if let range = timeFilter.dateRange {
+        if let range = filters.dateRange {
             base = base.filter { range.contains($0.timestamp) }
         }
 

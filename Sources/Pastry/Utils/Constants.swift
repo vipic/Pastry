@@ -42,6 +42,7 @@ enum UserDefaultsKeys {
     static let linkPreviewNetworkEnabled = "link_preview_network_enabled"
     static let historyMaxItems = "history_max_items"
     static let historyMaxAgeDays = "history_max_age_days"
+    static let performanceLoggingEnabled = "performance_logging_enabled"
 }
 
 // MARK: - 颜色

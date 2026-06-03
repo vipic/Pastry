@@ -35,6 +35,10 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(UserDefaultsKeys.historyMaxAgeDays, "history_max_age_days")
     }
 
+    func testPerformanceLoggingKey() {
+        XCTAssertEqual(UserDefaultsKeys.performanceLoggingEnabled, "performance_logging_enabled")
+    }
+
     func testHistoryRetentionPolicySanitizesValues() {
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(500), 500)
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(-1), HistoryRetentionPolicy.defaultMaxItems)

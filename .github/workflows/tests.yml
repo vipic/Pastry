@@ -21,9 +21,11 @@ jobs:
           bash -n deploy.sh
           bash -n release.sh
           bash -n smoke.sh
+          bash -n populate_clipboard.sh
+          bash -n bench.sh
 
-      - name: Run Tests
-        run: swift test
+      - name: Run Tests With Coverage
+        run: swift test --enable-code-coverage
 
       - name: Build Release
         run: swift build -c release -Xswiftc -Osize

@@ -263,59 +263,7 @@ struct ClipboardCardView: View {
     @ViewBuilder
     private func linkContent(_ url: URL) -> some View {
         let text = Self.linkCardText(url: url, preview: linkPreview)
-
-        VStack(spacing: 0) {
-            linkThumbnail(imageURL: linkPreview?.imageURL)
-                .frame(height: 106)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .padding(.bottom, 6)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(text.title)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(text.titleLineLimit)
-                    .truncationMode(.tail)
-                    .lineSpacing(1)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .layoutPriority(1)
-                if let desc = text.description {
-                    Text(desc)
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-                Text(text.host)
-                    .font(.system(size: 8))
-                    .foregroundColor(.secondary.opacity(0.6))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func linkThumbnail(imageURL: String?) -> some View {
-        if let url = imageURL {
-            RemoteThumbnail(urlString: url)
-                .aspectRatio(contentMode: .fill)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-        } else {
-            ZStack {
-                LinearGradient(
-                    colors: [Color.secondary.opacity(0.3), Color.secondary.opacity(0.1)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                Image(systemName: "link")
-                    .font(.system(size: 14, weight: .light))
-                    .foregroundColor(.secondary.opacity(0.35))
-            }
-        }
+        ClipboardLinkContentView(preview: linkPreview, text: text)
     }
 
     @ViewBuilder
@@ -327,25 +275,7 @@ struct ClipboardCardView: View {
             // 异步加载中或失败 → 返回 nil，用 asyncFilePreview 的 placeholder
             return nil
         }()
-        VStack(spacing: 0) {
-            if let img = asyncFilePreview ?? nsImage {
-                Image(nsImage: img)
-                    .resizable().aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                fallbackPreview
-            }
-            if let annotation = item.textAnnotation, !annotation.isEmpty {
-                Text(annotation)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
-                    .padding(.top, 4)
-            }
-        }
+        ClipboardImageContentView(image: asyncFilePreview ?? nsImage, annotation: item.textAnnotation)
     }
 
     // MARK: - 文件预览
@@ -482,52 +412,7 @@ struct ClipboardCardView: View {
 
     @ViewBuilder
     private func multiLinkContent(_ urls: [URL]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 计数标签
-            Text(String(format: L10n["card.multi_links"], urls.count))
-                .font(.system(size: 8, weight: .medium))
-                .foregroundColor(.secondary.opacity(0.5))
-                .padding(.bottom, 4)
-
-            ForEach(Array(urls.prefix(6).enumerated()), id: \.offset) { idx, url in
-                HStack(spacing: 6) {
-                    // 域名首字母图标
-                    ZStack {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.12))
-                            .frame(width: 20, height: 20)
-                        Text(String(url.host?.prefix(1).uppercased() ?? "?"))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(.accentColor)
-                    }
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(url.host ?? url.absoluteString)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                        Text(url.path.isEmpty ? "/" : url.path)
-                            .font(.system(size: 8))
-                            .foregroundColor(.secondary.opacity(0.5))
-                            .lineLimit(1)
-                    }
-                }
-                .padding(.vertical, 3)
-                .padding(.horizontal, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.primary.opacity(idx % 2 == 0 ? 0.02 : 0))
-                )
-            }
-
-            if urls.count > 6 {
-                Text(String(format: L10n["card.extra_links"], urls.count - 6))
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        ClipboardMultiLinkContentView(urls: urls)
     }
 
     nonisolated static let imageExtensions: Set<String> = [
@@ -543,22 +428,7 @@ struct ClipboardCardView: View {
     @ViewBuilder
     private var htmlWithImagePreview: some View {
         if let segs = item.segments, !segs.isEmpty {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(segs.enumerated()), id: \.offset) { idx, seg in
-                        switch seg {
-                        case .text(let t):
-                            Text(t)
-                                .font(.system(size: 11))
-                                .foregroundColor(.primary)
-                                .lineLimit(idx == 0 ? 5 : 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        case .image(let url):
-                            htmlImageThumbnail(url: url)
-                        }
-                    }
-                }
-            }
+            ClipboardHTMLSegmentsContentView(segments: segs)
         } else if isMultiURL {
             multiLinkContent(detectedLinks)
         } else if item.tags.isURL, let url = detectedLink {
@@ -566,24 +436,6 @@ struct ClipboardCardView: View {
         } else {
             textPreview
         }
-    }
-
-    /// 单张 HTML 内嵌图片缩略图（异步加载，与微信图文缩略图大小一致）
-    private func htmlImageThumbnail(url: String) -> some View {
-        RemoteThumbnail(urlString: url)
-            .frame(maxWidth: .infinity)
-            .aspectRatio(contentMode: .fit)
-            .cornerRadius(4)
-            .padding(.vertical, 2)
-    }
-
-    private var fallbackPreview: some View {
-        VStack {
-            Spacer()
-            Image(systemName: "photo.badge.exclamationmark").font(.title2).foregroundColor(.secondary.opacity(0.4))
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - 底部栏
