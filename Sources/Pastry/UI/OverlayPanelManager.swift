@@ -264,6 +264,11 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     private static let perfLogQueue = DispatchQueue(label: "com.nekutai.pastry.perflog", qos: .utility)
 
+    private static var isPerformanceLoggingEnabled: Bool {
+        UserDefaults.standard.bool(forKey: UserDefaultsKeys.performanceLoggingEnabled)
+            || ProcessInfo.processInfo.environment["PASTRY_PERF_LOG"] == "1"
+    }
+
     /// 性能日志写入（~/Library/Logs/Pastry/perf.log），异步不阻塞热路径
     private static func writePerfLog(_ line: String) {
         perfLogQueue.async {
@@ -358,11 +363,12 @@ final class OverlayPanelManager: @unchecked Sendable {
         StoreManager.shared.refresh()
         isPasting = false
 
-        // 性能日志
-        let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
-        let perfLine = "\(Date()) | type: paste | sourceFormat: \(fmt) | clipboardWrite: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
-        log.info("⏱ \(perfLine, privacy: .public)")
-        Self.writePerfLog(perfLine)
+        if Self.isPerformanceLoggingEnabled {
+            let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
+            let perfLine = "\(Date()) | type: paste | sourceFormat: \(fmt) | clipboardWrite: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+            log.info("⏱ \(perfLine, privacy: .public)")
+            Self.writePerfLog(perfLine)
+        }
     }
 
     /// 多选粘贴：将所有选中条目的文本拼接后一次性 ⌘V
@@ -420,11 +426,12 @@ final class OverlayPanelManager: @unchecked Sendable {
         StoreManager.shared.refresh()
         isPasting = false
 
-        // 性能日志
-        let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
-        let perfLine = "\(Date()) | type: pasteMulti | itemCount: \(items.count) | writeText: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
-        log.info("⏱ \(perfLine, privacy: .public)")
-        Self.writePerfLog(perfLine)
+        if Self.isPerformanceLoggingEnabled {
+            let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
+            let perfLine = "\(Date()) | type: pasteMulti | itemCount: \(items.count) | writeText: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+            log.info("⏱ \(perfLine, privacy: .public)")
+            Self.writePerfLog(perfLine)
+        }
     }
 
     /// 拖拽开始时临时透传鼠标事件，让拖拽能到达目标应用
@@ -521,20 +528,22 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         let t4 = CFAbsoluteTimeGetCurrent()
 
-        // 性能日志（OSLog + 文件持久化）
-        let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
-        let itemCount = StoreManager.shared.items.count
-        let maxLen = StoreManager.shared.items.map { $0.content.count }.max() ?? 0
-        let totalLen = StoreManager.shared.items.reduce(0) { $0 + $1.content.count }
+        if Self.isPerformanceLoggingEnabled {
+            // 性能日志（OSLog + 文件持久化）
+            let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
+            let itemCount = StoreManager.shared.items.count
+            let maxLen = StoreManager.shared.items.map { $0.content.count }.max() ?? 0
+            let totalLen = StoreManager.shared.items.reduce(0) { $0 + $1.content.count }
 
-        var perfLine = "\(Date()) | type: panel | items: \(itemCount) | maxContent: \(maxLen) | totalContent: \(totalLen)"
-        if let dispatchMs = hotkeyDispatchMs {
-            perfLine += " | hotkeyDispatch: \(dispatchMs)ms"
+            var perfLine = "\(Date()) | type: panel | items: \(itemCount) | maxContent: \(maxLen) | totalContent: \(totalLen)"
+            if let dispatchMs = hotkeyDispatchMs {
+                perfLine += " | hotkeyDispatch: \(dispatchMs)ms"
+            }
+            perfLine += " | panelInit: \(ms(t1-t0))ms | overlayView: \(ms(t2-t1))ms | hostingInit: \(ms(t2a-t2))ms | hostingLayout: \(ms(t3-t2a))ms | orderFront: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+
+            log.info("⏱ \(perfLine, privacy: .public)")
+            Self.writePerfLog(perfLine)
         }
-        perfLine += " | panelInit: \(ms(t1-t0))ms | overlayView: \(ms(t2-t1))ms | hostingInit: \(ms(t2a-t2))ms | hostingLayout: \(ms(t3-t2a))ms | orderFront: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
-
-        log.info("⏱ \(perfLine, privacy: .public)")
-        Self.writePerfLog(perfLine)
         Self.hotkeyFiredAt = nil
 
         // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起（拖拽穿透期间除外）
