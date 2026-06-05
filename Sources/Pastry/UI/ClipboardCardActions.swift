@@ -249,10 +249,11 @@ extension ClipboardCardView {
                     infoText: fileName, isLocalFile: true
                 )
             case .image:
-                let fileName = (item.content as NSString).lastPathComponent
+                let fileName = url.lastPathComponent
                 let ext = (fileName as NSString).pathExtension.uppercased()
-                // 尝试从原始文件生成高清临时预览（.orig 无扩展名，Quick Look 无法直接渲染）
+                // 旧缓存 .orig 无可识别扩展名，Quick Look 需要转成临时 PNG。
                 let previewURL: URL = {
+                    guard url.pathExtension == "orig" else { return url }
                     guard let origPath = ImageCacheManager.shared.originalPath(forThumbnail: item.content),
                           let origData = try? Data(contentsOf: URL(fileURLWithPath: origPath)),
                           let origImage = NSImage(data: origData),

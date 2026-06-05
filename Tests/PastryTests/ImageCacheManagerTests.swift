@@ -2,7 +2,7 @@ import XCTest
 @testable import Pastry
 
 // MARK: - ImageCacheManager 测试套件
-// 验证图片双存储（原始数据 .orig + 缩略图 .png）及粘贴路径推导
+// 验证图片双存储（原始数据 + 缩略图 .thumb.png）及粘贴路径推导
 
 final class ImageCacheManagerTests: XCTestCase {
 
@@ -10,7 +10,7 @@ final class ImageCacheManagerTests: XCTestCase {
 
     // MARK: - save() 双存储
 
-    /// 保存后同时存在 .orig（原始数据）和 .png（缩略图）
+    /// 保存后同时存在原始数据和 .thumb.png（缩略图）
     func testSaveCreatesBothFiles() throws {
         let originalData = generateTestTIFFData(width: 1200, height: 800)
         let image = NSImage(data: originalData)!
@@ -58,11 +58,26 @@ final class ImageCacheManagerTests: XCTestCase {
         let thumbPath = manager.save(image: image, data: originalData)!
         let origPath = manager.originalPath(forThumbnail: thumbPath)!
 
-        XCTAssertTrue(origPath.hasSuffix(".orig"), "原始数据文件扩展名应为 .orig")
-        // 缩略图路径去掉扩展名后的 stem 应与原始路径一致
+        XCTAssertTrue(thumbPath.hasSuffix(".thumb.png"), "缩略图文件扩展名应为 .thumb.png")
+        XCTAssertTrue(origPath.hasSuffix(".original.tiff"), "TIFF 原始数据应保留 .tiff 扩展名")
+
         let thumbStem = URL(fileURLWithPath: thumbPath).deletingPathExtension().lastPathComponent
+            .replacingOccurrences(of: ".thumb", with: "")
         let origStem = URL(fileURLWithPath: origPath).deletingPathExtension().lastPathComponent
+            .replacingOccurrences(of: ".original", with: "")
         XCTAssertEqual(thumbStem, origStem, "缩略图和原始数据应共享 UUID stem")
+    }
+
+    func testPNGOriginalKeepsPNGExtension() throws {
+        let originalData = generateTestPNGData(width: 200, height: 120)
+        let image = NSImage(data: originalData)!
+
+        let thumbPath = manager.save(image: image, data: originalData)!
+        let origPath = manager.originalPath(forThumbnail: thumbPath)!
+        let savedData = try Data(contentsOf: URL(fileURLWithPath: origPath))
+
+        XCTAssertTrue(origPath.hasSuffix(".original.png"), "PNG 原始数据应保存为 .png，而不是 .orig")
+        XCTAssertEqual(savedData, originalData, "PNG 原始数据应逐字节一致")
     }
 
     /// 不存在 .orig 时返回 nil（兼容旧缓存）
@@ -86,6 +101,20 @@ final class ImageCacheManagerTests: XCTestCase {
         try FileManager.default.removeItem(atPath: origPath)
 
         XCTAssertNil(manager.originalPath(forThumbnail: thumbPath), "删除 .orig 后应返回 nil")
+    }
+
+    func testOldOrigCacheStillResolves() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pastry-image-cache-test-\(UUID().uuidString)", isDirectory: true)
+        let manager = ImageCacheManager(cacheDir: dir)
+        let thumb = dir.appendingPathComponent("legacy.png")
+        let orig = dir.appendingPathComponent("legacy.orig")
+        try Data([0x01]).write(to: thumb)
+        try Data([0x02]).write(to: orig)
+
+        XCTAssertEqual(manager.originalPath(forThumbnail: thumb.path), orig.path)
+        XCTAssertEqual(manager.counterpartURL(for: thumb), orig)
+        XCTAssertEqual(manager.counterpartURL(for: orig), thumb)
     }
 
     // MARK: - 预览用高清 PNG 生成（orig → TIFF → PNG）
@@ -128,5 +157,15 @@ final class ImageCacheManagerTests: XCTestCase {
         NSRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)).fill()
         image.unlockFocus()
         return image.tiffRepresentation!
+    }
+
+    private func generateTestPNGData(width: Int, height: Int) -> Data {
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.lockFocus()
+        NSColor.green.setFill()
+        NSRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)).fill()
+        image.unlockFocus()
+        let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!
+        return bitmap.representation(using: .png, properties: [:])!
     }
 }

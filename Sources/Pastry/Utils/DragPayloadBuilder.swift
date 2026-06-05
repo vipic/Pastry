@@ -27,7 +27,7 @@ enum DragPayloadBuilder {
             let imageURL = URL(fileURLWithPath: imagePath)
             if FileManager.default.fileExists(atPath: imagePath),
                let provider = NSItemProvider(contentsOf: imageURL) {
-                provider.suggestedName = imageURL.lastPathComponent
+                provider.suggestedName = ImageCacheManager.shared.suggestedFilename(forImagePath: imagePath)
                 return provider
             }
             return NSItemProvider(object: item.content as NSString)

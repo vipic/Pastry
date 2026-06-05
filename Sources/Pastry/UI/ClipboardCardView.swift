@@ -118,9 +118,7 @@ struct ClipboardCardView: View {
         case .fileURL:
             return existingFileURLs.first
         case .image:
-            let url = URL(fileURLWithPath: item.content)
-            guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-            return url
+            return imageOpenableURL
         case .text, .rtf, .html:
             return detectedLink
         }
@@ -592,8 +590,21 @@ struct ClipboardCardView: View {
     /// 所有实际存在于磁盘的文件 URL（从异步加载的 missingFileURLs 反推，不阻塞主线程）
     var existingFileURLs: [URL] {
         guard item.sourceFormat == .fileURL || item.sourceFormat == .image else { return [] }
+        if item.sourceFormat == .image, !item.content.contains("\n") {
+            return imageOpenableURL.map { [$0] } ?? []
+        }
         // 异步检测还没跑完 → 暂时当作全部存在（不触发 TCC）
         return fileURLs.filter { !missingFileURLs.contains($0) }
+    }
+
+    private var imageOpenableURL: URL? {
+        if item.content.contains("\n") {
+            return fileURLs.first { FileManager.default.fileExists(atPath: $0.path) }
+        }
+        let preferredPath = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
+        let url = URL(fileURLWithPath: preferredPath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
     }
 
     /// 是否为多文件条目
@@ -699,7 +710,8 @@ struct ClipboardCardView: View {
             let urls = item.content.split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
             return urls.first { FileManager.default.fileExists(atPath: $0.path) }
         case .image:
-            let url = URL(fileURLWithPath: item.content)
+            let path = ImageCacheManager.shared.originalPath(forThumbnail: item.content) ?? item.content
+            let url = URL(fileURLWithPath: path)
             return FileManager.default.fileExists(atPath: url.path) ? url : nil
         case .text, .rtf, .html:
             return detectedLinkForTesting(in: item.content)
