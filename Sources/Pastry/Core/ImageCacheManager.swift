@@ -14,18 +14,24 @@ final class ImageCacheManager {
 
     private let cacheDir: URL
 
-    private init() {
-        cacheDir = AppDirectories.applicationSupportDirectory()
-            .appendingPathComponent("ImageCache")
+    private convenience init() {
+        self.init(cacheDir: AppDirectories.applicationSupportDirectory().appendingPathComponent("ImageCache"))
+    }
+
+    init(cacheDir: URL) {
+        self.cacheDir = cacheDir
         AppDirectories.ensureDirectory(cacheDir, logCategory: "image-cache")
     }
 
-    /// 保存图片：原始数据保留原格式（.orig），另存缩略图（.png）用于卡片预览。
+    /// 保存图片：原始数据保留真实格式，另存缩略图（.thumb.png）用于卡片预览。
     /// 返回缩略图路径（向后兼容 ClipboardItem.content）。
     func save(image: NSImage, data: Data) -> String? {
         let uuid = UUID().uuidString
-        let thumbFilename = "\(uuid).png"
-        let origFilename = "\(uuid).orig"
+        let originalExtension = Self.originalExtension(for: data)
+        let thumbFilename = "\(uuid).thumb.png"
+        let origFilename = originalExtension == "orig"
+            ? "\(uuid).orig"
+            : "\(uuid).original.\(originalExtension)"
         let thumbURL = cacheDir.appendingPathComponent(thumbFilename)
         let origURL = cacheDir.appendingPathComponent(origFilename)
 
@@ -57,22 +63,33 @@ final class ImageCacheManager {
         return thumbURL.path
     }
 
-    /// 从缩略图路径推导原始图片路径（用于粘贴时读取高清数据）
+    /// 从缩略图路径推导原始图片路径（用于粘贴/拖拽/打开时读取高清数据）
     func originalPath(forThumbnail thumbnailPath: String) -> String? {
-        let stem = URL(fileURLWithPath: thumbnailPath).deletingPathExtension().lastPathComponent
-        let origURL = cacheDir.appendingPathComponent("\(stem).orig")
-        return FileManager.default.fileExists(atPath: origURL.path) ? origURL.path : nil
+        let id = cacheID(for: URL(fileURLWithPath: thumbnailPath))
+        return originalCandidates(forCacheID: id)
+            .first { FileManager.default.fileExists(atPath: $0.path) }?
+            .path
     }
 
-    /// 配对文件路径：.png ↔ .orig
+    func suggestedFilename(forImagePath path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        guard isCachedFile(url) else { return url.lastPathComponent }
+        let ext = url.pathExtension.isEmpty || url.pathExtension == "orig" ? "png" : url.pathExtension
+        return "Pastry Image.\(ext)"
+    }
+
+    /// 配对文件路径：thumbnail ↔ original，兼容旧缓存（.png ↔ .orig）
     func counterpartURL(for url: URL) -> URL? {
-        let stem = url.deletingPathExtension().lastPathComponent
-        let ext = url.pathExtension
-        switch ext {
-        case "png": return cacheDir.appendingPathComponent("\(stem).orig")
-        case "orig": return cacheDir.appendingPathComponent("\(stem).png")
-        default: return nil
+        let id = cacheID(for: url)
+        if isThumbnailURL(url) {
+            return originalCandidates(forCacheID: id)
+                .first { FileManager.default.fileExists(atPath: $0.path) }
         }
+        if isOriginalURL(url) {
+            return thumbnailCandidates(forCacheID: id)
+                .first { FileManager.default.fileExists(atPath: $0.path) }
+        }
+        return nil
     }
 
     /// LRU 磁盘淘汰：超过 maxCacheSize 时按修改时间删除最旧文件，直到低于 targetCacheSize。
@@ -107,14 +124,12 @@ final class ImageCacheManager {
         for info in fileInfos {
             guard totalSize > Self.targetCacheSize else { break }
             // 跳过数据库中仍被引用的文件（防止卡片显示破损图标）
-            let thumbPath: String? = info.url.pathExtension == "png"
-                ? info.url.path
-                : counterpartURL(for: info.url)?.path
+            let thumbPath = thumbnailPath(forCachedFile: info.url)
             if let tp = thumbPath, activePaths.contains(tp) { continue }
             do {
                 try fm.removeItem(at: info.url)
                 totalSize -= info.size
-                // 同时清理配对文件（.png ↔ .orig）
+                // 同时清理配对文件，兼容新旧缓存命名。
                 if let c = counterpartURL(for: info.url),
                    let cSize = (try? fm.attributesOfItem(atPath: c.path)[.size] as? Int64) {
                     try? fm.removeItem(at: c)
@@ -126,14 +141,14 @@ final class ImageCacheManager {
         }
     }
 
-    /// 清理孤儿缓存文件：删除数据库中已不存在图片条目的 .png + .orig 文件对
+    /// 清理孤儿缓存文件：删除数据库中已不存在图片条目的缩略图和原始文件对。
     func cleanupOrphans(activePaths: Set<String>) {
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: cacheDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
         ) else { return }
 
         var removed = 0
-        for file in files where file.pathExtension == "png" {
+        for file in files where isThumbnailURL(file) {
             guard !activePaths.contains(file.path) else { continue }
             try? FileManager.default.removeItem(at: file)
             if let c = counterpartURL(for: file) {
@@ -156,5 +171,78 @@ final class ImageCacheManager {
                        operation: .copy, fraction: 1.0)
             return true
         }
+    }
+
+    private static func originalExtension(for data: Data) -> String {
+        let bytes = [UInt8](data.prefix(12))
+        if bytes.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return "png" }
+        if bytes.starts(with: [0xFF, 0xD8, 0xFF]) { return "jpg" }
+        if bytes.starts(with: [0x47, 0x49, 0x46]) { return "gif" }
+        if bytes.starts(with: [0x49, 0x49, 0x2A, 0x00])
+            || bytes.starts(with: [0x4D, 0x4D, 0x00, 0x2A]) {
+            return "tiff"
+        }
+        if bytes.count >= 12,
+           String(bytes: bytes[4..<12], encoding: .ascii)?.hasPrefix("ftyp") == true {
+            return "heic"
+        }
+        return "orig"
+    }
+
+    private func cacheID(for url: URL) -> String {
+        var stem = url.deletingPathExtension().lastPathComponent
+        if stem.hasSuffix(".thumb") {
+            stem.removeLast(".thumb".count)
+        } else if stem.hasSuffix(".original") {
+            stem.removeLast(".original".count)
+        }
+        return stem
+    }
+
+    private func thumbnailCandidates(forCacheID id: String) -> [URL] {
+        [
+            cacheDir.appendingPathComponent("\(id).thumb.png"),
+            cacheDir.appendingPathComponent("\(id).png"),
+        ]
+    }
+
+    private func originalCandidates(forCacheID id: String) -> [URL] {
+        [
+            "png", "jpg", "jpeg", "gif", "tiff", "heic", "heif", "webp", "orig",
+        ].map { ext in
+            ext == "orig"
+                ? cacheDir.appendingPathComponent("\(id).orig")
+                : cacheDir.appendingPathComponent("\(id).original.\(ext)")
+        }
+    }
+
+    private func isCachedFile(_ url: URL) -> Bool {
+        url.deletingLastPathComponent().standardizedFileURL == cacheDir.standardizedFileURL
+    }
+
+    private func isThumbnailURL(_ url: URL) -> Bool {
+        guard isCachedFile(url) else { return false }
+        let stem = url.deletingPathExtension().lastPathComponent
+        if stem.hasSuffix(".original") { return false }
+        if stem.hasSuffix(".thumb") { return true }
+        return url.pathExtension == "png"
+    }
+
+    private func isOriginalURL(_ url: URL) -> Bool {
+        guard isCachedFile(url) else { return false }
+        let stem = url.deletingPathExtension().lastPathComponent
+        return url.pathExtension == "orig" || stem.hasSuffix(".original")
+    }
+
+    private func thumbnailPath(forCachedFile url: URL) -> String? {
+        guard isCachedFile(url) else { return nil }
+        if isThumbnailURL(url) { return url.path }
+        if isOriginalURL(url) {
+            let id = cacheID(for: url)
+            return thumbnailCandidates(forCacheID: id)
+                .first { FileManager.default.fileExists(atPath: $0.path) }?
+                .path
+        }
+        return nil
     }
 }

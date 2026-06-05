@@ -134,6 +134,30 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertNotNil(img, "TIFF 数据应可读为图片")
     }
 
+    func testImageOpenableURLPrefersOriginalCacheFile() {
+        let pngData = generateTestPNGData(width: 16, height: 16)
+        let image = NSImage(data: pngData)!
+        let thumbPath = ImageCacheManager.shared.save(image: image, data: pngData)!
+        let originalPath = ImageCacheManager.shared.originalPath(forThumbnail: thumbPath)!
+        let item = ClipboardItem(content: thumbPath, sourceFormat: .image)
+
+        let openableURL = ClipboardCardView.openableURLForTesting(item)
+
+        XCTAssertEqual(openableURL?.path, originalPath)
+        XCTAssertTrue(originalPath.hasSuffix(".original.png"))
+    }
+
+    func testImageDragProviderUsesReadablePNGName() {
+        let pngData = generateTestPNGData(width: 16, height: 16)
+        let image = NSImage(data: pngData)!
+        let thumbPath = ImageCacheManager.shared.save(image: image, data: pngData)!
+        let item = ClipboardItem(content: thumbPath, sourceFormat: .image)
+
+        let provider = DragPayloadBuilder.provider(for: item)
+
+        XCTAssertEqual(provider.suggestedName, "Pastry Image.png")
+    }
+
     func testBothFileURLAndImageOnPasteboard() {
         let pb = makeTestPasteboard("both")
 
@@ -159,6 +183,16 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertNotNil(fileItem, "fileURL reader 应能读取")
         let imgItem = ClipboardMonitor.readImageDataForTesting(from: pb)
         XCTAssertNotNil(imgItem, "image reader 应能读取")
+    }
+
+    private func generateTestPNGData(width: Int, height: Int) -> Data {
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.lockFocus()
+        NSColor.green.setFill()
+        NSRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)).fill()
+        image.unlockFocus()
+        let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!
+        return bitmap.representation(using: .png, properties: [:])!
     }
 
     // MARK: - 文本类型判断（isTextType）

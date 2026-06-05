@@ -199,7 +199,7 @@ extension ClipboardMonitor {
     /// 仅读取剪贴板图片数据和 NSImage（主线程安全，轻量操作）。
     /// 缩略图生成、编码和磁盘写入已移至后台队列。
     func readImageData(from pb: NSPasteboard) -> (NSImage, Data)? {
-        guard let data = pb.data(forType: .tiff) ?? pb.data(forType: .png),
+        guard let data = pb.data(forType: .png) ?? pb.data(forType: .tiff),
               let image = NSImage(data: data)
         else { return nil }
         return (image, data)

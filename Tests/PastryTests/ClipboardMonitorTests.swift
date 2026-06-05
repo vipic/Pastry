@@ -258,6 +258,20 @@ final class ClipboardMonitorTests: XCTestCase {
         XCTAssertEqual(item?.content, "/tmp/actual-file.pdf")
     }
 
+    func testImageDataPrefersPNGOverTIFF() {
+        let pb = makeTestPasteboard("imagePrefersPNG")
+        pb.clearContents()
+
+        let pngData = generateTestPNGData(width: 12, height: 8)
+        let tiffData = generateTestTIFFData(width: 12, height: 8)
+        pb.setData(tiffData, forType: .tiff)
+        pb.setData(pngData, forType: .png)
+
+        let result = ClipboardMonitor.readImageDataForTesting(from: pb)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.1, pngData, "同时存在 PNG/TIFF 时应优先保留 PNG 原始数据")
+    }
+
     // MARK: - 排除名单（bundleID 过滤）
 
     func testExcludedBundleIDIsBlocked() {
@@ -320,5 +334,19 @@ final class ClipboardMonitorTests: XCTestCase {
         pb.setString("hello", forType: .string)
         XCTAssertFalse(ClipboardMonitor.has1PasswordTypeForTesting(from: pb),
                        "普通 pasteboard 不应被识别为 1Password")
+    }
+
+    private func generateTestTIFFData(width: Int, height: Int) -> Data {
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.lockFocus()
+        NSColor.blue.setFill()
+        NSRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)).fill()
+        image.unlockFocus()
+        return image.tiffRepresentation!
+    }
+
+    private func generateTestPNGData(width: Int, height: Int) -> Data {
+        let bitmap = NSBitmapImageRep(data: generateTestTIFFData(width: width, height: height))!
+        return bitmap.representation(using: .png, properties: [:])!
     }
 }
