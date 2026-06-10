@@ -17,6 +17,7 @@ LOG_FILE="$ARTIFACT_DIR/smoke.log"
 SKIP_DEPLOY=0
 SKIP_POPULATE=0
 SKIP_HOTKEY=0
+AUTO_FAILURES=0
 
 usage() {
     sed -n '2,7p' "$0" | sed 's/^# //'
@@ -36,6 +37,11 @@ mkdir -p "$ARTIFACT_DIR"
 
 log() {
     printf '%s\n' "$*" | tee -a "$LOG_FILE"
+}
+
+fail_check() {
+    AUTO_FAILURES=$((AUTO_FAILURES + 1))
+    log "✗ $*"
 }
 
 run_step() {
@@ -58,6 +64,36 @@ wait_for_pastry() {
 
 trigger_overlay() {
     osascript -e 'tell application "System Events" to keystroke "v" using {command down, shift down}'
+}
+
+validate_screenshot() {
+    local path="$1"
+    local label="$2"
+
+    if [[ ! -s "$path" ]]; then
+        fail_check "$label 截图不存在或为空: $path"
+        return
+    fi
+
+    local bytes
+    bytes=$(stat -f%z "$path" 2>/dev/null || echo 0)
+    if [[ "$bytes" -lt 10000 ]]; then
+        fail_check "$label 截图文件过小: ${bytes} bytes"
+        return
+    fi
+
+    if command -v sips >/dev/null 2>&1; then
+        local width height
+        width=$(sips -g pixelWidth "$path" 2>/dev/null | awk '/pixelWidth/ {print $2}')
+        height=$(sips -g pixelHeight "$path" 2>/dev/null | awk '/pixelHeight/ {print $2}')
+        if [[ -z "$width" || -z "$height" || "$width" -lt 100 || "$height" -lt 100 ]]; then
+            fail_check "$label 截图尺寸异常: ${width:-?}x${height:-?}"
+            return
+        fi
+        log "✓ $label 截图有效: ${width}x${height}, ${bytes} bytes"
+    else
+        log "✓ $label 截图有效: ${bytes} bytes"
+    fi
 }
 
 log "══════════════════════════════════════"
@@ -92,7 +128,11 @@ else
 fi
 
 if command -v screencapture >/dev/null 2>&1; then
-    screencapture -x "$DESKTOP_SHOT" 2>/dev/null || true
+    if screencapture -x "$DESKTOP_SHOT" 2>/dev/null; then
+        validate_screenshot "$DESKTOP_SHOT" "唤起前桌面"
+    else
+        fail_check "唤起前桌面截图失败"
+    fi
 fi
 
 if [[ "$SKIP_HOTKEY" -eq 0 ]]; then
@@ -114,11 +154,29 @@ fi
 if command -v screencapture >/dev/null 2>&1; then
     if screencapture -x "$OVERLAY_SHOT" 2>/dev/null; then
         log "✓ 已保存截图: $OVERLAY_SHOT"
+        validate_screenshot "$OVERLAY_SHOT" "面板"
+        if [[ "$SKIP_HOTKEY" -eq 0 && -s "$DESKTOP_SHOT" ]]; then
+            if cmp -s "$DESKTOP_SHOT" "$OVERLAY_SHOT"; then
+                fail_check "唤起前后截图完全一致，面板可能没有打开"
+            else
+                log "✓ 唤起前后截图有变化"
+            fi
+        fi
     else
-        log "⚠ 截图失败，请手动检查屏幕"
+        fail_check "面板截图失败，请检查屏幕录制权限或手动验证"
     fi
 else
     log "⚠ 未找到 screencapture，跳过截图"
+fi
+
+log ""
+log "══════════════════════════════════════"
+log "  自动检查"
+log "══════════════════════════════════════"
+if [[ "$AUTO_FAILURES" -eq 0 ]]; then
+    log "✓ 自动检查通过"
+else
+    log "✗ 自动检查失败: $AUTO_FAILURES 项"
 fi
 
 log ""
@@ -133,3 +191,7 @@ log "5. 右键菜单栏剪贴板图标，菜单是否可用；左键是否能打
 log ""
 log "截图与日志位于:"
 log "$ARTIFACT_DIR"
+
+if [[ "$AUTO_FAILURES" -ne 0 ]]; then
+    exit 1
+fi

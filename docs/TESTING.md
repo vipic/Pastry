@@ -128,6 +128,8 @@ env PASTRY_NETWORK_TESTS=1 swift test --filter UpdateCheckerTests
 dist/smoke/<timestamp>/
 ```
 
+`smoke.sh` 会自动检查 Pastry 进程、截图文件、截图尺寸，以及唤起前后画面是否发生变化。关键检查失败时脚本会以非 0 退出；通过后仍保留人工验证清单，用来确认卡片内容、右键菜单和菜单栏行为。
+
 只填充剪贴板样本：
 
 ```bash
