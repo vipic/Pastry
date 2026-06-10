@@ -213,9 +213,8 @@ hdiutil create -volname "$APP_NAME" \
     -size ${DMG_SIZE_MB}m \
     "$STAGING/tmp.dmg" 2>&1 | tail -1
 
-# ── 6. DMG 美化（静默：挂载→拷背景+DS_Store→卸载，无 Finder 闪现）───
-echo ""
-echo "━━━ 6/6 DMG 美化 ━━━"
+# DMG 美化（静默：挂载→拷背景+DS_Store→卸载，无 Finder 闪现）
+echo "🎨 美化 DMG..."
 
 # 挂载（-noautoopen 不打开 Finder 窗口）
 hdiutil attach -readwrite -noverify -noautoopen "$STAGING/tmp.dmg" > /dev/null 2>&1
@@ -238,10 +237,12 @@ cp "$PROJECT_DIR/Resources/dmg-dsstore" "$VOLUME/.DS_Store"
 
 # 卸载
 hdiutil detach "$VOLUME" -quiet
+echo "✅ DMG 背景和窗口布局已写入"
 
 # 转换为只读压缩 DMG
 hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" 2>&1 | tail -1
 rm -f "$STAGING/tmp.dmg"
+echo "✅ DMG 已生成: $DMG_PATH"
 
 echo "🧪 烟测 DMG..."
 SMOKE_MOUNT=$(hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH")
