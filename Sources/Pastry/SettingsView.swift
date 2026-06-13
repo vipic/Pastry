@@ -142,13 +142,7 @@ struct SettingsSceneView: View {
 
             Spacer()
 
-            Text(L10n["settings.sidebar.footer"])
-                .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.46))
-                .lineSpacing(1)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            sidebarFooterNote
         }
         .padding(.horizontal, 12)
         .padding(.top, 52)
@@ -165,6 +159,31 @@ struct SettingsSceneView: View {
             }
         )
         .ignoresSafeArea(.container, edges: .top)
+    }
+
+    private var sidebarFooterNote: some View {
+        Text(L10n["settings.sidebar.footer"])
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(.white.opacity(0.52))
+            .lineSpacing(2)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.black.opacity(0.20))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.black.opacity(0.28), lineWidth: 3)
+                    .blur(radius: 5)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.035), lineWidth: 0.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func sidebarTabButton(_ tab: SettingsTab) -> some View {
