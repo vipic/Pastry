@@ -248,18 +248,22 @@ struct OverlayView: View {
                 .foregroundColor(.white.opacity(0.46))
                 .font(.system(size: 12))
 
-            TextField(
-                "",
-                text: $store.searchQuery,
-                prompt: Text(L10n["search.placeholder"])
-                    .foregroundColor(.white.opacity(0.58))
-            )
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.92))
-                .focused($isSearchFocused)
-                .frame(maxWidth: 400)
-                .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
+            ZStack(alignment: .leading) {
+                if store.searchQuery.isEmpty {
+                    Text(L10n["search.placeholder"])
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.68))
+                        .allowsHitTesting(false)
+                }
+
+                TextField("", text: $store.searchQuery)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.92))
+                    .focused($isSearchFocused)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
+            }
+            .frame(maxWidth: 400)
 
             Button {
                 store.searchQuery = ""
@@ -303,6 +307,8 @@ struct OverlayView: View {
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
             }
+            .scaleEffect(hoverFilter ? 1.015 : 1)
+            .animation(.easeOut(duration: 0.10), value: hoverFilter)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
     }
 
@@ -338,8 +344,8 @@ struct OverlayView: View {
         .padding(.bottom, 10)
         .background(panelTrayBackground)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.34), radius: 36, x: 0, y: 24)
-        .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 5)
+        .shadow(color: .black.opacity(0.28), radius: 30, x: 0, y: 20)
+        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
         .contentShape(Rectangle())
         .onTapGesture { selection.reset() }
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.cardContainer)
@@ -422,6 +428,8 @@ struct OverlayView: View {
                         .background(toolbarButtonBackground(isActive: false, isHovered: hoverSearch))
                 }
                 .buttonStyle(.plain)
+                .scaleEffect(hoverSearch ? 1.015 : 1)
+                .animation(.easeOut(duration: 0.10), value: hoverSearch)
                 .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
                 .onHover { hoverSearch = $0 }
                 .padding(.trailing, 6)
@@ -447,6 +455,8 @@ struct OverlayView: View {
                     .background(toolbarButtonBackground(isActive: false, isHovered: hoverGear))
             }
             .buttonStyle(.plain)
+            .scaleEffect(hoverGear ? 1.015 : 1)
+            .animation(.easeOut(duration: 0.10), value: hoverGear)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.settingsButton)
             .onHover { hoverGear = $0 }
         }
@@ -482,6 +492,8 @@ struct OverlayView: View {
             .background(toolbarButtonBackground(isActive: isSelected, isHovered: isHover))
         }
         .buttonStyle(.plain)
+        .scaleEffect(hoverTab == tab ? 1.015 : 1)
+        .animation(.easeOut(duration: 0.10), value: hoverTab)
         .accessibilityIdentifier(tab == .all ? AccessibilityIdentifiers.Overlay.allTab : AccessibilityIdentifiers.Overlay.pinnedTab)
         .onHover { hovering in
             hoverTab = hovering ? tab : nil
@@ -532,7 +544,7 @@ struct OverlayView: View {
                         .padding(1)
                 }
             )
-            .shadow(color: toolbarButtonShadow(isActive: isActive), radius: isActive ? 4 : 3, x: 0, y: isActive ? 2 : 1)
+            .shadow(color: toolbarButtonShadow(isActive: isActive), radius: isActive ? 3 : 2, x: 0, y: isActive ? 2 : 1)
             .shadow(color: .white.opacity(isActive ? 0.22 : 0.08), radius: 0, x: 0, y: 1)
     }
 
@@ -560,8 +572,8 @@ struct OverlayView: View {
 
     private func toolbarButtonShadow(isActive: Bool) -> Color {
         isActive
-            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
-            : .black.opacity(0.18)
+            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.18)
+            : .black.opacity(0.12)
     }
 
     // MARK: - 卡片列表
@@ -776,14 +788,14 @@ struct OverlayView: View {
         return VStack {
             Spacer(minLength: 0)
 
-            VStack(spacing: 11) {
+            VStack(spacing: 9) {
                 ZStack {
                     emptyStateIconBackground(accent: accent)
                     Image(systemName: model.icon)
-                        .font(.system(size: 25, weight: .semibold))
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundColor(emptyStateIconColor(icon: model.icon))
                 }
-                .frame(width: 56, height: 56)
+                .frame(width: 48, height: 48)
                 .padding(.bottom, 2)
 
                 Text(model.title)
@@ -798,8 +810,8 @@ struct OverlayView: View {
                     .lineLimit(2)
                     .frame(maxWidth: 330)
             }
-            .padding(.horizontal, 30)
-            .padding(.vertical, 26)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 22)
             .background(emptyStateCardBackground)
 
             Spacer(minLength: 0)
@@ -825,12 +837,12 @@ struct OverlayView: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(.white.opacity(0.46), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.18), radius: 24, x: 0, y: 14)
-            .shadow(color: .white.opacity(0.42), radius: 0, x: 0, y: 1)
+            .shadow(color: .black.opacity(0.12), radius: 18, x: 0, y: 10)
+            .shadow(color: .white.opacity(0.32), radius: 0, x: 0, y: 1)
     }
 
     private func emptyStateIconBackground(accent: Color) -> some View {
-        RoundedRectangle(cornerRadius: 15, style: .continuous)
+        RoundedRectangle(cornerRadius: 13, style: .continuous)
             .fill(
                 LinearGradient(
                     colors: [
@@ -843,14 +855,14 @@ struct OverlayView: View {
             )
             .overlay(
                 ZStack {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .stroke(.black.opacity(0.10), lineWidth: 1)
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(.white.opacity(0.34), lineWidth: 1)
                         .padding(1)
                 }
             )
-            .shadow(color: accent.opacity(0.26), radius: 14, x: 0, y: 7)
+            .shadow(color: accent.opacity(0.18), radius: 10, x: 0, y: 5)
     }
 
     private func emptyStateIconColor(icon: String) -> Color {
