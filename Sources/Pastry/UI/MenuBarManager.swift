@@ -55,11 +55,9 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
                 clearHistory: #selector(clearHistoryAction),
                 openAbout: #selector(openAboutAction),
                 openSettings: #selector(openSettingsAction),
-                checkUpdate: #selector(checkUpdateAction),
                 quit: #selector(quitApp)
             ),
-            stats: StoreManager.shared.stats,
-            isUpdateDevBuild: isUpdateDevBuild
+            stats: StoreManager.shared.stats
         )
         menu = result.menu
         menu.delegate = self
@@ -87,11 +85,6 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     private var isUpdateDevBuild: Bool {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         return version.contains("-dev")
-    }
-
-    @MainActor
-    @objc private func checkUpdateAction() {
-        AppDelegate.shared?.showUpdateWindow()
     }
 
     @MainActor

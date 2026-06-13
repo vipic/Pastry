@@ -3,6 +3,10 @@ import AppKit
 import Carbon
 import OSLog
 
+extension Notification.Name {
+    static let settingsSelectTab = Notification.Name("settingsSelectTab")
+}
+
 // MARK: - 设置视图
 
 struct SettingsSceneView: View {
@@ -29,7 +33,7 @@ struct SettingsSceneView: View {
 
     @State private var showingClearConfirm = false
     @State private var accessibilityTrusted = false
-    @State private var selectedTab: SettingsTab? = .general
+    @State private var selectedTab: SettingsTab?
     @State private var selectedLanguage: Language
     @State private var excludedBundleIDs: [String] = []
     @State private var versionUpdateState: UpdateState = .upToDate(
@@ -59,9 +63,10 @@ struct SettingsSceneView: View {
         }
     }
 
-    init() {
+    init(initialTab: SettingsTab = .general) {
         UserDefaults.standard.removeObject(forKey: "AppleLanguages")
         let pref = UserDefaults.standard.string(forKey: "PastryLanguage") ?? ""
+        _selectedTab = State(initialValue: initialTab)
         _selectedLanguage = State(initialValue: Language(rawValue: pref) ?? .system)
     }
 
@@ -110,6 +115,13 @@ struct SettingsSceneView: View {
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .settingsSelectTab)) { note in
+            guard let rawValue = note.object as? String,
+                  let tab = SettingsTab(rawValue: rawValue) else { return }
+            withAnimation(.easeInOut(duration: 0.14)) {
+                selectedTab = tab
+            }
         }
     }
 

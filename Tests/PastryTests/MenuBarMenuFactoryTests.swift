@@ -18,7 +18,6 @@ final class MenuBarMenuFactoryTests: XCTestCase {
             L10n["menu.clear_history"],
             L10n["menu.about"],
             L10n["menu.settings"],
-            L10n["menu.check_update"],
             L10n["menu.quit"],
         ])
     }
@@ -32,13 +31,6 @@ final class MenuBarMenuFactoryTests: XCTestCase {
         XCTAssertEqual(settingsItem?.keyEquivalentModifierMask, .command)
         XCTAssertEqual(quitItem?.keyEquivalent, "q")
         XCTAssertEqual(quitItem?.keyEquivalentModifierMask, .command)
-    }
-
-    func testUpdateItemDisabledForDevBuilds() {
-        let result = makeMenu(isUpdateDevBuild: true)
-        let updateItem = item(titled: L10n["menu.check_update"], in: result.menu)
-
-        XCTAssertEqual(updateItem?.isEnabled, false)
     }
 
     func testStorageItemHiddenWhenStorageIsEmpty() {
@@ -62,8 +54,7 @@ final class MenuBarMenuFactoryTests: XCTestCase {
     }
 
     private func makeMenu(
-        stats: ClipboardStats = ClipboardStats(totalItems: 0, todayItems: 0, favoriteCount: 0, storageSizeKB: 0),
-        isUpdateDevBuild: Bool = false
+        stats: ClipboardStats = ClipboardStats(totalItems: 0, todayItems: 0, favoriteCount: 0, storageSizeKB: 0)
     ) -> MenuBarMenuBuildResult {
         MenuBarMenuFactory.build(
             target: DummyMenuTarget(),
@@ -72,11 +63,9 @@ final class MenuBarMenuFactoryTests: XCTestCase {
                 clearHistory: #selector(DummyMenuTarget.clearHistory),
                 openAbout: #selector(DummyMenuTarget.openAbout),
                 openSettings: #selector(DummyMenuTarget.openSettings),
-                checkUpdate: #selector(DummyMenuTarget.checkUpdate),
                 quit: #selector(DummyMenuTarget.quit)
             ),
-            stats: stats,
-            isUpdateDevBuild: isUpdateDevBuild
+            stats: stats
         )
     }
 
@@ -90,6 +79,5 @@ private final class DummyMenuTarget: NSObject {
     @objc func clearHistory() {}
     @objc func openAbout() {}
     @objc func openSettings() {}
-    @objc func checkUpdate() {}
     @objc func quit() {}
 }

@@ -5,7 +5,6 @@ struct MenuBarMenuActions {
     let clearHistory: Selector
     let openAbout: Selector
     let openSettings: Selector
-    let checkUpdate: Selector
     let quit: Selector
 }
 
@@ -19,8 +18,7 @@ enum MenuBarMenuFactory {
     static func build(
         target: AnyObject,
         actions: MenuBarMenuActions,
-        stats: ClipboardStats,
-        isUpdateDevBuild: Bool
+        stats: ClipboardStats
     ) -> MenuBarMenuBuildResult {
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -69,16 +67,6 @@ enum MenuBarMenuFactory {
             keyEquivalentModifierMask: .command
         )
         menu.addItem(settingsItem)
-        menu.addItem(.separator())
-
-        let updateItem = item(
-            title: L10n["menu.check_update"],
-            action: actions.checkUpdate,
-            target: target,
-            symbolName: "arrow.triangle.2.circlepath"
-        )
-        updateItem.isEnabled = !isUpdateDevBuild
-        menu.addItem(updateItem)
         menu.addItem(.separator())
 
         let quitItem = item(
