@@ -128,11 +128,8 @@ struct SettingsSceneView: View {
     private var settingsSidebar: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .scaledToFit()
-                .frame(width: 40, height: 40)
-                .shadow(color: .black.opacity(0.24), radius: 10, x: 0, y: 5)
+                AppIconImageView(size: 40)
+                    .shadow(color: .black.opacity(0.24), radius: 10, x: 0, y: 5)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Pastry")
