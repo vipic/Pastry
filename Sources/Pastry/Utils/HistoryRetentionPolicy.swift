@@ -35,4 +35,12 @@ struct HistoryRetentionPolicy: Equatable {
         default: return L10n["settings.history.age_days", days]
         }
     }
+
+    static func maxAgeMetricLabel(_ days: Int) -> String {
+        switch days {
+        case 0: return L10n["settings.history.age_metric_never"]
+        case 365: return L10n["settings.history.age_metric_one_year"]
+        default: return L10n["settings.history.age_metric_days", days]
+        }
+    }
 }
