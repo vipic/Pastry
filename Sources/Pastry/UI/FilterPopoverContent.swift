@@ -26,8 +26,8 @@ struct FilterPopoverContent: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(L10n["filter.title"])
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white.opacity(0.90))
                 Spacer()
                 if hasActiveFilter {
                     Button(L10n["filter.clear"]) {
@@ -37,8 +37,11 @@ struct FilterPopoverContent: View {
                         store.timeFilter = .any
                         onFilterChange?()
                     }
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color(red: 0.90, green: 0.70, blue: 0.40))
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background(filterClearButtonBackground)
                     .buttonStyle(.plain)
                 }
             }
@@ -91,18 +94,21 @@ struct FilterPopoverContent: View {
                 }
             }
         }
-        .padding(12)
-        .frame(width: 360)
+        .padding(14)
+        .frame(width: 370)
+        .background(filterPanelBackground)
     }
 
     private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white.opacity(0.52))
                 .textCase(.uppercase)
             content()
         }
+        .padding(10)
+        .background(filterSectionBackground)
     }
 
     private func filterChip(_ label: String, iconName: String? = nil, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -110,25 +116,129 @@ struct FilterPopoverContent: View {
             HStack(spacing: 4) {
                 if let iconName {
                     Image(systemName: iconName)
-                        .font(.system(size: 10))
+                        .font(.system(size: 10, weight: .semibold))
                 }
                 Text(label)
-                    .font(.system(size: 11))
+                    .font(.system(size: 11, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .foregroundColor(isSelected ? .black : .primary)
+            .foregroundColor(chipForeground(isSelected: isSelected))
             .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.vertical, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
-            .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isSelected ? Color.white : Color.primary.opacity(0.08))
-            )
+            .background(chipBackground(isSelected: isSelected))
         }
         .buttonStyle(.plain)
+    }
+
+    private var filterPanelBackground: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.27, green: 0.30, blue: 0.31).opacity(0.82),
+                                Color(red: 0.17, green: 0.20, blue: 0.21).opacity(0.78)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.20), .white.opacity(0.05), .black.opacity(0.12)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.8
+                    )
+            )
+            .shadow(color: .black.opacity(0.28), radius: 24, x: 0, y: 14)
+    }
+
+    private var filterSectionBackground: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        .white.opacity(0.08),
+                        .white.opacity(0.035)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.08), lineWidth: 1)
+            )
+    }
+
+    private var filterClearButtonBackground: some View {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [.white.opacity(0.10), .white.opacity(0.04)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(.white.opacity(0.11), lineWidth: 1)
+            )
+    }
+
+    private func chipForeground(isSelected: Bool) -> Color {
+        isSelected ? Color(red: 0.23, green: 0.15, blue: 0.06) : .white.opacity(0.72)
+    }
+
+    private func chipBackground(isSelected: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(chipFill(isSelected: isSelected))
+            .overlay(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(chipBorder(isSelected: isSelected), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(.white.opacity(isSelected ? 0.30 : 0.10), lineWidth: 1)
+                        .padding(1)
+                }
+            )
+            .shadow(color: chipShadow(isSelected: isSelected), radius: isSelected ? 4 : 2, x: 0, y: isSelected ? 2 : 1)
+    }
+
+    private func chipFill(isSelected: Bool) -> LinearGradient {
+        let colors: [Color] = isSelected
+            ? [
+                Color(red: 0.88, green: 0.67, blue: 0.35),
+                Color(red: 0.74, green: 0.46, blue: 0.18)
+            ]
+            : [
+                .white.opacity(0.12),
+                .white.opacity(0.055)
+            ]
+        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+    }
+
+    private func chipBorder(isSelected: Bool) -> Color {
+        isSelected
+            ? Color(red: 0.72, green: 0.45, blue: 0.15).opacity(0.52)
+            : .white.opacity(0.10)
+    }
+
+    private func chipShadow(isSelected: Bool) -> Color {
+        isSelected
+            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
+            : .black.opacity(0.14)
     }
 
     /// 带应用图标的筛选标签
@@ -145,22 +255,63 @@ struct FilterPopoverContent: View {
                         .resizable()
                         .frame(width: 14, height: 14)
                     Text(app)
-                        .font(.system(size: 11))
+                        .font(.system(size: 11, weight: .semibold))
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .foregroundColor(isSelected ? .black : .primary)
+                .foregroundColor(isSelected ? Color(red: 0.23, green: 0.15, blue: 0.06) : .white.opacity(0.72))
                 .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-                .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(isSelected ? Color.white : Color.primary.opacity(0.08))
-                )
+                .background(AppFilterChipBackground(isSelected: isSelected))
             }
             .buttonStyle(.plain)
         }
+    }
+}
+
+private struct AppFilterChipBackground: View {
+    let isSelected: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(fill)
+            .overlay(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(.white.opacity(isSelected ? 0.30 : 0.10), lineWidth: 1)
+                        .padding(1)
+                }
+            )
+            .shadow(color: shadow, radius: isSelected ? 4 : 2, x: 0, y: isSelected ? 2 : 1)
+    }
+
+    private var fill: LinearGradient {
+        let colors: [Color] = isSelected
+            ? [
+                Color(red: 0.88, green: 0.67, blue: 0.35),
+                Color(red: 0.74, green: 0.46, blue: 0.18)
+            ]
+            : [
+                .white.opacity(0.12),
+                .white.opacity(0.055)
+            ]
+        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+    }
+
+    private var border: Color {
+        isSelected
+            ? Color(red: 0.72, green: 0.45, blue: 0.15).opacity(0.52)
+            : .white.opacity(0.10)
+    }
+
+    private var shadow: Color {
+        isSelected
+            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
+            : .black.opacity(0.14)
     }
 }
