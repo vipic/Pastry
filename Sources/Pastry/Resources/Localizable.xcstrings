@@ -460,19 +460,53 @@
         }
       }
     },
+    "settings.security.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "控制 Pastry 可访问的内容、需要忽略的应用，以及链接预览是否可以联网。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control what Pastry can access, which apps are ignored, and whether link previews may use the network."
+          }
+        }
+      }
+    },
+    "settings.security.privacy": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐私"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy"
+          }
+        }
+      }
+    },
     "settings.performance_logging": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "记录性能日志"
+            "value": "性能日志"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Record Performance Logs"
+            "value": "Performance logs"
           }
         }
       }
@@ -483,13 +517,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启后会记录面板唤醒和粘贴耗时到 ~/Library/Logs/Pastry/perf.log。"
+            "value": "写入本地计时日志用于调试。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When enabled, Pastry writes panel and paste timing to ~/Library/Logs/Pastry/perf.log."
+            "value": "Write local timing logs for debugging."
           }
         }
       }
@@ -772,13 +806,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "去授权"
+            "value": "打开系统设置"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Settings"
+            "value": "Open System Settings"
           }
         }
       }
@@ -936,19 +970,138 @@
         }
       }
     },
+    "settings.shortcut.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制用于打开面板的全局快捷键。录制期间会暂停旧快捷键。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record the global shortcut that opens the overlay. The previous shortcut is paused while recording."
+          }
+        }
+      }
+    },
     "shortcut.section_title": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "全局快捷键"
+            "value": "录制器"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Global Shortcut"
+            "value": "Recorder"
+          }
+        }
+      }
+    },
+    "shortcut.overlay_shortcut": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面板快捷键"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overlay shortcut"
+          }
+        }
+      }
+    },
+    "shortcut.applies_immediately": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制完成后立即生效。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies immediately after recording."
+          }
+        }
+      }
+    },
+    "shortcut.clear_shortcut": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除快捷键"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear shortcut"
+          }
+        }
+      }
+    },
+    "shortcut.clear_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未设置快捷键时可从菜单栏打开面板。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use menu bar access when no shortcut is set."
+          }
+        }
+      }
+    },
+    "shortcut.clear_button": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "shortcut.record_button": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record"
           }
         }
       }
@@ -3067,13 +3220,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "允许链接预览联网"
+            "value": "链接预览联网"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow Link Preview Network Access"
+            "value": "Link preview network"
           }
         }
       }
@@ -3084,13 +3237,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启后会向剪贴板中的 HTTPS 链接和图片地址发起请求；本地和内网地址会被拦截。"
+            "value": "获取页面元数据和预览图片。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When enabled, Pastry fetches HTTPS pages and image URLs from clipboard links; local and private-network addresses are blocked."
+            "value": "Fetch page metadata and preview images."
           }
         }
       }
@@ -3118,13 +3271,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加应用…"
+            "value": "添加应用"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add App…"
+            "value": "Add Application"
           }
         }
       }
@@ -3142,6 +3295,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "No apps excluded"
+          }
+        }
+      }
+    },
+    "settings.excluded_remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
           }
         }
       }
