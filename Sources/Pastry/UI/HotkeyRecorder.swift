@@ -313,7 +313,15 @@ func shortcutDisplayString(keyCode: Int, modifiers: Int) -> String {
     shortcutDisplaySegments(keyCode: keyCode, modifiers: modifiers).joined(separator: " ")
 }
 
-private func shortcutDisplaySegments(keyCode: Int, modifiers: Int) -> [String] {
+func shortcutDisplaySegments(keyCode: Int, modifiers: Int) -> [String] {
+    shortcutDisplaySegments(keyCode: keyCode, modifiers: modifiers, includeKey: true)
+}
+
+func shortcutDisplayPreviewSegments(keyCode: Int?, modifiers: Int) -> [String] {
+    shortcutDisplaySegments(keyCode: keyCode ?? -1, modifiers: modifiers, includeKey: keyCode != nil)
+}
+
+private func shortcutDisplaySegments(keyCode: Int, modifiers: Int, includeKey: Bool) -> [String] {
     let mods = UInt32(modifiers)
     var parts: [String] = []
     if mods & UInt32(controlKey) != 0 { parts.append("⌃") }
@@ -321,7 +329,7 @@ private func shortcutDisplaySegments(keyCode: Int, modifiers: Int) -> [String] {
     if mods & UInt32(shiftKey)   != 0 { parts.append("⇧") }
     if mods & UInt32(cmdKey)     != 0 { parts.append("⌘") }
 
-    if let char = keyCodeToDisplayName(Int32(keyCode)) {
+    if includeKey, let char = keyCodeToDisplayName(Int32(keyCode)) {
         parts.append(char)
     }
 
