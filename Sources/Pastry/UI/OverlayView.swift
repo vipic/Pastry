@@ -307,7 +307,7 @@ struct OverlayView: View {
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
             }
-            .scaleEffect(hoverFilter ? 1.015 : 1)
+            .scaleEffect(toolbarHoverScale(isHovered: hoverFilter))
             .animation(.easeOut(duration: 0.10), value: hoverFilter)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
     }
@@ -428,7 +428,7 @@ struct OverlayView: View {
                         .background(toolbarButtonBackground(isActive: false, isHovered: hoverSearch))
                 }
                 .buttonStyle(.plain)
-                .scaleEffect(hoverSearch ? 1.015 : 1)
+                .scaleEffect(toolbarHoverScale(isHovered: hoverSearch))
                 .animation(.easeOut(duration: 0.10), value: hoverSearch)
                 .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
                 .onHover { hoverSearch = $0 }
@@ -455,7 +455,7 @@ struct OverlayView: View {
                     .background(toolbarButtonBackground(isActive: false, isHovered: hoverGear))
             }
             .buttonStyle(.plain)
-            .scaleEffect(hoverGear ? 1.015 : 1)
+            .scaleEffect(toolbarHoverScale(isHovered: hoverGear))
             .animation(.easeOut(duration: 0.10), value: hoverGear)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.settingsButton)
             .onHover { hoverGear = $0 }
@@ -492,7 +492,7 @@ struct OverlayView: View {
             .background(toolbarButtonBackground(isActive: isSelected, isHovered: isHover))
         }
         .buttonStyle(.plain)
-        .scaleEffect(hoverTab == tab ? 1.015 : 1)
+        .scaleEffect(toolbarHoverScale(isHovered: hoverTab == tab))
         .animation(.easeOut(duration: 0.10), value: hoverTab)
         .accessibilityIdentifier(tab == .all ? AccessibilityIdentifiers.Overlay.allTab : AccessibilityIdentifiers.Overlay.pinnedTab)
         .onHover { hovering in
@@ -530,6 +530,10 @@ struct OverlayView: View {
             return Color(red: 0.23, green: 0.15, blue: 0.06)
         }
         return .white.opacity(isHovered ? 0.86 : 0.62)
+    }
+
+    private func toolbarHoverScale(isHovered: Bool) -> CGFloat {
+        showFilterPopover ? 1 : (isHovered ? 1.015 : 1)
     }
 
     private func toolbarButtonBackground(isActive: Bool, isHovered: Bool) -> some View {

@@ -29,22 +29,25 @@ struct FilterPopoverContent: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white.opacity(0.90))
                 Spacer()
-                if hasActiveFilter {
-                    Button(L10n["filter.clear"]) {
+                Button(L10n["filter.clear"]) {
+                    if hasActiveFilter {
                         store.typeFilter = nil
                         store.appFilter = nil
                         store.handoffFilter = false
                         store.timeFilter = .any
                         onFilterChange?()
                     }
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(red: 0.90, green: 0.70, blue: 0.40))
-                    .padding(.horizontal, 8)
-                    .frame(height: 24)
-                    .background(filterClearButtonBackground)
-                    .buttonStyle(.plain)
                 }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Color(red: 0.90, green: 0.70, blue: 0.40))
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .background(filterClearButtonBackground)
+                .opacity(hasActiveFilter ? 1 : 0)
+                .allowsHitTesting(hasActiveFilter)
+                .buttonStyle(.plain)
             }
+            .frame(height: 28)
 
             if !store.availableApps.isEmpty || hasHandoffItems {
                 filterSection(title: L10n["filter.source_app"]) {
