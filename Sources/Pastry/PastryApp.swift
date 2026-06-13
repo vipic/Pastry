@@ -25,55 +25,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 启动主线程看门狗（卡死时自动 dump 堆栈）
         MainThreadWatchdog.shared.start()
 
-        // 替换系统"关于"菜单项 → 自定义 About 窗口
-        if let appMenu = NSApp.mainMenu?.item(at: 0)?.submenu {
-            if let aboutItem = appMenu.items.first(where: {
-                $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
-            }) {
-                aboutItem.action = #selector(showAboutWindow)
-                aboutItem.target = self
+        // About / Settings 由 SwiftUI commands 替换默认系统项。
+        // 这里仅保留系统菜单中仍需 AppKit 级别重定向的条目。
+        if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
+            if let helpItem = helpMenu.items.first {
+                helpItem.action = #selector(showHelpWindow)
+                helpItem.target = self
             }
+        }
 
-            // 替换"设置…"（⌘,）→ 自定义设置窗口
-            if let prefsItem = appMenu.items.first(where: { $0.keyEquivalent == "," }) {
-                prefsItem.action = #selector(openSettingsWindow)
-                prefsItem.target = self
-            }
-
-            // 替换"帮助"菜单项 → 自定义 Help 窗口
-            if let helpMenu = NSApp.mainMenu?.items.last(where: { $0.title == L10n["menu.help"] })?.submenu {
-                if let helpItem = helpMenu.items.first {
-                    helpItem.action = #selector(showHelpWindow)
-                    helpItem.target = self
-                }
-            }
-
-            // 在 app 菜单中插入"检查更新…"
-            if let afterAbout = appMenu.items.firstIndex(where: {
-                $0.action == #selector(showAboutWindow)
-            }) {
-                let updateItem = NSMenuItem(
-                    title: L10n["menu.check_updates"],
-                    action: #selector(showUpdateWindow),
-                    keyEquivalent: ""
-                )
-                updateItem.target = self
-                appMenu.insertItem(updateItem, at: afterAbout + 1)
-            }
-
-            // 将 Edit > Find > "Find…" (⌘F) 重定向到搜索栏聚焦
-            // NSEvent local monitor 已在 OverlayPanelManager 拦截 ⌘F 做搜索栏聚焦，
-            // 此处让菜单条目显示快捷键并支持鼠标点击触发
-            if let editMenu = NSApp.mainMenu?.item(at: 2)?.submenu {
-                for item in editMenu.items {
-                    if let findSubmenu = item.submenu,
-                       let findItem = findSubmenu.items.first(where: {
-                        $0.keyEquivalent == "f" && $0.keyEquivalentModifierMask == .command
-                    }) {
-                        findItem.action = #selector(focusSearchField)
-                        findItem.target = self
-                        break
-                    }
+        // 将 Edit > Find > "Find…" (⌘F) 重定向到搜索栏聚焦
+        // NSEvent local monitor 已在 OverlayPanelManager 拦截 ⌘F 做搜索栏聚焦，
+        // 此处让菜单条目显示快捷键并支持鼠标点击触发
+        if let editMenu = NSApp.mainMenu?.item(at: 2)?.submenu {
+            for item in editMenu.items {
+                if let findSubmenu = item.submenu,
+                   let findItem = findSubmenu.items.first(where: {
+                    $0.keyEquivalent == "f" && $0.keyEquivalentModifierMask == .command
+                }) {
+                    findItem.action = #selector(focusSearchField)
+                    findItem.target = self
+                    break
                 }
             }
         }
@@ -88,10 +60,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     @objc func openSettingsWindow() {
+        openSettingsWindow(selectedTab: .general)
+    }
+
+    @MainActor
+    func openSettingsWindow(selectedTab: SettingsSceneView.SettingsTab) {
         // 先关闭面板，否则面板层级高于设置窗口会遮挡
         if let existing = settingsWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            NotificationCenter.default.post(name: .settingsSelectTab, object: selectedTab.rawValue)
             return
         }
 
@@ -114,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titlebarSeparatorStyle = .none
         window.center()
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: SettingsSceneView())
+        window.contentView = NSHostingView(rootView: SettingsSceneView(initialTab: selectedTab))
 
         let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy)
         window.delegate = delegate
@@ -433,6 +411,24 @@ struct PastryApp: App {
     var body: some Scene {
         Settings {
             EmptyView()
+        }
+        .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("\(L10n["menu.about"]) Pastry") {
+                    appDelegate.showAboutWindow()
+                }
+
+                Button(L10n["menu.check_updates"]) {
+                    appDelegate.openSettingsWindow(selectedTab: .version)
+                }
+            }
+
+            CommandGroup(replacing: .appSettings) {
+                Button(L10n["menu.settings"]) {
+                    appDelegate.openSettingsWindow()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }
