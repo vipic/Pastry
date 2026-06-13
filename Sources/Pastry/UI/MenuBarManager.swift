@@ -26,7 +26,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             button.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: "Pastry")
             button.target = self
             button.action = #selector(statusItemClicked)
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.sendAction(on: [.leftMouseUp, .rightMouseDown, .rightMouseUp])
         }
 
         // 菜单延迟到首次右键时构建（确保 L10n 和系统 locale 已就绪）
@@ -39,15 +39,22 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     @objc private func statusItemClicked() {
         guard let event = NSApp.currentEvent else { return }
 
-        if event.type == .rightMouseUp {
-            buildMenu()
-            refreshStats()
-            statusItem.menu = menu
-            statusItem.button?.performClick(nil)
-            statusItem.menu = nil
-        } else {
+        switch event.type {
+        case .rightMouseDown:
+            showStatusMenu()
+        case .rightMouseUp:
+            break
+        default:
             OverlayPanelManager.shared.toggle()
         }
+    }
+
+    @MainActor
+    private func showStatusMenu() {
+        guard let button = statusItem.button else { return }
+        buildMenu()
+        refreshStats()
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 4), in: button)
     }
 
     // MARK: - 构建菜单

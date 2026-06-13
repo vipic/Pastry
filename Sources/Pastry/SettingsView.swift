@@ -30,6 +30,15 @@ struct SettingsSceneView: View {
     @State private var selectedTab: SettingsTab? = .general
     @State private var selectedLanguage: Language
     @State private var excludedBundleIDs: [String] = []
+    @State private var versionUpdateState: UpdateState = .upToDate(
+        version: AppVersion.displayCurrent,
+        build: AppVersion.displayBuild,
+        lastCheckDate: nil,
+        lastReleaseNotes: nil
+    )
+    @State private var versionReleaseNotes: String?
+    @State private var versionCurrentVersion: String?
+    @State private var versionLatestVersion: String?
 
     enum Language: String, CaseIterable, Identifiable {
         case system
@@ -52,13 +61,14 @@ struct SettingsSceneView: View {
     }
 
     enum SettingsTab: String, CaseIterable, Identifiable {
-        case general, shortcut, security
+        case general, shortcut, security, version
         var id: String { rawValue }
         var label: String {
             switch self {
             case .general:  return L10n["settings.tab.general"]
             case .shortcut: return L10n["settings.tab.shortcut"]
             case .security: return L10n["settings.tab.security"]
+            case .version:  return L10n["settings.tab.version"]
             }
         }
         var icon: String {
@@ -66,7 +76,11 @@ struct SettingsSceneView: View {
             case .general:  return "gearshape"
             case .shortcut: return "command"
             case .security: return "shield"
+            case .version:  return "v"
             }
+        }
+        var usesSymbolIcon: Bool {
+            self != .version
         }
     }
 
@@ -88,7 +102,6 @@ struct SettingsSceneView: View {
         .ignoresSafeArea(.container, edges: .top)
         .background(SettingsWindowChromeConfigurator())
         .accessibilityIdentifier(AccessibilityIdentifiers.Settings.root)
-        .id(selectedLanguage.rawValue)
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
@@ -108,7 +121,7 @@ struct SettingsSceneView: View {
                     Text("Pastry")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.white.opacity(0.92))
-                    Text("Clipboard settings")
+                    Text(L10n["settings.sidebar.subtitle"])
                         .font(.system(size: 11))
                         .foregroundStyle(.white.opacity(0.52))
                 }
@@ -124,7 +137,7 @@ struct SettingsSceneView: View {
 
             Spacer()
 
-            Text("Local-first clipboard history. Network previews stay off until enabled.")
+            Text(L10n["settings.sidebar.footer"])
                 .font(.system(size: 10))
                 .foregroundStyle(.white.opacity(0.46))
                 .lineSpacing(1)
@@ -157,14 +170,7 @@ struct SettingsSceneView: View {
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: tab.icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color(red: 0.24, green: 0.17, blue: 0.08) : .white.opacity(0.72))
-                    .frame(width: 22, height: 22)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(isSelected ? Color(red: 0.86, green: 0.62, blue: 0.28) : .white.opacity(0.09))
-                    )
+                sidebarTabGlyph(tab, isSelected: isSelected)
                 Text(tab.label)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(isSelected ? .white : .white.opacity(0.62))
@@ -184,6 +190,28 @@ struct SettingsSceneView: View {
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func sidebarTabGlyph(_ tab: SettingsTab, isSelected: Bool) -> some View {
+        let foreground = isSelected ? Color(red: 0.24, green: 0.17, blue: 0.08) : .white.opacity(0.72)
+        let background = isSelected ? Color(red: 0.86, green: 0.62, blue: 0.28) : .white.opacity(0.09)
+
+        Group {
+            if tab.usesSymbolIcon {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 12, weight: .semibold))
+            } else {
+                Text(tab.icon)
+                    .font(.system(size: 12, weight: .heavy))
+            }
+        }
+        .foregroundStyle(foreground)
+        .frame(width: 22, height: 22)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(background)
+        )
     }
 
     private var settingsDetailBackground: some View {
@@ -215,98 +243,565 @@ struct SettingsSceneView: View {
         case .general:  generalTab
         case .shortcut: shortcutTab
         case .security: securityTab
+        case .version:  versionTab
         }
     }
 
     // MARK: - 通用 Tab
 
     private var generalTab: some View {
-        Form {
-            Section {
-                Picker(L10n["lang.label"], selection: Binding<Language>(
-                    get: { selectedLanguage },
-                    set: { lang in
-                        selectedLanguage = lang
-                        switch lang {
-                        case .system: UserDefaults.standard.removeObject(forKey: "PastryLanguage")
-                        default:      UserDefaults.standard.set(lang.rawValue, forKey: "PastryLanguage")
-                        }
-                    }
-                )) {
-                    ForEach(Language.allCases) { Text($0.label).tag($0) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                settingsPaneHeader(
+                    title: L10n["settings.tab.general"],
+                    subtitle: L10n["settings.general.subtitle"]
+                )
+
+                HStack(spacing: 10) {
+                    metricCard(
+                        value: formattedHistoryMaxItems,
+                        label: L10n["settings.general.metric_max_items"]
+                    )
+                    metricCard(
+                        value: HistoryRetentionPolicy.maxAgeMetricLabel(HistoryRetentionPolicy.sanitizedMaxAgeDays(historyMaxAgeDays)),
+                        label: L10n["settings.general.metric_retention_window"]
+                    )
+                    metricCard(
+                        value: "v\(AppVersion.displayCurrent)",
+                        label: L10n["settings.general.metric_current_version"]
+                    )
                 }
-                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.languagePicker)
-                Toggle(L10n["settings.launch_at_login"], isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, enabled in
-                        do {
-                            try LaunchAtLoginManager.shared.setEnabled(enabled)
-                        } catch {
-                            Logger(subsystem: "com.nekutai.pastry", category: "settings")
-                                .error("开机启动切换失败: \(error.localizedDescription)")
+
+                HStack(alignment: .top, spacing: 12) {
+                    settingsSection(title: L10n["settings.general.section_application"]) {
+                        settingsRow(
+                            title: L10n["lang.label"],
+                            help: L10n["settings.general.language_help"]
+                        ) {
+                            Picker("", selection: languageBinding) {
+                                ForEach(Language.allCases) { Text($0.label).tag($0) }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 124)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.Settings.languagePicker)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.launch_at_login"],
+                            help: L10n["settings.general.launch_help"]
+                        ) {
+                            Toggle("", isOn: $launchAtLogin)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .onChange(of: launchAtLogin) { _, enabled in
+                                    do {
+                                        try LaunchAtLoginManager.shared.setEnabled(enabled)
+                                    } catch {
+                                        Logger(subsystem: "com.nekutai.pastry", category: "settings")
+                                            .error("开机启动切换失败: \(error.localizedDescription)")
+                                    }
+                                }
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.launchAtLoginToggle)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.sound_enabled"],
+                            help: L10n["settings.general.sound_help"]
+                        ) {
+                            Toggle("", isOn: $soundEnabled)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.soundToggle)
                         }
                     }
-                    .accessibilityIdentifier(AccessibilityIdentifiers.Settings.launchAtLoginToggle)
-                Toggle(L10n["settings.sound_enabled"], isOn: $soundEnabled)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.Settings.soundToggle)
+                    .frame(maxWidth: .infinity, minHeight: generalSectionHeight, alignment: .top)
+
+                    settingsSection(title: L10n["settings.history.section"]) {
+                        settingsRow(
+                            title: L10n["settings.general.maximum_history"],
+                            help: L10n["settings.general.max_items_help"]
+                        ) {
+                            Picker("", selection: maxItemsBinding) {
+                                ForEach(HistoryRetentionPolicy.maxItemsOptions, id: \.self) { value in
+                                    Text(HistoryRetentionPolicy.maxItemsLabel(value)).tag(value)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 112)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.general.keep_records_for"],
+                            help: L10n["settings.general.keep_records_help"]
+                        ) {
+                            Picker("", selection: maxAgeBinding) {
+                                ForEach(HistoryRetentionPolicy.maxAgeDayOptions, id: \.self) { value in
+                                    Text(HistoryRetentionPolicy.maxAgeLabel(value)).tag(value)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 112)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.clear_all"],
+                            help: L10n["settings.general.clear_all_help"],
+                            danger: true
+                        ) {
+                            Button(L10n["settings.clear_btn"]) { showingClearConfirm = true }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.red)
+                                .controlSize(.small)
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.clearAllButton)
+                        }
+                        .alert(L10n["settings.clear_confirm_title"], isPresented: $showingClearConfirm) {
+                            Button(L10n["settings.clear_cancel"], role: .cancel) {}
+                            Button(L10n["settings.clear_btn"], role: .destructive) { StoreManager.shared.clearAll() }
+                        } message: {
+                            Text(L10n["settings.clear_warning"])
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: generalSectionHeight, alignment: .top)
+                }
+            }
+            .padding(.vertical, 24)
+            .padding(.horizontal, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
+        }
+        .background(Color.clear)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var formattedHistoryMaxItems: String {
+        let value = HistoryRetentionPolicy.sanitizedMaxItems(historyMaxItems)
+        return value.formatted(.number.grouping(.automatic))
+    }
+
+    private var languageBinding: Binding<Language> {
+        Binding<Language>(
+            get: { selectedLanguage },
+            set: { lang in
+                selectedLanguage = lang
+                switch lang {
+                case .system: UserDefaults.standard.removeObject(forKey: "PastryLanguage")
+                default:      UserDefaults.standard.set(lang.rawValue, forKey: "PastryLanguage")
+                }
+            }
+        )
+    }
+
+    private var maxItemsBinding: Binding<Int> {
+        Binding(
+            get: { HistoryRetentionPolicy.sanitizedMaxItems(historyMaxItems) },
+            set: { value in
+                historyMaxItems = value
+                StoreManager.shared.applyHistoryRetentionSettings()
+            }
+        )
+    }
+
+    private var maxAgeBinding: Binding<Int> {
+        Binding(
+            get: { HistoryRetentionPolicy.sanitizedMaxAgeDays(historyMaxAgeDays) },
+            set: { value in
+                historyMaxAgeDays = value
+                StoreManager.shared.applyHistoryRetentionSettings()
+            }
+        )
+    }
+
+    private func settingsPaneHeader(title: String, subtitle: String) -> some View {
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text(title)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(Color(red: 0.122, green: 0.145, blue: 0.161))
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                    .lineSpacing(1)
+                    .frame(maxWidth: 460, alignment: .leading)
             }
 
-            HistoryRetentionSettingsView(
-                maxItems: $historyMaxItems,
-                maxAgeDays: $historyMaxAgeDays,
-                onPolicyChange: { StoreManager.shared.applyHistoryRetentionSettings() }
+            Spacer()
+        }
+        .padding(.bottom, 6)
+    }
+
+    private func metricCard(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Color(red: 0.122, green: 0.145, blue: 0.161))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                .lineLimit(1)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.white.opacity(0.42))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                )
+        )
+    }
+
+    private func settingsSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 9)
+
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.white.opacity(0.56))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func settingsRow<Control: View>(
+        title: String,
+        help: String? = nil,
+        danger: Bool = false,
+        @ViewBuilder control: () -> Control
+    ) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(danger ? .red : Color(red: 0.122, green: 0.145, blue: 0.161))
+                if let help {
+                    Text(help)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            control()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minHeight: 48)
+        .background(danger ? Color.red.opacity(0.055) : Color.clear)
+    }
+
+    private var settingsDivider: some View {
+        Rectangle()
+            .fill(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10))
+            .frame(height: 1)
+            .padding(.horizontal, 14)
+    }
+
+    private var generalSectionHeight: CGFloat {
+        244
+    }
+
+    // MARK: - 版本 Tab
+
+    private var versionTab: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            settingsPaneHeader(
+                title: L10n["settings.tab.version"],
+                subtitle: L10n["settings.version.subtitle"]
             )
 
-            Section {
-                accessibilityPermissionRow
+            versionStatusCard
+
+            versionReleaseNotesCard
+
+            Spacer()
+        }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.clear)
+        .onAppear { loadVersionCache() }
+    }
+
+    private var versionStatusCard: some View {
+        HStack(alignment: .center, spacing: 14) {
+            versionBadge
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(versionStatusTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.122, green: 0.145, blue: 0.161))
+                Text(versionStatusSubtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                    .lineLimit(2)
             }
 
-            // 版本条目
-            Section {
-                HStack {
-                    Text(L10n["menu.about"])
-                    Spacer()
-                    Button {
-                        AppDelegate.shared?.showAboutWindow()
-                    } label: {
-                        Text("v\(AppVersion.displayCurrent)")
-                            .foregroundColor(.accentColor)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5)
-                                    .fill(versionHovered ? Color.primary.opacity(0.06) : Color.clear)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { versionHovered = $0 }
-                }
-            }
+            Spacer()
 
-            // 清空全部记录（左文案右按钮）
-            Section {
-                HStack {
-                    Text(L10n["settings.clear_all"]).font(.system(size: 12)).foregroundColor(.red)
-                    Spacer()
-                    Button(L10n["settings.clear_btn"]) { showingClearConfirm = true }
-                        .buttonStyle(.borderedProminent).tint(.red).controlSize(.small)
-                        .accessibilityIdentifier(AccessibilityIdentifiers.Settings.clearAllButton)
-                }
-                .alert(L10n["settings.clear_confirm_title"], isPresented: $showingClearConfirm) {
-                    Button(L10n["settings.clear_cancel"], role: .cancel) {}
-                    Button(L10n["settings.clear_btn"], role: .destructive) { StoreManager.shared.clearAll() }
-                } message: {
-                    Text(L10n["settings.clear_warning"])
-                }
+            versionPrimaryAction
+        }
+        .padding(14)
+        .frame(maxWidth: 600, minHeight: 72, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(versionStatusTint)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                )
+        )
+    }
+
+    private var versionBadge: some View {
+        Text(versionBadgeText)
+            .font(.system(size: 18, weight: .heavy))
+            .foregroundStyle(.white.opacity(0.94))
+            .frame(width: 42, height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(versionBadgeGradient)
+                    .shadow(color: Color(red: 0.45, green: 0.25, blue: 0.10).opacity(0.20), radius: 10, x: 0, y: 5)
+            )
+    }
+
+    @ViewBuilder
+    private var versionPrimaryAction: some View {
+        switch versionUpdateState {
+        case .checking:
+            ProgressView()
+                .controlSize(.small)
+        case .downloading(let progress):
+            VStack(alignment: .trailing, spacing: 6) {
+                progressBar(progress)
+                    .frame(width: 118)
+                Text("\(Int(min(max(progress, 0), 1) * 100))%")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                    .monospacedDigit()
+            }
+        case .installing:
+            ProgressView()
+                .controlSize(.small)
+        case .updateAvailable(let result):
+            Button(L10n["update.update_btn"]) {
+                Task { await installVersionUpdate(result) }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color(red: 0.22, green: 0.50, blue: 0.83))
+            .controlSize(.small)
+        default:
+            Button(L10n["settings.version.check_again"]) {
+                Task { await checkVersionFromSettings() }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color(red: 0.22, green: 0.50, blue: 0.83))
+            .controlSize(.small)
+        }
+    }
+
+    private var versionReleaseNotesCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(releaseNotesTitle)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color(red: 0.122, green: 0.145, blue: 0.161))
+            Text(releaseNotesBody)
+                .font(.system(size: 12))
+                .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                .lineSpacing(3)
+                .textSelection(.enabled)
+        }
+        .padding(16)
+        .frame(maxWidth: 600, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.white.opacity(0.34))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+
+    private var versionStatusTitle: String {
+        switch versionUpdateState {
+        case .checking:
+            return L10n["update.checking"]
+        case .updateAvailable:
+            return L10n["update.update_available"]
+        case .downloading:
+            return L10n["update.downloading"]
+        case .installing:
+            return L10n["update.installing_msg"]
+        case .error:
+            return L10n["update.check_failed"]
+        case .upToDate:
+            return L10n["settings.version.up_to_date"]
+        }
+    }
+
+    private var versionStatusSubtitle: String {
+        switch versionUpdateState {
+        case .updateAvailable(let result):
+            return "\(L10n["update.current"]) v\(UpdateChecker.displayVersion(result.currentVersion)) -> \(L10n["update.latest"]) v\(UpdateChecker.displayVersion(result.latestVersion))"
+        case .downloading, .installing:
+            if let current = versionCurrentVersion, let latest = versionLatestVersion {
+                return "\(L10n["update.current"]) v\(UpdateChecker.displayVersion(current)) -> \(L10n["update.latest"]) v\(UpdateChecker.displayVersion(latest))"
+            }
+            return String(format: L10n["settings.version.current_build"], "v\(AppVersion.displayCurrent)", AppVersion.displayBuild)
+        case .error(let message):
+            return message
+        default:
+            return String(format: L10n["settings.version.current_build"], "v\(AppVersion.displayCurrent)", AppVersion.displayBuild)
+        }
+    }
+
+    private var releaseNotesTitle: String {
+        if case .updateAvailable = versionUpdateState {
+            return L10n["update.whats_new"]
+        }
+        return L10n["settings.version.recent_changes"]
+    }
+
+    private var releaseNotesBody: String {
+        let notes = versionReleaseNotes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return notes.isEmpty ? L10n["settings.version.no_release_notes"] : notes
+    }
+
+    private var versionBadgeText: String {
+        switch versionUpdateState {
+        case .updateAvailable, .downloading, .installing:
+            return "!"
+        case .error:
+            return "!"
+        default:
+            return "v"
+        }
+    }
+
+    private var versionStatusTint: Color {
+        switch versionUpdateState {
+        case .updateAvailable, .downloading, .installing:
+            return Color(red: 0.88, green: 0.94, blue: 1.0).opacity(0.62)
+        case .error:
+            return Color.red.opacity(0.08)
+        default:
+            return .white.opacity(0.56)
+        }
+    }
+
+    private var versionBadgeGradient: LinearGradient {
+        let colors: [Color] = switch versionUpdateState {
+        case .updateAvailable, .downloading, .installing:
+            [Color(red: 0.45, green: 0.68, blue: 1.0), Color(red: 0.22, green: 0.50, blue: 0.83)]
+        case .error:
+            [Color(red: 1.0, green: 0.48, blue: 0.45), Color(red: 0.74, green: 0.24, blue: 0.22)]
+        default:
+            [Color(red: 1.0, green: 0.88, blue: 0.65), Color(red: 0.85, green: 0.62, blue: 0.26)]
+        }
+        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private func progressBar(_ progress: Double) -> some View {
+        let clamped = min(max(progress, 0), 1)
+        let visible = max(clamped, 0.02)
+        return GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10))
+                    .frame(height: 6)
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color(red: 0.22, green: 0.50, blue: 0.83))
+                    .frame(width: geo.size.width * CGFloat(visible), height: 6)
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.clear)
-        .frame(maxWidth: 680, alignment: .topLeading)
-        .padding(.vertical, 24)
-        .padding(.leading, 28)
-        .padding(.trailing, 28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(height: 6)
+    }
+
+    private func loadVersionCache() {
+        guard versionReleaseNotes == nil else { return }
+        versionReleaseNotes = UpdateChecker.shared.cachedReleaseNotes()
+        let lastCheck = UserDefaults.standard.object(forKey: "PastryLastUpdateCheck") as? Date
+        versionUpdateState = .upToDate(
+            version: AppVersion.displayCurrent,
+            build: AppVersion.displayBuild,
+            lastCheckDate: lastCheck,
+            lastReleaseNotes: versionReleaseNotes
+        )
+    }
+
+    @MainActor
+    private func checkVersionFromSettings() async {
+        versionUpdateState = .checking
+        if let result = await UpdateChecker.shared.checkForUpdate(force: true) {
+            versionReleaseNotes = result.releaseNotes
+            versionCurrentVersion = result.currentVersion
+            versionLatestVersion = result.latestVersion
+            versionUpdateState = .updateAvailable(result: result)
+        } else {
+            let cachedNotes = UpdateChecker.shared.cachedReleaseNotes()
+            versionReleaseNotes = cachedNotes
+            versionCurrentVersion = nil
+            versionLatestVersion = nil
+            let lastCheck = UserDefaults.standard.object(forKey: "PastryLastUpdateCheck") as? Date
+            versionUpdateState = .upToDate(
+                version: AppVersion.displayCurrent,
+                build: AppVersion.displayBuild,
+                lastCheckDate: lastCheck,
+                lastReleaseNotes: cachedNotes
+            )
+        }
+    }
+
+    @MainActor
+    private func installVersionUpdate(_ result: UpdateChecker.UpdateResult) async {
+        versionReleaseNotes = result.releaseNotes
+        versionCurrentVersion = result.currentVersion
+        versionLatestVersion = result.latestVersion
+        versionUpdateState = .downloading(progress: 0)
+
+        do {
+            let tempURL = try await UpdateChecker.shared.downloadBinary(
+                from: result.downloadURL,
+                expectedSize: result.downloadSize,
+                onProgress: { progress in
+                    Task { @MainActor in
+                        versionUpdateState = .downloading(progress: progress)
+                    }
+                }
+            )
+            versionUpdateState = .installing
+            try UpdateChecker.shared.applyUpdate(dmgAt: tempURL, expectedVersion: result.latestVersion)
+        } catch {
+            versionUpdateState = .error(error.localizedDescription)
+        }
     }
 
     // MARK: - 快捷键 Tab
@@ -346,8 +841,6 @@ struct SettingsSceneView: View {
         .padding(.trailing, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
-
-    @State private var versionHovered = false
 
     // MARK: - 安全 Tab
 
@@ -518,12 +1011,22 @@ private struct SettingsWindowChromeConfigurator: NSViewRepresentable {
                 return
             }
 
-            window.styleMask.insert(.fullSizeContentView)
-            window.titleVisibility = .hidden
-            window.titlebarAppearsTransparent = true
-            window.titlebarSeparatorStyle = .none
-            window.toolbar?.isVisible = false
-            window.toolbar = nil
+            if !window.styleMask.contains(.fullSizeContentView) {
+                window.styleMask.insert(.fullSizeContentView)
+            }
+            if window.titleVisibility != .hidden {
+                window.titleVisibility = .hidden
+            }
+            if !window.titlebarAppearsTransparent {
+                window.titlebarAppearsTransparent = true
+            }
+            if window.titlebarSeparatorStyle != .none {
+                window.titlebarSeparatorStyle = .none
+            }
+            if window.toolbar != nil {
+                window.toolbar?.isVisible = false
+                window.toolbar = nil
+            }
         }
     }
 }
