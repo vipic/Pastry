@@ -103,7 +103,7 @@ struct FilterPopoverContent: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.white.opacity(0.52))
+                .foregroundColor(.white.opacity(0.62))
                 .textCase(.uppercase)
             content()
         }
@@ -142,8 +142,8 @@ struct FilterPopoverContent: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.27, green: 0.30, blue: 0.31).opacity(0.82),
-                                Color(red: 0.17, green: 0.20, blue: 0.21).opacity(0.78)
+                                Color(red: 0.27, green: 0.30, blue: 0.31).opacity(0.76),
+                                Color(red: 0.17, green: 0.20, blue: 0.21).opacity(0.70)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -154,14 +154,14 @@ struct FilterPopoverContent: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [.white.opacity(0.20), .white.opacity(0.05), .black.opacity(0.12)],
+                            colors: [.white.opacity(0.16), .white.opacity(0.04), .black.opacity(0.10)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
                         lineWidth: 0.8
                     )
             )
-            .shadow(color: .black.opacity(0.28), radius: 24, x: 0, y: 14)
+            .shadow(color: .black.opacity(0.20), radius: 18, x: 0, y: 10)
     }
 
     private var filterSectionBackground: some View {
@@ -169,8 +169,8 @@ struct FilterPopoverContent: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        .white.opacity(0.08),
-                        .white.opacity(0.035)
+                        .white.opacity(0.055),
+                        .white.opacity(0.025)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -178,7 +178,7 @@ struct FilterPopoverContent: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(.white.opacity(0.08), lineWidth: 1)
+                    .stroke(.white.opacity(0.065), lineWidth: 1)
             )
     }
 
@@ -213,7 +213,7 @@ struct FilterPopoverContent: View {
                         .padding(1)
                 }
             )
-            .shadow(color: chipShadow(isSelected: isSelected), radius: isSelected ? 4 : 2, x: 0, y: isSelected ? 2 : 1)
+            .shadow(color: chipShadow(isSelected: isSelected), radius: isSelected ? 3 : 1.5, x: 0, y: isSelected ? 2 : 1)
     }
 
     private func chipFill(isSelected: Bool) -> LinearGradient {
@@ -238,7 +238,7 @@ struct FilterPopoverContent: View {
     private func chipShadow(isSelected: Bool) -> Color {
         isSelected
             ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
-            : .black.opacity(0.14)
+            : .black.opacity(0.08)
     }
 
     /// 带应用图标的筛选标签
@@ -287,7 +287,7 @@ private struct AppFilterChipBackground: View {
                         .padding(1)
                 }
             )
-            .shadow(color: shadow, radius: isSelected ? 4 : 2, x: 0, y: isSelected ? 2 : 1)
+            .shadow(color: shadow, radius: isSelected ? 3 : 1.5, x: 0, y: isSelected ? 2 : 1)
     }
 
     private var fill: LinearGradient {
@@ -312,6 +312,6 @@ private struct AppFilterChipBackground: View {
     private var shadow: Color {
         isSelected
             ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
-            : .black.opacity(0.14)
+            : .black.opacity(0.08)
     }
 }
