@@ -5,9 +5,7 @@ struct AboutView: View {
     @AppStorage("PastryLanguage") private var language = ""
     var body: some View {
         VStack(spacing: 0) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 72, height: 72)
+            AppIconImageView(size: 72)
                 .padding(.top, 30)
                 .padding(.bottom, 14)
 

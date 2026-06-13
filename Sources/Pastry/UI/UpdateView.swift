@@ -25,9 +25,7 @@ struct UpdateView: View {
     var body: some View {
         VStack(spacing: 0) {
             // App 图标
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 72, height: 72)
+            AppIconImageView(size: 72)
                 .padding(.top, 30)
                 .padding(.bottom, 14)
 

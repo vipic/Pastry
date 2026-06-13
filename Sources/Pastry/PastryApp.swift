@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 启动主线程看门狗（卡死时自动 dump 堆栈）
         MainThreadWatchdog.shared.start()
+        configureApplicationIcon()
 
         // About / Settings 由 SwiftUI commands 替换默认系统项。
         // 这里仅保留系统菜单中仍需 AppKit 级别重定向的条目。
@@ -52,6 +53,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 初次启动：写入常见密码管理器的默认排除名单
         seedDefaultExcludedApps()
+    }
+
+    private func configureApplicationIcon() {
+        guard let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+              let icon = NSImage(contentsOf: iconURL) else { return }
+        NSApp.applicationIconImage = icon
     }
 
     func applicationWillTerminate(_ notification: Notification) {
