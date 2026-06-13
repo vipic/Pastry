@@ -72,20 +72,139 @@ struct SettingsSceneView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(SettingsTab.allCases, selection: $selectedTab) { tab in
-                Label(tab.label, systemImage: tab.icon).tag(tab)
-            }
-            .accessibilityIdentifier(AccessibilityIdentifiers.Settings.sidebar)
-            .navigationSplitViewColumnWidth(min: 136, ideal: 148)
+            settingsSidebar
+                .navigationSplitViewColumnWidth(min: 206, ideal: 206, max: 206)
         } detail: {
-            if let tab = selectedTab { detail(for: tab) }
+            ZStack(alignment: .topLeading) {
+                settingsDetailBackground
+                detail(for: selectedTab ?? .general)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .navigationSplitViewStyle(.balanced)
+        .toolbar(removing: .sidebarToggle)
+        .toolbarVisibility(.hidden, for: .windowToolbar)
+        .background(settingsWindowBackground)
+        .ignoresSafeArea(.container, edges: .top)
+        .background(SettingsWindowChromeConfigurator())
         .accessibilityIdentifier(AccessibilityIdentifiers.Settings.root)
         .id(selectedLanguage.rawValue)
         .onAppear { refreshAccessibilityStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
         }
+    }
+
+    private var settingsSidebar: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 10) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .scaledToFit()
+                .frame(width: 40, height: 40)
+                .shadow(color: .black.opacity(0.24), radius: 10, x: 0, y: 5)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Pastry")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.92))
+                    Text("Clipboard settings")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.52))
+                }
+            }
+            .padding(.horizontal, 6)
+
+            VStack(spacing: 4) {
+                ForEach(SettingsTab.allCases) { tab in
+                    sidebarTabButton(tab)
+                }
+            }
+            .accessibilityIdentifier(AccessibilityIdentifiers.Settings.sidebar)
+
+            Spacer()
+
+            Text("Local-first clipboard history. Network previews stay off until enabled.")
+                .font(.system(size: 10))
+                .foregroundStyle(.white.opacity(0.46))
+                .lineSpacing(1)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 52)
+        .padding(.bottom, 14)
+        .frame(width: 206)
+        .background(
+            ZStack {
+                Color(red: 0.18, green: 0.20, blue: 0.21).opacity(0.88)
+                LinearGradient(
+                    colors: [.white.opacity(0.08), .clear],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+            }
+        )
+        .ignoresSafeArea(.container, edges: .top)
+    }
+
+    private func sidebarTabButton(_ tab: SettingsTab) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            withAnimation(.easeInOut(duration: 0.14)) {
+                selectedTab = tab
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color(red: 0.24, green: 0.17, blue: 0.08) : .white.opacity(0.72))
+                    .frame(width: 22, height: 22)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(isSelected ? Color(red: 0.86, green: 0.62, blue: 0.28) : .white.opacity(0.09))
+                    )
+                Text(tab.label)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isSelected ? .white : .white.opacity(0.62))
+                Spacer()
+            }
+            .padding(.horizontal, 9)
+            .frame(height: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected ? .white.opacity(0.16) : .clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(isSelected ? .white.opacity(0.10) : .clear, lineWidth: 0.5)
+                    )
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var settingsDetailBackground: some View {
+        ZStack {
+            Color(red: 0.949, green: 0.933, blue: 0.886).opacity(0.88)
+            LinearGradient(
+                colors: [Color.white.opacity(0.42), Color.clear],
+                startPoint: .top,
+                endPoint: .center
+            )
+            LinearGradient(
+                colors: [Color(red: 0.851, green: 0.616, blue: 0.263).opacity(0.10), Color.clear],
+                startPoint: .topLeading,
+                endPoint: .center
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private var settingsWindowBackground: some View {
+        Color(red: 0.949, green: 0.933, blue: 0.886).opacity(0.88)
     }
 
     // MARK: - 详情内容
@@ -181,10 +300,12 @@ struct SettingsSceneView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(maxWidth: 400, alignment: .topLeading)
-        .padding(.vertical, 16)
-        .padding(.leading, 18)
-        .padding(.trailing, 26)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .frame(maxWidth: 680, alignment: .topLeading)
+        .padding(.vertical, 24)
+        .padding(.leading, 28)
+        .padding(.trailing, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
@@ -217,10 +338,12 @@ struct SettingsSceneView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(maxWidth: 400, alignment: .topLeading)
-        .padding(.vertical, 16)
-        .padding(.leading, 18)
-        .padding(.trailing, 26)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .frame(maxWidth: 680, alignment: .topLeading)
+        .padding(.vertical, 24)
+        .padding(.leading, 28)
+        .padding(.trailing, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
@@ -296,10 +419,12 @@ struct SettingsSceneView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(maxWidth: 400, alignment: .topLeading)
-        .padding(.vertical, 16)
-        .padding(.leading, 18)
-        .padding(.trailing, 26)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .frame(maxWidth: 680, alignment: .topLeading)
+        .padding(.vertical, 24)
+        .padding(.leading, 28)
+        .padding(.trailing, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             excludedBundleIDs = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.excludedBundleIDs) ?? []
@@ -371,6 +496,35 @@ struct SettingsSceneView: View {
 
     private var installedExcludedBundleIDs: [String] {
         excludedBundleIDs.filter { isAppInstalled(bundleID: $0) }
+    }
+}
+
+private struct SettingsWindowChromeConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        view.isHidden = true
+        configureWhenReady(from: view)
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        configureWhenReady(from: view)
+    }
+
+    private func configureWhenReady(from view: NSView) {
+        DispatchQueue.main.async {
+            guard let window = view.window else {
+                configureWhenReady(from: view)
+                return
+            }
+
+            window.styleMask.insert(.fullSizeContentView)
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.titlebarSeparatorStyle = .none
+            window.toolbar?.isVisible = false
+            window.toolbar = nil
+        }
     }
 }
 
