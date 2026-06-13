@@ -324,10 +324,10 @@ func shortcutDisplayPreviewSegments(keyCode: Int?, modifiers: Int) -> [String] {
 private func shortcutDisplaySegments(keyCode: Int, modifiers: Int, includeKey: Bool) -> [String] {
     let mods = UInt32(modifiers)
     var parts: [String] = []
-    if mods & UInt32(controlKey) != 0 { parts.append("⌃") }
-    if mods & UInt32(optionKey)  != 0 { parts.append("⌥") }
-    if mods & UInt32(shiftKey)   != 0 { parts.append("⇧") }
     if mods & UInt32(cmdKey)     != 0 { parts.append("⌘") }
+    if mods & UInt32(shiftKey)   != 0 { parts.append("⇧") }
+    if mods & UInt32(optionKey)  != 0 { parts.append("⌥") }
+    if mods & UInt32(controlKey) != 0 { parts.append("⌃") }
 
     if includeKey, let char = keyCodeToDisplayName(Int32(keyCode)) {
         parts.append(char)

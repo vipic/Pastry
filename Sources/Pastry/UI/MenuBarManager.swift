@@ -20,40 +20,29 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     @MainActor
     func setup() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.menu = nil
+
+        buildMenu()
+        // macOS 27: sendAction(.rightMouseUp) 和 local monitor 均无法捕获右键。
+        // menu 属性会覆盖左键 action，因此统一用左键弹出菜单，
+        // overlay 面板通过全局快捷键或菜单第一项「打开剪贴板」唤出。
+        statusItem.menu = menu
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: "Pastry")
+            button.image = menuBarIcon()
             button.target = self
             button.action = #selector(statusItemClicked)
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
-        // 菜单延迟到首次右键时构建（确保 L10n 和系统 locale 已就绪）
-        log.info("菜单栏已配置（左键面板 / 右键菜单）")
+        log.info("菜单栏已配置")
     }
 
     // MARK: - 点击处理
 
     @MainActor
     @objc private func statusItemClicked() {
-        guard let event = NSApp.currentEvent else { return }
-
-        switch event.type {
-        case .rightMouseUp:
-            showStatusMenu()
-        default:
-            OverlayPanelManager.shared.toggle()
-        }
+        OverlayPanelManager.shared.toggle()
     }
 
-    @MainActor
-    private func showStatusMenu() {
-        guard let button = statusItem.button else { return }
-        buildMenu()
-        refreshStats()
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 4), in: button)
-    }
 
     // MARK: - 构建菜单
 
@@ -89,6 +78,11 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     }
 
     // MARK: - 操作
+
+    private func menuBarIcon() -> NSImage? {
+        let symbolName = isUpdateDevBuild ? "doc.on.clipboard" : "clipboard"
+        return NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pastry")
+    }
 
     private var isUpdateDevBuild: Bool {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
