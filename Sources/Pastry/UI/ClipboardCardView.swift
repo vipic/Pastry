@@ -84,7 +84,13 @@ struct ClipboardCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
-                .stroke(Color.white.opacity(UIConstants.Card.idleBorderOpacity), lineWidth: 0.5)
+                .stroke(cardIdleBorderColor, lineWidth: 0.8)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
+                .stroke(cardSelectedGlowColor, lineWidth: 5)
+                .blur(radius: 1.6)
+                .opacity(isSelected ? 1 : 0)
         )
         .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
@@ -157,26 +163,58 @@ struct ClipboardCardView: View {
 
     /// 卡片状态边框颜色
     private var cardBorderColor: Color {
-        if isSelected { return .blue }
-        if isHovered { return .white.opacity(UIConstants.Card.hoverBorderOpacity) }
+        if isSelected { return cardAccentColor.opacity(0.88) }
+        if isHovered { return .white.opacity(0.30) }
         return .clear
+    }
+
+    private var cardIdleBorderColor: Color {
+        .white.opacity(0.42)
+    }
+
+    private var cardSelectedGlowColor: Color {
+        cardAccentColor.opacity(0.28)
+    }
+
+    private var cardAccentColor: Color {
+        Color(red: 0.85, green: 0.62, blue: 0.26)
+    }
+
+    private var cardAccentStrongColor: Color {
+        Color(red: 0.72, green: 0.45, blue: 0.15)
     }
 
     /// ⌘+数字角标 — 按住 ⌘ 时在卡片右下角显示序号
     private func cmdBadge(_ idx: Int) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color.black.opacity(0.18))
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.89, green: 0.70, blue: 0.39),
+                            Color(red: 0.76, green: 0.48, blue: 0.19)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .stroke(Color.black.opacity(0.14), lineWidth: 0.5)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .stroke(cardAccentStrongColor.opacity(0.52), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(.white.opacity(0.34), lineWidth: 1)
+                            .padding(1)
+                    }
                 )
             Text("\(idx)")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundColor(.primary.opacity(0.68))
+                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .foregroundColor(Color(red: 0.23, green: 0.15, blue: 0.06))
         }
-        .frame(width: 18, height: 18)
-        .padding(6)
+        .frame(width: 24, height: 24)
+        .shadow(color: Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.28), radius: 7, x: 0, y: 4)
+        .shadow(color: .white.opacity(0.22), radius: 0, x: 0, y: 1)
+        .padding(7)
     }
 
     // MARK: - 顶部栏（始终使用主题色背景）

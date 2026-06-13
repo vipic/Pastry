@@ -245,13 +245,18 @@ struct OverlayView: View {
     private var inlineSearchField: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.white.opacity(0.46))
                 .font(.system(size: 12))
 
-            TextField(L10n["search.placeholder"], text: $store.searchQuery)
+            TextField(
+                "",
+                text: $store.searchQuery,
+                prompt: Text(L10n["search.placeholder"])
+                    .foregroundColor(.white.opacity(0.58))
+            )
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .foregroundColor(.white)
+                .foregroundColor(.white.opacity(0.92))
                 .focused($isSearchFocused)
                 .frame(maxWidth: 400)
                 .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
@@ -271,13 +276,10 @@ struct OverlayView: View {
                 if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .frame(height: 28)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.black.opacity(0.25))
-        )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(height: 32)
+        .background(overlaySearchFieldBackground)
         .padding(.trailing, 6)
     }
 
@@ -285,13 +287,10 @@ struct OverlayView: View {
 
     private var filterButton: some View {
         Image(systemName: "line.3.horizontal.decrease")
-            .font(.system(size: 13))
-            .foregroundColor(showFilterPopover || hasActiveTimeOrTypeFilter ? .white : .white.opacity(hoverFilter ? 0.82 : 0.58))
-            .frame(width: 28, height: 28)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(showFilterPopover || hasActiveTimeOrTypeFilter ? Color.white.opacity(0.14) : (hoverFilter ? Color.white.opacity(0.1) : Color.clear))
-            )
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundColor(toolbarForeground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
+            .frame(width: 32, height: 32)
+            .background(toolbarButtonBackground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
             .contentShape(Rectangle())
             .onTapGesture {
                 selection.reset()
@@ -337,20 +336,62 @@ struct OverlayView: View {
         .padding(.top, 10)
         .padding(.horizontal, 12)
         .padding(.bottom, 10)
-        .background(
-            ZStack {
-                GlassBackground(cornerRadius: 20)
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.black.opacity(0.16))
-            }
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
-        )
+        .background(panelTrayBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: .black.opacity(0.34), radius: 36, x: 0, y: 24)
+        .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 5)
         .contentShape(Rectangle())
         .onTapGesture { selection.reset() }
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.cardContainer)
+    }
+
+    private var panelTrayBackground: some View {
+        ZStack {
+            GlassBackground(cornerRadius: 24)
+
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.27, green: 0.30, blue: 0.31).opacity(0.72),
+                            Color(red: 0.18, green: 0.21, blue: 0.22).opacity(0.66)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.13),
+                            .white.opacity(0.04),
+                            .black.opacity(0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.20),
+                            .white.opacity(0.06),
+                            .black.opacity(0.12)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(.white.opacity(0.08), lineWidth: 1)
+                .padding(1.5)
+        }
     }
 
     // MARK: - Header
@@ -375,13 +416,10 @@ struct OverlayView: View {
                     withAnimation { showSearch = true }
                 } label: {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(hoverSearch ? 0.82 : 0.58))
-                        .frame(width: 28, height: 28)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(hoverSearch ? Color.white.opacity(0.1) : Color.clear)
-                        )
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(toolbarForeground(isActive: false, isHovered: hoverSearch))
+                        .frame(width: 32, height: 32)
+                        .background(toolbarButtonBackground(isActive: false, isHovered: hoverSearch))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
@@ -403,13 +441,10 @@ struct OverlayView: View {
                 openSettingsFromOverlay()
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white.opacity(hoverGear ? 0.9 : 0.66))
-                    .frame(width: 28, height: 28)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(hoverGear ? Color.white.opacity(0.1) : Color.clear)
-                    )
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(toolbarForeground(isActive: false, isHovered: hoverGear))
+                    .frame(width: 32, height: 32)
+                    .background(toolbarButtonBackground(isActive: false, isHovered: hoverGear))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.settingsButton)
@@ -440,20 +475,93 @@ struct OverlayView: View {
                         .font(.system(size: 11))
                 }
             }
-            .foregroundColor(isSelected || isHover ? .white : .white.opacity(0.62))
             .padding(.horizontal, showSearch ? 6 : 10)
             .padding(.vertical, 4)
-            .frame(height: 28)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? Color.white.opacity(0.18) : (isHover ? Color.white.opacity(0.1) : Color.clear))
-            )
+            .frame(height: 32)
+            .foregroundColor(toolbarForeground(isActive: isSelected, isHovered: isHover))
+            .background(toolbarButtonBackground(isActive: isSelected, isHovered: isHover))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(tab == .all ? AccessibilityIdentifiers.Overlay.allTab : AccessibilityIdentifiers.Overlay.pinnedTab)
         .onHover { hovering in
             hoverTab = hovering ? tab : nil
         }
+    }
+
+    private var overlaySearchFieldBackground: some View {
+        RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.34),
+                        Color(red: 0.16, green: 0.18, blue: 0.19).opacity(0.24)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(.black.opacity(0.28), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(.white.opacity(0.08), lineWidth: 1)
+                        .padding(1)
+                }
+            )
+            .shadow(color: .black.opacity(0.28), radius: 0, x: 0, y: 1)
+            .shadow(color: .white.opacity(0.08), radius: 0, x: 0, y: -1)
+    }
+
+    private func toolbarForeground(isActive: Bool, isHovered: Bool) -> Color {
+        if isActive {
+            return Color(red: 0.23, green: 0.15, blue: 0.06)
+        }
+        return .white.opacity(isHovered ? 0.86 : 0.62)
+    }
+
+    private func toolbarButtonBackground(isActive: Bool, isHovered: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(toolbarButtonFill(isActive: isActive, isHovered: isHovered))
+            .overlay(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(toolbarButtonBorder(isActive: isActive), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(.white.opacity(isActive ? 0.30 : 0.13), lineWidth: 1)
+                        .padding(1)
+                }
+            )
+            .shadow(color: toolbarButtonShadow(isActive: isActive), radius: isActive ? 4 : 3, x: 0, y: isActive ? 2 : 1)
+            .shadow(color: .white.opacity(isActive ? 0.22 : 0.08), radius: 0, x: 0, y: 1)
+    }
+
+    private func toolbarButtonFill(isActive: Bool, isHovered: Bool) -> LinearGradient {
+        let colors: [Color]
+        if isActive {
+            colors = [
+                Color(red: 0.88, green: 0.67, blue: 0.35),
+                Color(red: 0.74, green: 0.46, blue: 0.18)
+            ]
+        } else {
+            colors = [
+                .white.opacity(isHovered ? 0.16 : 0.10),
+                .white.opacity(isHovered ? 0.08 : 0.045)
+            ]
+        }
+        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+    }
+
+    private func toolbarButtonBorder(isActive: Bool) -> Color {
+        isActive
+            ? Color(red: 0.72, green: 0.45, blue: 0.15).opacity(0.52)
+            : .white.opacity(0.10)
+    }
+
+    private func toolbarButtonShadow(isActive: Bool) -> Color {
+        isActive
+            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
+            : .black.opacity(0.18)
     }
 
     // MARK: - 卡片列表
@@ -663,23 +771,107 @@ struct OverlayView: View {
             hasActiveFilters: hasActiveFilters
         )
 
-        return VStack(spacing: 8) {
-            Image(systemName: model.icon)
-                .font(.system(size: 32))
-                .foregroundColor(.white.opacity(0.6))
-                .padding(.bottom, 6)
-            Text(model.title)
-                .font(.body)
-                .foregroundColor(.white.opacity(0.72))
-            Text(model.subtitle)
-                .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.46))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
+        let accent = emptyStateAccent(icon: model.icon)
+
+        return VStack {
+            Spacer(minLength: 0)
+
+            VStack(spacing: 11) {
+                ZStack {
+                    emptyStateIconBackground(accent: accent)
+                    Image(systemName: model.icon)
+                        .font(.system(size: 25, weight: .semibold))
+                        .foregroundColor(emptyStateIconColor(icon: model.icon))
+                }
+                .frame(width: 56, height: 56)
+                .padding(.bottom, 2)
+
+                Text(model.title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(red: 0.122, green: 0.145, blue: 0.161))
+
+                Text(model.subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(red: 0.396, green: 0.443, blue: 0.478))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(1)
+                    .lineLimit(2)
+                    .frame(maxWidth: 330)
+            }
+            .padding(.horizontal, 30)
+            .padding(.vertical, 26)
+            .background(emptyStateCardBackground)
+
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, minHeight: UIConstants.Overlay.emptyStateMinHeight)
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.emptyState)
+    }
+
+    private var emptyStateCardBackground: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 1.0, green: 0.985, blue: 0.945).opacity(0.82),
+                        Color(red: 0.94, green: 0.91, blue: 0.84).opacity(0.64)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(.white.opacity(0.46), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.18), radius: 24, x: 0, y: 14)
+            .shadow(color: .white.opacity(0.42), radius: 0, x: 0, y: 1)
+    }
+
+    private func emptyStateIconBackground(accent: Color) -> some View {
+        RoundedRectangle(cornerRadius: 15, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        accent.opacity(0.96),
+                        accent.opacity(0.70)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .stroke(.black.opacity(0.10), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(.white.opacity(0.34), lineWidth: 1)
+                        .padding(1)
+                }
+            )
+            .shadow(color: accent.opacity(0.26), radius: 14, x: 0, y: 7)
+    }
+
+    private func emptyStateIconColor(icon: String) -> Color {
+        icon == "magnifyingglass"
+            ? .white.opacity(0.92)
+            : Color(red: 0.23, green: 0.15, blue: 0.06)
+    }
+
+    private func emptyStateAccent(icon: String) -> Color {
+        switch icon {
+        case "magnifyingglass":
+            return emptyStateSearchAccent
+        case "pin.slash":
+            return Color(red: 0.85, green: 0.62, blue: 0.26)
+        default:
+            return Color(red: 0.88, green: 0.67, blue: 0.35)
+        }
+    }
+
+    private var emptyStateSearchAccent: Color {
+        Color(red: 0.30, green: 0.50, blue: 0.78)
     }
 }
 
