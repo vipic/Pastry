@@ -102,19 +102,35 @@ final class OverlayKeyboardRouter {
         switch event.keyCode {
         case 126: // 上
             if isSearchActive() { return event }
-            NotificationCenter.default.post(name: .overlayMoveUp, object: nil, userInfo: ["extend": extend])
+            postCursorMove(delta: -1, extend: extend)
             return nil
         case 125: // 下
             if isSearchActive() { return event }
-            NotificationCenter.default.post(name: .overlayMoveDown, object: nil, userInfo: ["extend": extend])
+            postCursorMove(delta: 1, extend: extend)
             return nil
         case 123: // 左
             if isSearchActive() { return event }
-            NotificationCenter.default.post(name: .overlayMoveLeft, object: nil, userInfo: ["extend": extend])
+            postCursorMove(delta: -1, extend: extend)
             return nil
         case 124: // 右
             if isSearchActive() { return event }
-            NotificationCenter.default.post(name: .overlayMoveRight, object: nil, userInfo: ["extend": extend])
+            postCursorMove(delta: 1, extend: extend)
+            return nil
+        case 115: // Home
+            if isSearchActive() { return event }
+            postCursorMove(target: "home", extend: extend)
+            return nil
+        case 119: // End
+            if isSearchActive() { return event }
+            postCursorMove(target: "end", extend: extend)
+            return nil
+        case 116: // Page Up
+            if isSearchActive() { return event }
+            postCursorMove(pageDelta: -1, extend: extend)
+            return nil
+        case 121: // Page Down
+            if isSearchActive() { return event }
+            postCursorMove(pageDelta: 1, extend: extend)
             return nil
         case 36: // Enter
             if Self.shouldAllowEnterForIME() {
@@ -157,6 +173,14 @@ final class OverlayKeyboardRouter {
                                             userInfo: ["cmdDown": cmdNow])
         }
         return event
+    }
+
+    private func postCursorMove(delta: Int? = nil, pageDelta: Int? = nil, target: String? = nil, extend: Bool) {
+        var userInfo: [String: Any] = ["extend": extend]
+        if let delta { userInfo["delta"] = delta }
+        if let pageDelta { userInfo["pageDelta"] = pageDelta }
+        if let target { userInfo["target"] = target }
+        NotificationCenter.default.post(name: .overlayMoveCursor, object: nil, userInfo: userInfo)
     }
 
     private static let cmdNumberMap: [UInt16: Int] = [

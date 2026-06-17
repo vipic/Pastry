@@ -293,12 +293,49 @@ final class SelectionStateTests: XCTestCase {
         XCTAssertFalse(s.wouldHitBoundary(delta: -1, visibleItems: items))
     }
 
+    func testMoveCursorToIndexSupportsHomeEndStyleNavigation() {
+        let items = makeItems(5)
+        var s = SelectionState()
+
+        s.moveCursor(to: 4, extend: false, visibleItems: items)
+        XCTAssertEqual(s.cursorIndex, 4)
+        XCTAssertEqual(s.selectedIds, [items[4].id])
+
+        s.moveCursor(to: 0, extend: false, visibleItems: items)
+        XCTAssertEqual(s.cursorIndex, 0)
+        XCTAssertEqual(s.selectedIds, [items[0].id])
+    }
+
+    func testMoveCursorToIndexCanExtendSelection() {
+        let items = makeItems(5)
+        var s = SelectionState()
+        s.cursorIndex = 1
+        s.selectedIds = [items[1].id]
+
+        s.moveCursor(to: 4, extend: true, visibleItems: items)
+
+        XCTAssertEqual(s.cursorIndex, 4)
+        XCTAssertEqual(s.shiftAnchorIdx, 1)
+        XCTAssertEqual(s.selectedIds, Set([items[1].id, items[2].id, items[3].id, items[4].id]))
+    }
+
+    func testBoundaryDetectionForTargetIndex() {
+        let items = makeItems(3)
+        var s = SelectionState()
+        s.cursorIndex = 0
+
+        XCTAssertTrue(s.wouldHitBoundary(targetIndex: 0, visibleItems: items))
+        XCTAssertTrue(s.wouldHitBoundary(targetIndex: -10, visibleItems: items))
+        XCTAssertFalse(s.wouldHitBoundary(targetIndex: 2, visibleItems: items))
+    }
+
     func testBoundaryDetectionIgnoresEmptyItems() {
         var s = SelectionState()
         s.cursorIndex = 0
 
         XCTAssertFalse(s.wouldHitBoundary(delta: -1, visibleItems: []))
         XCTAssertFalse(s.wouldHitBoundary(delta: 1, visibleItems: []))
+        XCTAssertFalse(s.wouldHitBoundary(targetIndex: 0, visibleItems: []))
     }
 
     func testShiftClickWithNoAnchorDoesNothing() {

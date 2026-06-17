@@ -15,6 +15,11 @@ extension Notification.Name {
     static let overlayMoveDown       = Notification.Name("overlayMoveDown")
     static let overlayMoveLeft       = Notification.Name("overlayMoveLeft")
     static let overlayMoveRight      = Notification.Name("overlayMoveRight")
+    static let overlayMoveHome       = Notification.Name("overlayMoveHome")
+    static let overlayMoveEnd        = Notification.Name("overlayMoveEnd")
+    static let overlayMovePageUp     = Notification.Name("overlayMovePageUp")
+    static let overlayMovePageDown   = Notification.Name("overlayMovePageDown")
+    static let overlayMoveCursor     = Notification.Name("overlayMoveCursor")
     static let overlayConfirmPaste   = Notification.Name("overlayConfirmPaste")
     static let overlayAlertConfirm   = Notification.Name("overlayAlertConfirm")
     static let overlayCmdPaste       = Notification.Name("overlayCmdPaste")
@@ -40,6 +45,7 @@ struct OverlayView: View {
     @State private var cmdDown = false
     @FocusState private var isSearchFocused: Bool
     @StateObject private var keyHandler = KeyboardEventHandler()
+    @State private var iconPrefetchTask: Task<Void, Never>?
 
     @State private var cachedMultiSelectDrag: DragPayloadBuilder.SelectionPayload?
 
@@ -77,6 +83,7 @@ struct OverlayView: View {
                 .onAppear {
                     resetAllState()
                     keyHandler.installMouseMonitor()
+                    prefetchAvailableAppIcons()
                     withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
                         cardVisible = true
                     }
@@ -108,38 +115,19 @@ struct OverlayView: View {
                 .onReceive(store.$items) { items in
                     let existing = Set(items.map(\.id))
                     selection.selectedIds = selection.selectedIds.intersection(existing)
+                    prefetchAvailableAppIcons()
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveUp)) { note in
-                    handleArrowNotify(delta: -1, note: note, playBoundarySound: false)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveDown)) { note in
-                    handleArrowNotify(delta: 1, note: note, playBoundarySound: false)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveLeft)) { note in
-                    handleArrowNotify(delta: -1, note: note, playBoundarySound: true)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveRight)) { note in
-                    handleArrowNotify(delta: 1, note: note, playBoundarySound: true)
+                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveCursor)) { note in
+                    handleCursorMove(note)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
-                    let ids = selection.selectedIds
-                    guard !ids.isEmpty else { return }
-                    let selected = OverlayInteractionModel.selectedItems(
-                        visibleItems: visibleItems,
-                        selectedIds: ids
-                    )
-                    if selected.count == 1 {
-                        Task { await OverlayPanelManager.shared.hideAndPaste(selected[0]) }
-                    } else {
-                        OverlayPanelManager.shared.hideAndPasteMultiple(selected)
-                    }
+                    handleConfirmPaste()
                 }
         )
         return AnyView(
             step1
                 .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
-                    guard !selection.selectedIds.isEmpty else { return }
-                    showDeleteConfirm = true
+                    handleDeleteSelectedRequest()
                 }
                 .alert(L10n["delete.confirm_title"], isPresented: $showDeleteConfirm) {
                     Button(L10n["delete.confirm_cancel"], role: .cancel) {}
@@ -160,14 +148,10 @@ struct OverlayView: View {
                     cmdDown = (note.userInfo?["cmdDown"] as? Bool) ?? false
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayCmdPaste)) { note in
-                    guard let idx = note.userInfo?["index"] as? Int,
-                          idx > 0, idx <= visibleItems.count else { return }
-                    let item = visibleItems[idx - 1]
-                    Task { await OverlayPanelManager.shared.hideAndPaste(item) }
+                    handleCommandPaste(note)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlaySearchEnterPaste)) { _ in
-                    guard let first = visibleItems.first else { return }
-                    Task { await OverlayPanelManager.shared.hideAndPaste(first) }
+                    handleSearchEnterPaste()
                 }
                 .onChange(of: showSearch) { onShowSearchChanged() }
         )
@@ -187,6 +171,50 @@ struct OverlayView: View {
         }
     }
 
+    private func handleConfirmPaste() {
+        let ids = selection.selectedIds
+        guard !ids.isEmpty else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        let selected = OverlayInteractionModel.selectedItems(
+            visibleItems: visibleItems,
+            selectedIds: ids
+        )
+        if selected.count == 1 {
+            Task { await OverlayPanelManager.shared.hideAndPaste(selected[0]) }
+        } else {
+            OverlayPanelManager.shared.hideAndPasteMultiple(selected)
+        }
+    }
+
+    private func handleDeleteSelectedRequest() {
+        guard !selection.selectedIds.isEmpty else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        showDeleteConfirm = true
+    }
+
+    private func handleCommandPaste(_ note: Notification) {
+        guard let idx = note.userInfo?["index"] as? Int,
+              idx > 0,
+              idx <= visibleItems.count else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        let item = visibleItems[idx - 1]
+        Task { await OverlayPanelManager.shared.hideAndPaste(item) }
+    }
+
+    private func handleSearchEnterPaste() {
+        guard let first = visibleItems.first else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        Task { await OverlayPanelManager.shared.hideAndPaste(first) }
+    }
+
     // MARK: - 状态重置
 
     private func resetAllState() {
@@ -204,6 +232,8 @@ struct OverlayView: View {
     private func dismiss() {
         guard cardVisible else { return }
         keyHandler.uninstall()
+        iconPrefetchTask?.cancel()
+        iconPrefetchTask = nil
         showSearch = false
         showFilterPopover = false
         isSearchFocused = false
@@ -280,6 +310,20 @@ struct OverlayView: View {
             .onHover { hovering in
                 if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
             }
+
+            if showSearch {
+                Text(searchCountText)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.66))
+                    .monospacedDigit()
+                    .padding(.horizontal, 6)
+                    .frame(height: 18)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.white.opacity(0.08))
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.94)))
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -291,9 +335,27 @@ struct OverlayView: View {
     // MARK: - 筛选按钮
 
     private var filterButton: some View {
-        Image(systemName: "line.3.horizontal.decrease")
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(toolbarForeground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: "line.3.horizontal.decrease")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(toolbarForeground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
+                .frame(width: 32, height: 32)
+
+            if activeFilterCount > 0 {
+                Text("\(activeFilterCount)")
+                    .font(.system(size: 8, weight: .heavy, design: .rounded))
+                    .foregroundColor(Color(red: 0.23, green: 0.15, blue: 0.06))
+                    .monospacedDigit()
+                    .frame(minWidth: 14, minHeight: 14)
+                    .background(
+                        Circle()
+                            .fill(Color(red: 0.90, green: 0.70, blue: 0.40))
+                            .shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1)
+                    )
+                    .offset(x: 4, y: -4)
+                    .transition(.scale(scale: 0.72).combined(with: .opacity))
+            }
+        }
             .frame(width: 32, height: 32)
             .background(toolbarButtonBackground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
             .contentShape(Rectangle())
@@ -320,8 +382,18 @@ struct OverlayView: View {
         Color(red: 0.18, green: 0.21, blue: 0.22).opacity(0.92)
     }
 
+    private var searchCountText: String {
+        "\(store.filteredItems.count)/\(store.items.count)"
+    }
+
+    private var activeFilterCount: Int {
+        [store.typeFilter != nil, store.timeFilter != .any, store.appFilter != nil, store.handoffFilter, store.urlFilter]
+            .filter { $0 }
+            .count
+    }
+
     private var hasActiveTimeOrTypeFilter: Bool {
-        store.typeFilter != nil || store.timeFilter != .any || store.appFilter != nil
+        activeFilterCount > 0
     }
 
     // MARK: - 卡片容器
@@ -767,19 +839,59 @@ struct OverlayView: View {
         store.filteredItems
     }
 
-    /// 处理通知发来的方向键事件
-    private func handleArrowNotify(delta: Int, note: Notification, playBoundarySound: Bool) {
-        guard !showSearch else { return }
-        let extend = note.userInfo?["extend"] as? Bool ?? false
-        moveCursor(delta: delta, extend: extend, playBoundarySound: playBoundarySound)
+    private var pageNavigationStep: Int {
+        isHorizontalLayout ? 3 : 4
     }
 
-    /// 方向键导航：委托给 SelectionState
-    private func moveCursor(delta: Int, extend: Bool, playBoundarySound: Bool) {
-        if playBoundarySound, selection.wouldHitBoundary(delta: delta, visibleItems: visibleItems) {
-            NSSound.beep()
+    /// 处理键盘导航通知：方向键、翻页、首尾跳转统一进入这里。
+    private func handleCursorMove(_ note: Notification) {
+        guard !showSearch else { return }
+        let extend = note.userInfo?["extend"] as? Bool ?? false
+        if let target = note.userInfo?["target"] as? String {
+            switch target {
+            case "home":
+                moveCursor(to: 0, extend: extend)
+            case "end":
+                moveCursor(to: visibleItems.count - 1, extend: extend)
+            default:
+                SoundFeedback.invalidAction()
+            }
+            return
+        }
+        if let pageDelta = note.userInfo?["pageDelta"] as? Int {
+            moveCursor(delta: pageDelta * pageNavigationStep, extend: extend)
+            return
+        }
+        if let delta = note.userInfo?["delta"] as? Int {
+            moveCursor(delta: delta, extend: extend)
+        }
+    }
+
+    /// 方向键导航：委托给 SelectionState，触达边界时给出统一错误反馈。
+    private func moveCursor(delta: Int, extend: Bool) {
+        if selection.wouldHitBoundary(delta: delta, visibleItems: visibleItems) {
+            SoundFeedback.invalidAction()
         }
         selection.moveCursor(delta: delta, extend: extend, visibleItems: visibleItems)
+    }
+
+    private func moveCursor(to targetIndex: Int, extend: Bool) {
+        if selection.wouldHitBoundary(targetIndex: targetIndex, visibleItems: visibleItems) {
+            SoundFeedback.invalidAction()
+        }
+        selection.moveCursor(to: targetIndex, extend: extend, visibleItems: visibleItems)
+    }
+
+    private func prefetchAvailableAppIcons() {
+        let apps = store.availableApps
+        guard !apps.isEmpty else { return }
+        iconPrefetchTask?.cancel()
+        iconPrefetchTask = Task.detached(priority: .utility) {
+            for app in apps.prefix(24) {
+                guard !Task.isCancelled else { return }
+                _ = AppIconProvider.shared.icon(for: app)
+            }
+        }
     }
 
     // MARK: - 空状态

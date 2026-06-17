@@ -22,7 +22,23 @@ struct SelectionState {
             currentIdx = delta > 0 ? -1 : visibleItems.count
         }
         let newIdx = max(0, min(maxIdx, currentIdx + delta))
+        moveCursor(to: newIdx, currentIdx: currentIdx, extend: extend, visibleItems: visibleItems)
+    }
 
+    mutating func moveCursor(to targetIndex: Int, extend: Bool, visibleItems: [ClipboardItem]) {
+        guard !visibleItems.isEmpty else { return }
+        let maxIdx = visibleItems.count - 1
+        let currentIdx = cursorIndex ?? targetIndex
+        let newIdx = max(0, min(maxIdx, targetIndex))
+        moveCursor(to: newIdx, currentIdx: currentIdx, extend: extend, visibleItems: visibleItems)
+    }
+
+    private mutating func moveCursor(
+        to newIdx: Int,
+        currentIdx: Int,
+        extend: Bool,
+        visibleItems: [ClipboardItem]
+    ) {
         if extend, cursorIndex != nil {
             let anchorIdx = shiftAnchorIdx ?? currentIdx
             shiftAnchorIdx = anchorIdx
@@ -47,6 +63,12 @@ struct SelectionState {
         if delta < 0 { return cursorIndex <= 0 }
         if delta > 0 { return cursorIndex >= visibleItems.count - 1 }
         return false
+    }
+
+    func wouldHitBoundary(targetIndex: Int, visibleItems: [ClipboardItem]) -> Bool {
+        guard !visibleItems.isEmpty, let cursorIndex else { return false }
+        let clamped = max(0, min(visibleItems.count - 1, targetIndex))
+        return clamped == cursorIndex
     }
 
     // MARK: - 鼠标点击
