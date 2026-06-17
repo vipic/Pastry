@@ -93,6 +93,11 @@ struct ClipboardCardView: View {
                 .opacity(isSelected ? 1 : 0)
         )
         .overlay(
+            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius - 2, style: .continuous)
+                .stroke(.white.opacity(isSelected ? 0.42 : 0), lineWidth: 1)
+                .padding(3)
+        )
+        .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
                 .stroke(lineWidth: UIConstants.Card.selectedBorderWidth)
                 .foregroundStyle(cardBorderColor)
@@ -102,6 +107,7 @@ struct ClipboardCardView: View {
         .overlay(alignment: .bottomTrailing) {
             if let idx = cmdBadgeIndex {
                 cmdBadge(idx)
+                    .transition(.scale(scale: 0.74, anchor: .bottomTrailing).combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)

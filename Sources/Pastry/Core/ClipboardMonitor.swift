@@ -231,9 +231,7 @@ final class ClipboardMonitor: ObservableObject {
         }
 
         // 类型非空，确认有效复制 → 播提示音
-        if UserDefaults.standard.bool(forKey: UserDefaultsKeys.soundEnabled) {
-            Self.copySound?.play()
-        }
+        SoundFeedback.play(Self.copySound, key: "copy")
 
         // 检测 Handoff/通用剪贴板来源
         let isRemoteClipboard = types.contains(where: { $0.rawValue == "com.apple.is-remote-clipboard" })

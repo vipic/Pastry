@@ -5,6 +5,7 @@ import SwiftUI
 struct FilterPopoverContent: View {
     @ObservedObject var store: StoreManager
     var onFilterChange: (() -> Void)?
+    @State private var contentVisible = false
 
     private var hasActiveFilter: Bool {
         store.typeFilter != nil || store.timeFilter != .any || store.appFilter != nil || store.handoffFilter
@@ -100,6 +101,12 @@ struct FilterPopoverContent: View {
         .padding(14)
         .frame(width: 370)
         .background(filterPanelBackground)
+        .opacity(contentVisible ? 1 : 0)
+        .scaleEffect(contentVisible ? 1 : 0.985, anchor: .top)
+        .animation(.easeOut(duration: 0.12), value: contentVisible)
+        .onAppear {
+            contentVisible = true
+        }
     }
 
     private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
@@ -281,10 +288,20 @@ struct FilterPopoverContent: View {
                     .resizable()
                     .frame(width: 14, height: 14)
             } else {
-                Image(systemName: "app.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                Text(appInitial)
+                    .font(.system(size: 8, weight: .heavy, design: .rounded))
+                    .foregroundColor(.white.opacity(0.78))
+                    .background(
+                        Circle()
+                            .fill(.white.opacity(0.12))
+                            .frame(width: 14, height: 14)
+                    )
                     .frame(width: 14, height: 14)
             }
+        }
+
+        private var appInitial: String {
+            app.trimmingCharacters(in: .whitespacesAndNewlines).first.map { String($0).uppercased() } ?? "A"
         }
 
         private func loadIcon() async {
