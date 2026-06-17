@@ -6,6 +6,21 @@ import OSLog
 final class ClipboardOverlayPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        if Self.shouldSilentlyConsumeKeyDown(
+            keyCode: event.keyCode,
+            isSearchActive: OverlayPanelManager.shared.isSearchActive
+        ) {
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    static func shouldSilentlyConsumeKeyDown(keyCode: UInt16, isSearchActive: Bool) -> Bool {
+        guard !isSearchActive else { return false }
+        return keyCode == 123 || keyCode == 124 || keyCode == 125 || keyCode == 126
+    }
 }
 
 // MARK: - 全屏覆盖层面板管理器

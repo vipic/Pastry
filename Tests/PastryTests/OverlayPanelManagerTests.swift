@@ -274,4 +274,32 @@ final class OverlayPanelManagerTests: XCTestCase {
             "overlaySearchEnterPaste"
         )
     }
+
+    // MARK: - 面板默认响铃抑制
+
+    func testOverlayPanelSilentlyConsumesArrowKeysWhenSearchInactive() {
+        for keyCode in [UInt16(123), UInt16(124), UInt16(125), UInt16(126)] {
+            XCTAssertTrue(
+                ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                    keyCode: keyCode,
+                    isSearchActive: false
+                )
+            )
+        }
+    }
+
+    func testOverlayPanelDoesNotConsumeArrowKeysWhenSearchActive() {
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 123,
+                isSearchActive: true
+            )
+        )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 124,
+                isSearchActive: true
+            )
+        )
+    }
 }
