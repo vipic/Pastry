@@ -53,6 +53,12 @@ final class MenuBarMenuFactoryTests: XCTestCase {
         XCTAssertFalse(result.storageItem.isHidden)
     }
 
+    func testStatusItemClickRouting() {
+        XCTAssertTrue(MenuBarManager.shouldOpenMenu(for: .rightMouseUp))
+        XCTAssertFalse(MenuBarManager.shouldOpenMenu(for: .leftMouseUp))
+        XCTAssertFalse(MenuBarManager.shouldOpenMenu(for: nil))
+    }
+
     private func makeMenu(
         stats: ClipboardStats = ClipboardStats(totalItems: 0, todayItems: 0, favoriteCount: 0, storageSizeKB: 0)
     ) -> MenuBarMenuBuildResult {

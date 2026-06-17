@@ -41,6 +41,14 @@ struct SelectionState {
         }
     }
 
+    /// 已有光标时，继续向边界外移动会被 clamp。
+    func wouldHitBoundary(delta: Int, visibleItems: [ClipboardItem]) -> Bool {
+        guard !visibleItems.isEmpty, let cursorIndex else { return false }
+        if delta < 0 { return cursorIndex <= 0 }
+        if delta > 0 { return cursorIndex >= visibleItems.count - 1 }
+        return false
+    }
+
     // MARK: - 鼠标点击
 
     /// 卡片点击。`cmdDown`/`shiftDown` 来自鼠标按下时的修饰键。

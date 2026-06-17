@@ -22,15 +22,12 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         buildMenu()
-        // macOS 27: sendAction(.rightMouseUp) 和 local monitor 均无法捕获右键。
-        // menu 属性会覆盖左键 action，因此统一用左键弹出菜单，
-        // overlay 面板通过全局快捷键或菜单第一项「打开剪贴板」唤出。
-        statusItem.menu = menu
 
         if let button = statusItem.button {
             button.image = menuBarIcon()
             button.target = self
             button.action = #selector(statusItemClicked)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
         log.info("菜单栏已配置")
@@ -40,7 +37,15 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
 
     @MainActor
     @objc private func statusItemClicked() {
-        OverlayPanelManager.shared.toggle()
+        if Self.shouldOpenMenu(for: NSApp.currentEvent?.type) {
+            showMenu()
+        } else {
+            OverlayPanelManager.shared.toggle()
+        }
+    }
+
+    static func shouldOpenMenu(for eventType: NSEvent.EventType?) -> Bool {
+        eventType == .rightMouseUp
     }
 
 
@@ -73,6 +78,13 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             storageItem: storageItem,
             stats: StoreManager.shared.stats
         )
+    }
+
+    @MainActor
+    private func showMenu() {
+        refreshStats()
+        guard let button = statusItem.button else { return }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button)
     }
 
     // MARK: - 操作

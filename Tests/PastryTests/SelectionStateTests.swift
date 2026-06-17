@@ -272,6 +272,35 @@ final class SelectionStateTests: XCTestCase {
         XCTAssertTrue(s.selectedIds.isEmpty)
     }
 
+    func testBoundaryDetectionRequiresExistingCursor() {
+        let s = SelectionState()
+        let items = makeItems(3)
+
+        XCTAssertFalse(s.wouldHitBoundary(delta: -1, visibleItems: items))
+        XCTAssertFalse(s.wouldHitBoundary(delta: 1, visibleItems: items))
+    }
+
+    func testBoundaryDetectionAtEdges() {
+        let items = makeItems(3)
+        var s = SelectionState()
+
+        s.cursorIndex = 0
+        XCTAssertTrue(s.wouldHitBoundary(delta: -1, visibleItems: items))
+        XCTAssertFalse(s.wouldHitBoundary(delta: 1, visibleItems: items))
+
+        s.cursorIndex = 2
+        XCTAssertTrue(s.wouldHitBoundary(delta: 1, visibleItems: items))
+        XCTAssertFalse(s.wouldHitBoundary(delta: -1, visibleItems: items))
+    }
+
+    func testBoundaryDetectionIgnoresEmptyItems() {
+        var s = SelectionState()
+        s.cursorIndex = 0
+
+        XCTAssertFalse(s.wouldHitBoundary(delta: -1, visibleItems: []))
+        XCTAssertFalse(s.wouldHitBoundary(delta: 1, visibleItems: []))
+    }
+
     func testShiftClickWithNoAnchorDoesNothing() {
         var s = SelectionState()
         let items = makeItems(5)
