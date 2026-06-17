@@ -78,7 +78,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     // MARK: - 操作
 
     private func menuBarIcon() -> NSImage? {
-        let symbolName = isUpdateDevBuild ? "doc.on.clipboard" : "clipboard"
+        let symbolName = isUpdateDevBuild ? "clipboard" : "doc.on.clipboard"
         return NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pastry")
     }
 
