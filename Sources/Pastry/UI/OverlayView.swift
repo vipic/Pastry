@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - 通知
 extension Notification.Name {
@@ -109,16 +110,16 @@ struct OverlayView: View {
                     selection.selectedIds = selection.selectedIds.intersection(existing)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayMoveUp)) { note in
-                    handleArrowNotify(delta: -1, note: note)
+                    handleArrowNotify(delta: -1, note: note, playBoundarySound: false)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayMoveDown)) { note in
-                    handleArrowNotify(delta: 1, note: note)
+                    handleArrowNotify(delta: 1, note: note, playBoundarySound: false)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayMoveLeft)) { note in
-                    handleArrowNotify(delta: -1, note: note)
+                    handleArrowNotify(delta: -1, note: note, playBoundarySound: true)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayMoveRight)) { note in
-                    handleArrowNotify(delta: 1, note: note)
+                    handleArrowNotify(delta: 1, note: note, playBoundarySound: true)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
                     let ids = selection.selectedIds
@@ -297,8 +298,10 @@ struct OverlayView: View {
             .background(toolbarButtonBackground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
             .contentShape(Rectangle())
             .onTapGesture {
-                selection.reset()
                 showFilterPopover.toggle()
+                DispatchQueue.main.async {
+                    selection.reset()
+                }
             }
             .onHover { hovering in
                 hoverFilter = hovering
@@ -306,10 +309,15 @@ struct OverlayView: View {
             }
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
+                    .presentationBackground(filterPopoverPresentationBackground)
             }
             .scaleEffect(toolbarHoverScale(isHovered: hoverFilter))
             .animation(.easeOut(duration: 0.10), value: hoverFilter)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
+    }
+
+    private var filterPopoverPresentationBackground: Color {
+        Color(red: 0.18, green: 0.21, blue: 0.22).opacity(0.92)
     }
 
     private var hasActiveTimeOrTypeFilter: Bool {
@@ -760,14 +768,17 @@ struct OverlayView: View {
     }
 
     /// 处理通知发来的方向键事件
-    private func handleArrowNotify(delta: Int, note: Notification) {
+    private func handleArrowNotify(delta: Int, note: Notification, playBoundarySound: Bool) {
         guard !showSearch else { return }
         let extend = note.userInfo?["extend"] as? Bool ?? false
-        moveCursor(delta: delta, extend: extend)
+        moveCursor(delta: delta, extend: extend, playBoundarySound: playBoundarySound)
     }
 
     /// 方向键导航：委托给 SelectionState
-    private func moveCursor(delta: Int, extend: Bool) {
+    private func moveCursor(delta: Int, extend: Bool, playBoundarySound: Bool) {
+        if playBoundarySound, selection.wouldHitBoundary(delta: delta, visibleItems: visibleItems) {
+            NSSound.beep()
+        }
         selection.moveCursor(delta: delta, extend: extend, visibleItems: visibleItems)
     }
 

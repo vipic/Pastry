@@ -249,14 +249,12 @@ struct FilterPopoverContent: View {
         let app: String
         let isSelected: Bool
         let action: () -> Void
+        @State private var icon: NSImage?
 
         var body: some View {
             Button(action: action) {
-                let icon = AppIconProvider.shared.icon(for: app)
                 HStack(spacing: 5) {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .frame(width: 14, height: 14)
+                    appIcon
                     Text(app)
                         .font(.system(size: 11, weight: .semibold))
                         .lineLimit(1)
@@ -271,6 +269,31 @@ struct FilterPopoverContent: View {
                 .background(AppFilterChipBackground(isSelected: isSelected))
             }
             .buttonStyle(.plain)
+            .task(id: app) {
+                await loadIcon()
+            }
+        }
+
+        @ViewBuilder
+        private var appIcon: some View {
+            if let icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 14, height: 14)
+            } else {
+                Image(systemName: "app.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 14, height: 14)
+            }
+        }
+
+        private func loadIcon() async {
+            guard icon == nil else { return }
+            let loaded = await Task.detached(priority: .utility) {
+                AppIconProvider.shared.icon(for: app)
+            }.value
+            guard !Task.isCancelled else { return }
+            icon = loaded
         }
     }
 }
