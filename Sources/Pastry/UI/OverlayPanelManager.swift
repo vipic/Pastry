@@ -170,7 +170,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         }
 
         // 内容就绪 → 反馈音效（异步避免阻塞粘贴）
-        DispatchQueue.main.async { SoundFeedback.play(Self.pasteSound, key: "paste") }
+        DispatchQueue.main.async { SoundFeedback.play(Self.pasteSound) }
 
         // 3. 激活目标 App + 隐藏面板
         targetApp?.activate()
@@ -229,7 +229,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         let t1 = CFAbsoluteTimeGetCurrent()
 
         // 音效
-        DispatchQueue.main.async { SoundFeedback.play(Self.pasteSound, key: "paste") }
+        DispatchQueue.main.async { SoundFeedback.play(Self.pasteSound) }
 
         // 激活目标 App + 隐藏面板
         targetApp?.activate()
