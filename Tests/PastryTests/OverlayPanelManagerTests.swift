@@ -302,4 +302,22 @@ final class OverlayPanelManagerTests: XCTestCase {
             )
         )
     }
+
+    func testOverlayPanelHandlesEscapeWhenAlertInactive() {
+        XCTAssertTrue(
+            ClipboardOverlayPanel.shouldHandleCancelKey(
+                keyCode: 53,
+                isAlertActive: false
+            )
+        )
+    }
+
+    func testOverlayPanelLetsEscapeThroughWhenAlertActive() {
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldHandleCancelKey(
+                keyCode: 53,
+                isAlertActive: true
+            )
+        )
+    }
 }
