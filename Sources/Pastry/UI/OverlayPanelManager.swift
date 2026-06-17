@@ -8,6 +8,13 @@ final class ClipboardOverlayPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 
     override func keyDown(with event: NSEvent) {
+        if Self.shouldHandleCancelKey(
+            keyCode: event.keyCode,
+            isAlertActive: OverlayPanelManager.shared.isAlertActive
+        ) {
+            routeCancelKey()
+            return
+        }
         if Self.shouldSilentlyConsumeKeyDown(
             keyCode: event.keyCode,
             isSearchActive: OverlayPanelManager.shared.isSearchActive
@@ -17,9 +24,31 @@ final class ClipboardOverlayPanel: NSPanel {
         super.keyDown(with: event)
     }
 
+    override func cancelOperation(_ sender: Any?) {
+        guard !OverlayPanelManager.shared.isAlertActive else {
+            super.cancelOperation(sender)
+            return
+        }
+        routeCancelKey()
+    }
+
     static func shouldSilentlyConsumeKeyDown(keyCode: UInt16, isSearchActive: Bool) -> Bool {
         guard !isSearchActive else { return false }
         return keyCode == 123 || keyCode == 124 || keyCode == 125 || keyCode == 126
+    }
+
+    static func shouldHandleCancelKey(keyCode: UInt16, isAlertActive: Bool) -> Bool {
+        keyCode == 53 && !isAlertActive
+    }
+
+    private func routeCancelKey() {
+        if QLPreviewHelper.shared.isShowing {
+            QLPreviewHelper.shared.dismiss()
+        } else if OverlayPanelManager.shared.isSearchActive {
+            NotificationCenter.default.post(name: .overlayCloseSearch, object: nil)
+        } else {
+            NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
+        }
     }
 }
 
@@ -267,6 +296,9 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     /// 搜索栏是否展开 — ESC 优先级判断
     var isSearchActive = false
+
+    /// 删除确认弹窗是否活跃 — Esc 放行给系统弹窗处理
+    var isAlertActive: Bool { alertActive }
 
     // MARK: - 私有
 
