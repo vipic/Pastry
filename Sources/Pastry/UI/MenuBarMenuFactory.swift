@@ -3,7 +3,6 @@ import Cocoa
 struct MenuBarMenuActions {
     let openOverlay: Selector
     let clearHistory: Selector
-    let openAbout: Selector
     let openSettings: Selector
     let quit: Selector
 }
@@ -49,14 +48,6 @@ enum MenuBarMenuFactory {
         )
         menu.addItem(clearItem)
         menu.addItem(.separator())
-
-        let aboutItem = item(
-            title: L10n["menu.about"],
-            action: actions.openAbout,
-            target: target,
-            symbolName: "info.circle"
-        )
-        menu.addItem(aboutItem)
 
         let settingsItem = item(
             title: L10n["menu.settings"],
