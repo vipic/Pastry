@@ -95,32 +95,49 @@ struct SettingsSceneView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            settingsSidebar
-                .navigationSplitViewColumnWidth(min: 206, ideal: 206, max: 206)
-        } detail: {
-            ZStack(alignment: .topLeading) {
-                settingsDetailBackground
-                detail(for: selectedTab ?? .general)
+        ZStack {
+            NavigationSplitView {
+                settingsSidebar
+                    .navigationSplitViewColumnWidth(min: 206, ideal: 206, max: 206)
+            } detail: {
+                ZStack(alignment: .topLeading) {
+                    settingsDetailBackground
+                    detail(for: selectedTab ?? .general)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .navigationSplitViewStyle(.balanced)
-        .toolbar(removing: .sidebarToggle)
-        .toolbarVisibility(.hidden, for: .windowToolbar)
-        .background(settingsWindowBackground)
-        .ignoresSafeArea(.container, edges: .top)
-        .background(SettingsWindowChromeConfigurator())
-        .accessibilityIdentifier(AccessibilityIdentifiers.Settings.root)
-        .onAppear { refreshAccessibilityStatus() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            refreshAccessibilityStatus()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .settingsSelectTab)) { note in
-            guard let rawValue = note.object as? String,
-                  let tab = SettingsTab(rawValue: rawValue) else { return }
-            withAnimation(.easeInOut(duration: 0.14)) {
-                selectedTab = tab
+            .navigationSplitViewStyle(.balanced)
+            .toolbar(removing: .sidebarToggle)
+            .toolbarVisibility(.hidden, for: .windowToolbar)
+            .background(settingsWindowBackground)
+            .ignoresSafeArea(.container, edges: .top)
+            .background(SettingsWindowChromeConfigurator())
+            .accessibilityIdentifier(AccessibilityIdentifiers.Settings.root)
+            .onAppear { refreshAccessibilityStatus() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                refreshAccessibilityStatus()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .settingsSelectTab)) { note in
+                guard let rawValue = note.object as? String,
+                      let tab = SettingsTab(rawValue: rawValue) else { return }
+                withAnimation(.easeInOut(duration: 0.14)) {
+                    selectedTab = tab
+                }
+            }
+
+            if showingClearConfirm {
+                ConfirmationOverlay(
+                    title: L10n["settings.clear_confirm_title"],
+                    message: L10n["settings.clear_warning"],
+                    cancelTitle: L10n["settings.clear_cancel"],
+                    confirmTitle: L10n["settings.clear_btn"],
+                    onCancel: { showingClearConfirm = false },
+                    onConfirm: {
+                        StoreManager.shared.clearAll()
+                        showingClearConfirm = false
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
         }
     }
@@ -395,12 +412,6 @@ struct SettingsSceneView: View {
                             Button(L10n["settings.clear_btn"]) { showingClearConfirm = true }
                                 .buttonStyle(SettingsPillButtonStyle(kind: .danger))
                                 .accessibilityIdentifier(AccessibilityIdentifiers.Settings.clearAllButton)
-                        }
-                        .alert(L10n["settings.clear_confirm_title"], isPresented: $showingClearConfirm) {
-                            Button(L10n["settings.clear_cancel"], role: .cancel) {}
-                            Button(L10n["settings.clear_btn"], role: .destructive) { StoreManager.shared.clearAll() }
-                        } message: {
-                            Text(L10n["settings.clear_warning"])
                         }
                     }
                     .frame(maxWidth: .infinity, minHeight: generalSectionHeight, alignment: .top)

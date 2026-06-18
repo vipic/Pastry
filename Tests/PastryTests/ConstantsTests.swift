@@ -26,6 +26,23 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(UserDefaultsKeys.soundEnabled, "sound_enabled")
     }
 
+    func testSoundFeedbackEnabledReflectsUserPreference() {
+        let saved = UserDefaults.standard.object(forKey: UserDefaultsKeys.soundEnabled)
+        defer {
+            if let saved {
+                UserDefaults.standard.set(saved, forKey: UserDefaultsKeys.soundEnabled)
+            } else {
+                UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.soundEnabled)
+            }
+        }
+
+        UserDefaults.standard.set(false, forKey: UserDefaultsKeys.soundEnabled)
+        XCTAssertFalse(SoundFeedback.isEnabled)
+
+        UserDefaults.standard.set(true, forKey: UserDefaultsKeys.soundEnabled)
+        XCTAssertTrue(SoundFeedback.isEnabled)
+    }
+
     func testLinkPreviewNetworkEnabledKey() {
         XCTAssertEqual(UserDefaultsKeys.linkPreviewNetworkEnabled, "link_preview_network_enabled")
     }
