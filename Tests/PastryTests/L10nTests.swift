@@ -87,6 +87,8 @@ final class L10nTests: XCTestCase {
             "settings.performance_logging_hint",
             "settings.excluded_remove",
             "card.selected",
+            "delete.confirm_direct_title",
+            "delete.confirm_direct_msg",
             "empty.no_pins_hint",
             "empty.no_results_hint",
             "empty.no_history_hint"

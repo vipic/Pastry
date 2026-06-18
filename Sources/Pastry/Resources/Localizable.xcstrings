@@ -1786,6 +1786,23 @@
         }
       }
     },
+    "delete.confirm_direct_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除记录？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Item?"
+          }
+        }
+      }
+    },
     "delete.confirm_cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -1833,6 +1850,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete %lld selected items? Favorites will be kept."
+          }
+        }
+      }
+    },
+    "delete.confirm_direct_msg": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确定删除 %lld 条记录吗？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete %lld items?"
           }
         }
       }

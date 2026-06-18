@@ -203,6 +203,13 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
+    func testOverlayAlertCancelNotificationExists() {
+        XCTAssertEqual(
+            Notification.Name.overlayAlertCancel.rawValue,
+            "overlayAlertCancel"
+        )
+    }
+
     func testAlertConfirmKeyIsEnter() {
         XCTAssertTrue(OverlayKeyboardRouter.isAlertConfirmKey(keyCode: 36))
         XCTAssertFalse(OverlayKeyboardRouter.isAlertConfirmKey(keyCode: 51))
@@ -300,6 +307,96 @@ final class OverlayPanelManagerTests: XCTestCase {
         }
     }
 
+    func testOverlayPanelSilentlyConsumesHandledActionKeysWhenSearchInactive() {
+        for keyCode in [UInt16(36), UInt16(51), UInt16(117)] {
+            XCTAssertTrue(
+                ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                    keyCode: keyCode,
+                    isSearchActive: false
+                )
+            )
+        }
+    }
+
+    func testOverlayPanelConsumesEnterAndDeleteWhenAlertActive() {
+        XCTAssertTrue(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 36,
+                isSearchActive: false,
+                isAlertActive: true
+            )
+        )
+        XCTAssertTrue(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 51,
+                isSearchActive: false,
+                isAlertActive: true
+            )
+        )
+    }
+
+    func testOverlayPanelRoutesEnterToAlertConfirmWhenAlertActive() {
+        XCTAssertTrue(
+            ClipboardOverlayPanel.shouldConfirmAlert(
+                keyCode: 36,
+                isAlertActive: true
+            )
+        )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldConfirmAlert(
+                keyCode: 36,
+                isAlertActive: false
+            )
+        )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldConfirmAlert(
+                keyCode: 51,
+                isAlertActive: true
+            )
+        )
+    }
+
+    func testOverlayPanelRoutesCommandAToSelectAllWhenAlertInactive() {
+        XCTAssertTrue(
+            ClipboardOverlayPanel.shouldRouteSelectAll(
+                keyCode: 0,
+                isAlertActive: false,
+                modifierFlags: .command
+            )
+        )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldRouteSelectAll(
+                keyCode: 0,
+                isAlertActive: true,
+                modifierFlags: .command
+            )
+        )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldRouteSelectAll(
+                keyCode: 0,
+                isAlertActive: false,
+                modifierFlags: []
+            )
+        )
+    }
+
+    func testOverlayPanelSilentlyConsumesCommandNumberKeysWhenSearchInactive() {
+        XCTAssertTrue(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 18,
+                isSearchActive: false,
+                modifierFlags: .command
+            )
+        )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 18,
+                isSearchActive: false,
+                modifierFlags: []
+            )
+        )
+    }
+
     func testOverlayPanelDoesNotConsumeArrowKeysWhenSearchActive() {
         XCTAssertFalse(
             ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
@@ -313,6 +410,19 @@ final class OverlayPanelManagerTests: XCTestCase {
                 isSearchActive: true
             )
         )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 36,
+                isSearchActive: true
+            )
+        )
+        XCTAssertFalse(
+            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+                keyCode: 18,
+                isSearchActive: true,
+                modifierFlags: .command
+            )
+        )
     }
 
     func testOverlayPanelHandlesEscapeWhenAlertInactive() {
@@ -324,8 +434,8 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
-    func testOverlayPanelLetsEscapeThroughWhenAlertActive() {
-        XCTAssertFalse(
+    func testOverlayPanelHandlesEscapeWhenAlertActive() {
+        XCTAssertTrue(
             ClipboardOverlayPanel.shouldHandleCancelKey(
                 keyCode: 53,
                 isAlertActive: true
