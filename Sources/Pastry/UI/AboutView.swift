@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - 关于窗口
 struct AboutView: View {
-    @AppStorage("PastryLanguage") private var language = ""
+    @AppStorage(UserDefaultsKeys.language) private var language = ""
     var body: some View {
         VStack(spacing: 0) {
             AppIconImageView(size: 72)
@@ -121,8 +121,8 @@ struct HelpView: View {
                 shortcutRow("↑ ↓", L10n["help.shortcut.arrow_nav"])
                 shortcutRow("⇧ ↑ ↓", L10n["help.shortcut.extend_selection"])
                 shortcutRow("⌘ ← →", L10n["help.shortcut.horizontal_scroll"])
-                shortcutRow("⌘ 单击", L10n["help.shortcut.toggle_select"])
-                shortcutRow("⇧ 单击", L10n["help.shortcut.range_select"])
+                shortcutRow(L10n["help.shortcut.command_click"], L10n["help.shortcut.toggle_select"])
+                shortcutRow(L10n["help.shortcut.shift_click"], L10n["help.shortcut.range_select"])
                 shortcutRow("⌘ 1-9", L10n["help.shortcut.quick_paste"])
             }
             .frame(maxWidth: .infinity, alignment: .leading)

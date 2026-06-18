@@ -102,35 +102,35 @@ final class L10nTests: XCTestCase {
 
     /// 切换到英文后返回英文翻译
     func testSwitchToEnglish() {
-        let saved = UserDefaults.standard.string(forKey: "PastryLanguage")
-        UserDefaults.standard.set("en", forKey: "PastryLanguage")
+        let saved = UserDefaults.standard.string(forKey: UserDefaultsKeys.language)
+        UserDefaults.standard.set("en", forKey: UserDefaultsKeys.language)
         // 强制重新加载 catalog
         L10n.reloadCatalogForTesting()
 
         let value = L10n["menu.open_clipboard"]
-        XCTAssertEqual(value, "Open Clipboard")
+        XCTAssertEqual(value, "Open Panel")
 
         if let saved = saved {
-            UserDefaults.standard.set(saved, forKey: "PastryLanguage")
+            UserDefaults.standard.set(saved, forKey: UserDefaultsKeys.language)
         } else {
-            UserDefaults.standard.removeObject(forKey: "PastryLanguage")
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.language)
         }
         L10n.reloadCatalogForTesting()
     }
 
     /// 切换到中文后返回中文翻译
     func testSwitchToChinese() {
-        let saved = UserDefaults.standard.string(forKey: "PastryLanguage")
-        UserDefaults.standard.set("zh-Hans", forKey: "PastryLanguage")
+        let saved = UserDefaults.standard.string(forKey: UserDefaultsKeys.language)
+        UserDefaults.standard.set("zh-Hans", forKey: UserDefaultsKeys.language)
         L10n.reloadCatalogForTesting()
 
         let value = L10n["menu.open_clipboard"]
-        XCTAssertEqual(value, "打开剪贴板")
+        XCTAssertEqual(value, "打开面板")
 
         if let saved = saved {
-            UserDefaults.standard.set(saved, forKey: "PastryLanguage")
+            UserDefaults.standard.set(saved, forKey: UserDefaultsKeys.language)
         } else {
-            UserDefaults.standard.removeObject(forKey: "PastryLanguage")
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.language)
         }
         L10n.reloadCatalogForTesting()
     }

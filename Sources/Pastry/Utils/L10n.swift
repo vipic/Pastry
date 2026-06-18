@@ -58,8 +58,12 @@ enum L10n {
         String(format: self[key], arguments: args)
     }
 
+    static var currentLanguageIdentifier: String {
+        currentLanguage()
+    }
+
     private static func currentLanguage() -> String {
-        if let lang = UserDefaults.standard.string(forKey: "PastryLanguage"), !lang.isEmpty {
+        if let lang = UserDefaults.standard.string(forKey: UserDefaultsKeys.language), !lang.isEmpty {
             return lang
         }
         // Fallback to system language — use autoupdating locale

@@ -80,6 +80,51 @@ final class ClipboardMonitorTests: XCTestCase {
         XCTAssertNil(text)
     }
 
+    // MARK: - URL 语义标记
+
+    func testPlainTextBilibiliURLIsTaggedAsLink() {
+        let pb = makeTestPasteboard("plainBilibiliURL")
+        pb.clearContents()
+        pb.setString("https://www.bilibili.com/v/popular/rank/ent", forType: .string)
+
+        let item = ClipboardMonitor.readTextForTesting(from: pb)
+
+        XCTAssertEqual(item?.sourceFormat, .text)
+        XCTAssertTrue(item?.tags.isURL ?? false, "纯文本 bilibili URL 应被标记为链接")
+    }
+
+    func testHTMLBilibiliURLIsTaggedAsLink() {
+        let url = "https://www.bilibili.com/v/popular/rank/ent"
+        let html = "<html><body><a href=\"\(url)\">\(url)</a></body></html>"
+        let pb = makeTestPasteboard("htmlBilibiliURL")
+        pb.clearContents()
+        pb.setData(Data(html.utf8), forType: .html)
+
+        let item = ClipboardMonitor.readHTMLForTesting(from: pb)
+
+        XCTAssertEqual(item?.sourceFormat, .html)
+        XCTAssertEqual(item?.content.trimmingCharacters(in: .whitespacesAndNewlines), url)
+        XCTAssertTrue(item?.tags.isURL ?? false, "HTML 中只有 URL 文本时应展示为链接卡片")
+    }
+
+    func testRTFBilibiliURLIsTaggedAsLink() throws {
+        let url = "https://www.bilibili.com/v/popular/rank/ent"
+        let attr = NSAttributedString(string: url)
+        let data = try attr.data(
+            from: NSRange(location: 0, length: attr.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+        )
+        let pb = makeTestPasteboard("rtfBilibiliURL")
+        pb.clearContents()
+        pb.setData(data, forType: .rtf)
+
+        let item = ClipboardMonitor.readRTFForTesting(from: pb)
+
+        XCTAssertEqual(item?.sourceFormat, .rtf)
+        XCTAssertEqual(item?.content, url)
+        XCTAssertTrue(item?.tags.isURL ?? false, "RTF 中只有 URL 文本时应展示为链接卡片")
+    }
+
     // MARK: - ContentSegment Codable
 
     func testContentSegmentTextCodableRoundTrip() throws {

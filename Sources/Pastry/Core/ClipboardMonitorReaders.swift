@@ -53,6 +53,7 @@ extension ClipboardMonitor {
         return ClipboardItem(
             content: attr.string,
             sourceFormat: .rtf,
+            tags: ContentTags(isURL: isPlainURL(attr.string)),
             appName: appName,
             isHandoff: isHandoff,
             rawFormatData: data,
@@ -83,6 +84,7 @@ extension ClipboardMonitor {
         return ClipboardItem(
             content: content,
             sourceFormat: .html,
+            tags: ContentTags(isURL: isPlainURL(content), hasSegments: !segments.isEmpty),
             appName: appName,
             isHandoff: isHandoff,
             segments: segments.isEmpty ? nil : segments,
@@ -279,5 +281,17 @@ extension ClipboardMonitor {
 
     static func readImageDataForTesting(from pb: NSPasteboard) -> (NSImage, Data)? {
         shared.readImageData(from: pb)
+    }
+
+    static func readTextForTesting(from pb: NSPasteboard) -> ClipboardItem? {
+        shared.readText(from: pb, appName: "TestApp")
+    }
+
+    static func readHTMLForTesting(from pb: NSPasteboard) -> ClipboardItem? {
+        shared.readHTML(from: pb, appName: "TestApp")
+    }
+
+    static func readRTFForTesting(from pb: NSPasteboard) -> ClipboardItem? {
+        shared.readRTF(from: pb, appName: "TestApp")
     }
 }

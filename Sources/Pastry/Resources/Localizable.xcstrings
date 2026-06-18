@@ -30,7 +30,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shortcut"
+            "value": "Shortcuts"
           }
         }
       }
@@ -211,13 +211,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认跟随系统。"
+            "value": "默认跟随系统语言。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Follow system by default."
+            "value": "Uses your system language by default."
           }
         }
       }
@@ -228,13 +228,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "随 macOS 静默启动 Pastry。"
+            "value": "登录 macOS 时静默启动 Pastry。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start Pastry quietly with macOS."
+            "value": "Open Pastry quietly when you log in to macOS."
           }
         }
       }
@@ -245,13 +245,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "播放轻柔的复制和粘贴提示音。"
+            "value": "复制和粘贴时播放提示音。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Play subtle copy and paste cues."
+            "value": "Play a sound when copying or pasting."
           }
         }
       }
@@ -330,13 +330,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除历史并清空剪贴板。"
+            "value": "删除全部历史并清空系统剪贴板。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deletes history and clipboard."
+            "value": "Delete all history and clear the system clipboard."
           }
         }
       }
@@ -347,13 +347,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将版本、发布说明和更新状态放在设置中查看。"
+            "value": "在设置中查看版本、发布说明和更新状态。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keep version, release notes, and update status close to the rest of settings without turning the page into a dialog."
+            "value": "View version, release notes, and update status in Settings."
           }
         }
       }
@@ -500,13 +500,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "性能日志"
+            "value": "记录性能日志"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Performance logs"
+            "value": "Log performance diagnostics"
           }
         }
       }
@@ -557,7 +557,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "History Capacity"
+            "value": "History capacity"
           }
         }
       }
@@ -574,7 +574,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retention Period"
+            "value": "Retention period"
           }
         }
       }
@@ -625,7 +625,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Do not clean by age"
+            "value": "Never delete by age"
           }
         }
       }
@@ -738,13 +738,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已授权"
+            "value": "已允许"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Granted"
+            "value": "Allowed"
           }
         }
       }
@@ -755,13 +755,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "未授权"
+            "value": "需要授权"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not Granted"
+            "value": "Permission Required"
           }
         }
       }
@@ -772,13 +772,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "模拟 ⌘V 粘贴功能可用"
+            "value": "可模拟 ⌘V 完成粘贴"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Simulated ⌘V paste available"
+            "value": "Pastry can simulate ⌘V to paste."
           }
         }
       }
@@ -789,13 +789,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "粘贴功能需要此权限"
+            "value": "需要辅助功能权限才能粘贴"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paste requires this permission"
+            "value": "Accessibility permission is required to paste."
           }
         }
       }
@@ -1112,13 +1112,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开剪贴板"
+            "value": "打开面板"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Clipboard"
+            "value": "Open Panel"
           }
         }
       }
@@ -1129,13 +1129,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "清空历史"
+            "value": "清空普通历史"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clear History"
+            "value": "Clear Non-Favorite History"
           }
         }
       }
@@ -1180,13 +1180,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "共 %lld 项 · 今日 %lld 项"
+            "value": "共 %lld 条 · 今日 %lld 条"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld items · %lld today"
+            "value": "%lld total · %lld today"
           }
         }
       }
@@ -1203,7 +1203,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Using %lld KB"
+            "value": "%lld KB used"
           }
         }
       }
@@ -1214,13 +1214,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "收藏"
+            "value": "加入收藏"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Favorite"
+            "value": "Add to Favorites"
           }
         }
       }
@@ -1231,13 +1231,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "取消收藏"
+            "value": "从收藏移除"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unfavorite"
+            "value": "Remove from Favorites"
           }
         }
       }
@@ -1248,7 +1248,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已选 %d 项"
+            "value": "已选 %d 条"
           }
         },
         "en": {
@@ -1520,13 +1520,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "来源应用"
+            "value": "来源"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Source App"
+            "value": "Source"
           }
         }
       }
@@ -1537,13 +1537,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "全部"
+            "value": "全部来源"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All"
+            "value": "All Sources"
           }
         }
       }
@@ -1605,7 +1605,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "其他设备"
+            "value": "来自其他设备"
           }
         },
         "en": {
@@ -1639,7 +1639,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已收藏"
+            "value": "收藏"
           }
         },
         "en": {
@@ -1775,13 +1775,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "确认删除"
+            "value": "删除选中记录？"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confirm Delete"
+            "value": "Delete Selected Items?"
           }
         }
       }
@@ -1809,13 +1809,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "确认"
+            "value": "删除"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confirm"
+            "value": "Delete"
           }
         }
       }
@@ -1826,13 +1826,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "确定要删除 %lld 条选中的记录吗？Pinned 项将被保留。"
+            "value": "确定删除 %lld 条选中记录吗？收藏项将保留。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete %lld selected items? Pinned items will be kept."
+            "value": "Delete %lld selected items? Favorites will be kept."
           }
         }
       }
@@ -1945,13 +1945,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开"
+            "value": "选择"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open"
+            "value": "Choose"
           }
         }
       }
@@ -1968,7 +1968,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose an application to open this file"
+            "value": "Choose an app to open this file."
           }
         }
       }
@@ -2064,7 +2064,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@预览"
+            "value": "%@ 预览"
           }
         },
         "en": {
@@ -2081,13 +2081,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 字符  %lld 单词  %lld 行"
+            "value": "%lld 个字符 · %lld 个词 · %lld 行"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld chars  %lld words  %lld lines"
+            "value": "%lld characters · %lld words · %lld lines"
           }
         }
       }
@@ -2098,13 +2098,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开所在位置"
+            "value": "在访达中显示"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reveal in Finder"
+            "value": "Show in Finder"
           }
         }
       }
@@ -2183,13 +2183,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "中文"
+            "value": "简体中文"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chinese"
+            "value": "Simplified Chinese"
           }
         }
       }
@@ -2251,13 +2251,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "轻灵的剪贴板伴侣。自动记录文字、图片、文件与链接，全局唤起、即搜即用，让每一次复制都不再转瞬即逝。"
+            "value": "轻量的剪贴板伴侣。自动记录文本、图片、文件与链接，全局唤起，即搜即用。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A lightweight clipboard companion. Automatically saves text, images, files, and links. Summon it globally, search instantly — your clipboard, remembered."
+            "value": "A lightweight clipboard companion for text, images, files, and links. Open it anywhere and search instantly."
           }
         }
       }
@@ -2308,7 +2308,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "RTF"
+            "value": "Rich Text"
           }
         }
       }
@@ -2359,7 +2359,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "URL"
+            "value": "Link"
           }
         }
       }
@@ -2880,13 +2880,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "右键卡片可收藏（favorite）、预览、分享、删除。收藏的条目在「已收藏」标签页中始终可见，不受历史清理影响。"
+            "value": "右键卡片可加入收藏、预览、分享或删除。收藏条目会显示在「收藏」标签页中，不受历史清理影响。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Right-click cards to favorite, preview, share, or delete. Favorited items remain visible in the Favorites tab, unaffected by history clearing."
+            "value": "Right-click cards to add them to Favorites, preview, share, or delete. Favorites stay visible in the Favorites tab and are not removed by history cleanup."
           }
         }
       }
@@ -2897,13 +2897,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "搜索框支持实时过滤。筛选按钮可按类型（文本/链接/图片等）、来源应用、时间范围筛选，多个条件可叠加。"
+            "value": "搜索框支持实时过滤。筛选按钮可按类型、来源应用和时间范围筛选，多个条件可叠加。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The search bar supports real-time filtering. Filter buttons let you filter by type (text/link/image, etc.), source app, and time range. Multiple conditions can be combined."
+            "value": "Search filters results as you type. Use Filter to narrow results by type, source app, and time range; conditions can be combined."
           }
         }
       }
@@ -2931,13 +2931,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cmd+点击多个卡片可批量收藏或删除"
+            "value": "⌘+点击多个卡片可批量收藏或删除"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cmd+click multiple cards to batch favorite or delete"
+            "value": "⌘-click multiple cards to add them to Favorites or delete them in batches"
           }
         }
       }
@@ -2982,13 +2982,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在设置中可切换中英文界面，即时生效"
+            "value": "可在设置中切换界面语言，立即生效"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Switch between Chinese and English in Settings, takes effect immediately"
+            "value": "Change the interface language in Settings; it takes effect immediately."
           }
         }
       }
@@ -3010,23 +3010,6 @@
         }
       }
     },
-    "menu.check_update": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检查更新..."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check for Updates..."
-          }
-        }
-      }
-    },
     "update.title": {
       "extractionState": "manual",
       "localizations": {
@@ -3040,40 +3023,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Update"
-          }
-        }
-      }
-    },
-    "update.uptodate": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已是最新版本"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You're up to date"
-          }
-        }
-      }
-    },
-    "update.available": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "发现新版本"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New version available"
           }
         }
       }
@@ -3112,23 +3061,6 @@
         }
       }
     },
-    "update.download_and_install": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下载并安装"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Download & Install"
-          }
-        }
-      }
-    },
     "update.downloading": {
       "extractionState": "manual",
       "localizations": {
@@ -3142,23 +3074,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Downloading..."
-          }
-        }
-      }
-    },
-    "update.failed": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新失败"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Update failed"
           }
         }
       }
@@ -3220,13 +3135,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "链接预览联网"
+            "value": "允许链接预览联网"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Link preview network"
+            "value": "Allow network link previews"
           }
         }
       }
@@ -3237,7 +3152,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "获取页面元数据和预览图片。"
+            "value": "获取网页元数据和预览图片。"
           }
         },
         "en": {
@@ -3271,13 +3186,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加应用"
+            "value": "添加应用…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Application"
+            "value": "Add Application…"
           }
         }
       }
@@ -3294,7 +3209,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No apps excluded"
+            "value": "No excluded apps"
           }
         }
       }
@@ -3322,13 +3237,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "排除名单中的应用不会被保存到剪贴板历史（如密码管理器）"
+            "value": "来自排除应用的剪贴板内容不会保存到历史，例如密码管理器。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clipboard data from excluded apps will not be saved to history (e.g. password managers)"
+            "value": "Clipboard content from excluded apps, such as password managers, will not be saved to history."
           }
         }
       }
@@ -3526,7 +3441,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "上次检查: %@"
+            "value": "上次检查：%@"
           }
         },
         "en": {
@@ -3560,13 +3475,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "安装完成后将自动重启"
+            "value": "安装完成后将自动重启 Pastry"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Will restart after installation"
+            "value": "Pastry will restart after installation."
           }
         }
       }
@@ -3584,6 +3499,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copy"
+          }
+        }
+      }
+    },
+    "help.shortcut.command_click": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘ 单击"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘ Click"
+          }
+        }
+      }
+    },
+    "help.shortcut.shift_click": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⇧ 单击"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⇧ Click"
+          }
+        }
+      }
+    },
+    "update.just_now": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刚刚"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "just now"
           }
         }
       }

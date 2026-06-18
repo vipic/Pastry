@@ -14,7 +14,7 @@ enum UpdateState {
 // MARK: - 更新窗口视图（Up-to-date / Update Available 两态共用）
 
 struct UpdateView: View {
-    @AppStorage("PastryLanguage") private var language = ""
+    @AppStorage(UserDefaultsKeys.language) private var language = ""
     let state: UpdateState
     let releaseNotes: String?
     let currentVersion: String?
@@ -106,12 +106,12 @@ struct UpdateView: View {
 
     private func lastCheckedRow(_ date: Date) -> some View {
         let formatter = RelativeDateTimeFormatter()
-        let lang = UserDefaults.standard.string(forKey: "PastryLanguage") ?? ""
+        let lang = L10n.currentLanguageIdentifier
         formatter.locale = lang.hasPrefix("zh") ? Locale(identifier: "zh-Hans") : Locale(identifier: "en")
         let delta = Date().timeIntervalSince(date)
         let relative: String
         if abs(delta) < 3 {
-            relative = lang.hasPrefix("zh") ? "刚刚" : "just now"
+            relative = L10n["update.just_now"]
         } else {
             relative = formatter.localizedString(for: date, relativeTo: Date())
         }

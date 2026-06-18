@@ -14,6 +14,7 @@ struct ClipboardCardView: View {
     let onPin: (ClipboardItem, Set<UUID>) -> Void
     let onDelete: (ClipboardItem) -> Void
 
+    @AppStorage(UserDefaultsKeys.language) private var language = ""
     @State private var appIcon: NSImage?
     @State private var themeColor: Color = .accentColor
     @State private var didPaste = false
@@ -55,6 +56,7 @@ struct ClipboardCardView: View {
             }
             .overlay(
                 RightClickDetector { view, event in
+                    _ = language
                     showContextMenu(with: event, for: view)
                 }
             )
