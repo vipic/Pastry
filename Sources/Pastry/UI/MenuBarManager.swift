@@ -90,8 +90,12 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     @MainActor
     private func showMenu() {
         refreshStats()
+        OverlayPanelManager.shared.hide()
         guard let button = statusItem.button else { return }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button)
+        let previousMenu = statusItem.menu
+        statusItem.menu = menu
+        button.performClick(nil)
+        statusItem.menu = previousMenu
     }
 
     @MainActor
