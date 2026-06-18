@@ -58,8 +58,11 @@ final class OverlayKeyboardRouter {
 
         // 弹窗活跃：Enter 确认删除 / 其他按键放行（Esc 已在上方处理）
         if isAlertActive() {
-            if event.keyCode == 36 {
+            if Self.isAlertConfirmKey(keyCode: event.keyCode) {
                 NotificationCenter.default.post(name: .overlayAlertConfirm, object: nil)
+                return nil
+            }
+            if Self.shouldConsumeAlertKeyDown(keyCode: event.keyCode) {
                 return nil
             }
             return event
@@ -189,6 +192,14 @@ final class OverlayKeyboardRouter {
 
     static func cmdNumberIndex(keyCode: UInt16) -> Int? {
         cmdNumberMap[keyCode]
+    }
+
+    static func isAlertConfirmKey(keyCode: UInt16) -> Bool {
+        keyCode == 36
+    }
+
+    static func shouldConsumeAlertKeyDown(keyCode: UInt16) -> Bool {
+        keyCode == 51 || keyCode == 117
     }
 
     /// 检查当前焦点是否在文本输入框内（搜索框等）
