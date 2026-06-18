@@ -1,58 +1,5 @@
 import SwiftUI
 
-// MARK: - 关于窗口
-struct AboutView: View {
-    @AppStorage(UserDefaultsKeys.language) private var language = ""
-    var body: some View {
-        VStack(spacing: 0) {
-            AppIconImageView(size: 72)
-                .padding(.top, 30)
-                .padding(.bottom, 14)
-
-            Text(appDisplayName)
-                .font(.system(size: 18, weight: .semibold))
-            Text("v\(appVersion) · Build \(appBuild)")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .padding(.top, 4)
-
-            Divider()
-                .padding(.vertical, 16)
-                .padding(.horizontal, 40)
-
-            Text(L10n["about.description"])
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .padding(.horizontal, 32)
-
-            Spacer(minLength: 12)
-
-            Text(L10n["about.copyright"])
-                .font(.system(size: 10))
-                .foregroundColor(.secondary.opacity(0.6))
-                .padding(.bottom, 20)
-        }
-        .frame(width: 360, height: 320)
-        .id(language)  // 触发语言切换时重渲染
-    }
-
-    private var appDisplayName: String {
-        Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String
-            ?? Bundle.main.infoDictionary?["CFBundleName"] as? String
-            ?? "Pastry"
-    }
-
-    private var appVersion: String {
-        AppVersion.displayCurrent
-    }
-
-    private var appBuild: String {
-        AppVersion.displayBuild
-    }
-}
-
 // MARK: - 帮助窗口
 struct HelpView: View {
     @State private var selectedTopic: HelpTopic? = .shortcuts
