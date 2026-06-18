@@ -65,6 +65,11 @@ fi
 cd "$PROJECT_DIR"
 
 cleanup() {
+    if [ -n "${DMG_DEVICE:-}" ]; then
+        hdiutil detach "$DMG_DEVICE" -quiet 2>/dev/null || true
+    elif [ -n "${DMG_VOLUME:-}" ] && [ -d "$DMG_VOLUME" ]; then
+        hdiutil detach "$DMG_VOLUME" -quiet 2>/dev/null || true
+    fi
     if [ -n "${SMOKE_VOLUME:-}" ] && [ -d "$SMOKE_VOLUME" ]; then
         hdiutil detach "$SMOKE_VOLUME" -quiet 2>/dev/null || true
     fi
@@ -217,35 +222,60 @@ hdiutil create -volname "$APP_NAME" \
 echo "🎨 美化 DMG..."
 
 # 挂载（-noautoopen 不打开 Finder 窗口）
-hdiutil attach -readwrite -noverify -noautoopen "$STAGING/tmp.dmg" > /dev/null 2>&1
-VOLUME="/Volumes/$APP_NAME"
+DMG_ATTACH_LOG="$STAGING/dmg-attach.log"
+if ! hdiutil attach -readwrite -noverify -noautoopen "$STAGING/tmp.dmg" > "$DMG_ATTACH_LOG" 2>&1; then
+    echo "❌ DMG 美化挂载失败"
+    cat "$DMG_ATTACH_LOG"
+    exit 1
+fi
+DMG_DEVICE=$(awk '/\/Volumes\// {print $1; exit}' "$DMG_ATTACH_LOG")
+DMG_VOLUME=$(awk '/\/Volumes\// {for (i=3; i<=NF; i++) printf "%s%s", (i==3 ? "" : " "), $i; print ""; exit}' "$DMG_ATTACH_LOG")
+VOLUME="${DMG_VOLUME:-/Volumes/$APP_NAME}"
 if [ ! -d "$VOLUME" ]; then
-    echo "❌ 挂载失败"
+    echo "❌ DMG 美化挂载后未找到卷目录: $VOLUME"
+    cat "$DMG_ATTACH_LOG"
     exit 1
 fi
 
 # 复制背景图（含 Retina @2x）
 mkdir -p "$VOLUME/.background"
-cp "$PROJECT_DIR/Resources/dmg-background.png" "$VOLUME/.background/background.png"
-cp "$PROJECT_DIR/Resources/dmg-background@2x.png" "$VOLUME/.background/background@2x.png"
+cp "$PROJECT_DIR/Resources/dmg-background.png" "$VOLUME/.background/background.png" || { echo "❌ 复制 DMG 背景图失败"; exit 1; }
+cp "$PROJECT_DIR/Resources/dmg-background@2x.png" "$VOLUME/.background/background@2x.png" || { echo "❌ 复制 DMG Retina 背景图失败"; exit 1; }
 if command -v SetFile >/dev/null 2>&1; then
     SetFile -a V "$VOLUME/.background"
 fi
 
 # 复制预制的 .DS_Store 模板（窗口大小、图标位置、背景图引用）
-cp "$PROJECT_DIR/Resources/dmg-dsstore" "$VOLUME/.DS_Store"
+cp "$PROJECT_DIR/Resources/dmg-dsstore" "$VOLUME/.DS_Store" || { echo "❌ 复制 DMG .DS_Store 模板失败"; exit 1; }
 
 # 卸载
-hdiutil detach "$VOLUME" -quiet
+if ! hdiutil detach "${DMG_DEVICE:-$VOLUME}" -quiet; then
+    echo "❌ DMG 美化后卸载失败: ${DMG_DEVICE:-$VOLUME}"
+    exit 1
+fi
+DMG_DEVICE=""
+DMG_VOLUME=""
 echo "✅ DMG 背景和窗口布局已写入"
 
 # 转换为只读压缩 DMG
-hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" 2>&1 | tail -1
+CONVERT_LOG="$STAGING/dmg-convert.log"
+if ! hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" > "$CONVERT_LOG" 2>&1; then
+    echo "❌ DMG 压缩转换失败"
+    cat "$CONVERT_LOG"
+    exit 1
+fi
+tail -1 "$CONVERT_LOG"
 rm -f "$STAGING/tmp.dmg"
 echo "✅ DMG 已生成: $DMG_PATH"
 
 echo "🧪 烟测 DMG..."
-SMOKE_MOUNT=$(hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH")
+SMOKE_ATTACH_LOG="$STAGING/smoke-attach.log"
+if ! hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH" > "$SMOKE_ATTACH_LOG" 2>&1; then
+    echo "❌ DMG 烟测挂载失败"
+    cat "$SMOKE_ATTACH_LOG"
+    exit 1
+fi
+SMOKE_MOUNT=$(cat "$SMOKE_ATTACH_LOG")
 SMOKE_DEVICE=$(echo "$SMOKE_MOUNT" | awk '/\/Volumes\// {print $1; exit}')
 SMOKE_VOLUME=$(echo "$SMOKE_MOUNT" | awk '/\/Volumes\// {for (i=3; i<=NF; i++) printf "%s%s", (i==3 ? "" : " "), $i; print ""; exit}')
 if [ -z "$SMOKE_VOLUME" ] || [ ! -d "$SMOKE_VOLUME" ]; then
