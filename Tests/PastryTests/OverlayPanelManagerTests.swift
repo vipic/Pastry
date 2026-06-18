@@ -203,6 +203,18 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
+    func testAlertConfirmKeyIsEnter() {
+        XCTAssertTrue(OverlayKeyboardRouter.isAlertConfirmKey(keyCode: 36))
+        XCTAssertFalse(OverlayKeyboardRouter.isAlertConfirmKey(keyCode: 51))
+    }
+
+    func testAlertConsumesDeleteKeysWithoutSystemBeep() {
+        XCTAssertTrue(OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: 51))
+        XCTAssertTrue(OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: 117))
+        XCTAssertFalse(OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: 36))
+        XCTAssertFalse(OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: 0))
+    }
+
     // MARK: - 粘贴锁 isPasting
 
     /// 验证 isPasting 标记存在（编译时检查）
