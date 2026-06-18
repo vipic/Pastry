@@ -19,6 +19,7 @@ final class ClipboardMonitor: ObservableObject {
 
     // MARK: 私有状态
     private var lastChangeCount = NSPasteboard.general.changeCount
+    private var ignoredChangeCounts: Set<Int> = []
     private var timer: Timer?
     private let pollInterval: TimeInterval = 0.2
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
@@ -61,6 +62,13 @@ final class ClipboardMonitor: ObservableObject {
     /// 清空剪贴板后同步计数器，避免监听器误检
     func syncChangeCount() {
         lastChangeCount = NSPasteboard.general.changeCount
+    }
+
+    /// 标记当前剪贴板变更为 Pastry 自己写入，避免粘贴动作被当成一次复制并播放 Copy 音效。
+    func ignoreCurrentChange() {
+        let changeCount = NSPasteboard.general.changeCount
+        ignoredChangeCounts.insert(changeCount)
+        lastChangeCount = changeCount
     }
 
     private init() {}
@@ -183,6 +191,9 @@ final class ClipboardMonitor: ObservableObject {
 
         guard currentChange != lastChangeCount else { return }
         lastChangeCount = currentChange
+        if ignoredChangeCounts.remove(currentChange) != nil {
+            return
+        }
 
         // 首次检测到剪贴板变化时延迟创建 event tap，避免应用启动时弹出辅助功能授权
         setupEventTap()

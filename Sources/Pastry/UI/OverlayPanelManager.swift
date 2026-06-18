@@ -15,34 +15,115 @@ final class ClipboardOverlayPanel: NSPanel {
             routeCancelKey()
             return
         }
+        if Self.shouldConfirmAlert(
+            keyCode: event.keyCode,
+            isAlertActive: OverlayPanelManager.shared.isAlertActive
+        ) {
+            routeAlertConfirmKey()
+            return
+        }
+        if Self.shouldRouteSelectAll(
+            keyCode: event.keyCode,
+            isAlertActive: OverlayPanelManager.shared.isAlertActive,
+            modifierFlags: event.modifierFlags
+        ) {
+            routeSelectAllKey()
+            return
+        }
         if Self.shouldSilentlyConsumeKeyDown(
             keyCode: event.keyCode,
-            isSearchActive: OverlayPanelManager.shared.isSearchActive
+            isSearchActive: OverlayPanelManager.shared.isSearchActive,
+            isAlertActive: OverlayPanelManager.shared.isAlertActive,
+            modifierFlags: event.modifierFlags
         ) {
             return
         }
         super.keyDown(with: event)
     }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if Self.shouldConfirmAlert(
+            keyCode: event.keyCode,
+            isAlertActive: OverlayPanelManager.shared.isAlertActive
+        ) {
+            routeAlertConfirmKey()
+            return true
+        }
+        if Self.shouldRouteSelectAll(
+            keyCode: event.keyCode,
+            isAlertActive: OverlayPanelManager.shared.isAlertActive,
+            modifierFlags: event.modifierFlags
+        ) {
+            routeSelectAllKey()
+            return true
+        }
+        if Self.shouldSilentlyConsumeKeyDown(
+            keyCode: event.keyCode,
+            isSearchActive: OverlayPanelManager.shared.isSearchActive,
+            isAlertActive: OverlayPanelManager.shared.isAlertActive,
+            modifierFlags: event.modifierFlags
+        ) {
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func cancelOperation(_ sender: Any?) {
-        guard !OverlayPanelManager.shared.isAlertActive else {
-            super.cancelOperation(sender)
+        if OverlayPanelManager.shared.isAlertActive {
+            routeCancelKey()
             return
         }
         routeCancelKey()
     }
 
-    static func shouldSilentlyConsumeKeyDown(keyCode: UInt16, isSearchActive: Bool) -> Bool {
+    static func shouldSilentlyConsumeKeyDown(
+        keyCode: UInt16,
+        isSearchActive: Bool,
+        isAlertActive: Bool = false,
+        modifierFlags: NSEvent.ModifierFlags = []
+    ) -> Bool {
+        if isAlertActive {
+            return OverlayKeyboardRouter.isAlertConfirmKey(keyCode: keyCode)
+                || OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: keyCode)
+        }
         guard !isSearchActive else { return false }
+        if keyCode == 36 || keyCode == 51 || keyCode == 117 {
+            return true
+        }
+        if modifierFlags.contains(.command), OverlayKeyboardRouter.cmdNumberIndex(keyCode: keyCode) != nil {
+            return true
+        }
         return keyCode == 123 || keyCode == 124 || keyCode == 125 || keyCode == 126
     }
 
+    static func shouldConfirmAlert(keyCode: UInt16, isAlertActive: Bool) -> Bool {
+        isAlertActive && OverlayKeyboardRouter.isAlertConfirmKey(keyCode: keyCode)
+    }
+
+    static func shouldRouteSelectAll(
+        keyCode: UInt16,
+        isAlertActive: Bool,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> Bool {
+        !isAlertActive && keyCode == 0 && modifierFlags.contains(.command)
+    }
+
     static func shouldHandleCancelKey(keyCode: UInt16, isAlertActive: Bool) -> Bool {
-        keyCode == 53 && !isAlertActive
+        keyCode == 53
+    }
+
+    private func routeAlertConfirmKey() {
+        NotificationCenter.default.post(name: .overlayAlertConfirm, object: nil)
+    }
+
+    private func routeSelectAllKey() {
+        NotificationCenter.default.post(name: .overlaySelectAll, object: nil)
     }
 
     private func routeCancelKey() {
-        if QLPreviewHelper.shared.isShowing {
+        if OverlayPanelManager.shared.isAlertActive {
+            NotificationCenter.default.post(name: .overlayAlertCancel, object: nil)
+        } else if QLPreviewHelper.shared.isShowing {
             QLPreviewHelper.shared.dismiss()
         } else if OverlayPanelManager.shared.isSearchActive {
             NotificationCenter.default.post(name: .overlayCloseSearch, object: nil)
@@ -155,35 +236,27 @@ final class OverlayPanelManager: @unchecked Sendable {
         // 1. 挂起监听，防止读到自己的写入
         ClipboardMonitor.shared.suspend()
 
-        // 2. 写剪贴板（文本/文件立即，图片 I/O 后台完成）
-        let result = await PasteboardWriter.write(item, options: .overlaySingle)
+        // 2. 先激活目标 App + 隐藏面板，避免完整内容或图片读取让面板退场慢一拍。
+        closePanelForPaste(targetApp: targetApp)
         let t1 = CFAbsoluteTimeGetCurrent()
+
+        // 3. 写剪贴板（文本/文件立即，图片 I/O 后台完成）
+        let result = await PasteboardWriter.write(item, options: .overlaySingle)
+        ClipboardMonitor.shared.ignoreCurrentChange()
+        let t2 = CFAbsoluteTimeGetCurrent()
         guard result == .written else {
-            // 文件全部缺失或图片读取失败时，静默取消粘贴，关闭面板
+            // 文件全部缺失或图片读取失败时，静默取消粘贴。
             ClipboardMonitor.shared.resume()
-            panel?.orderOut(nil)
-            panel = nil
-            removeKeyboardMonitor()
-            NotificationCenter.default.post(name: .overlayDidHide, object: nil)
             isPasting = false
             return
         }
 
-        // 内容就绪 → 反馈音效（异步避免阻塞粘贴）
-        DispatchQueue.main.async { SoundFeedback.play(Self.pasteSound) }
-
-        // 3. 激活目标 App + 隐藏面板
-        targetApp?.activate()
-        let t2 = CFAbsoluteTimeGetCurrent()
-        panel?.orderOut(nil)
-        panel = nil
-        removeKeyboardMonitor()
-        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
-        let t3 = CFAbsoluteTimeGetCurrent()
-
         // 4. ⌘V（面板已隐藏，目标 App 在前台）
-        Self.simulatePaste()
-        let t4 = CFAbsoluteTimeGetCurrent()
+        let didPostPaste = Self.simulatePaste()
+        if didPostPaste {
+            SoundFeedback.play(Self.pasteSound)
+        }
+        let t3 = CFAbsoluteTimeGetCurrent()
 
         // 5. 后台收尾：DB / 恢复监听 / 刷新
         DatabaseManager.shared.bumpTimestamp(id: item.id.uuidString)
@@ -194,7 +267,7 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
-            let perfLine = "\(Date()) | type: paste | sourceFormat: \(fmt) | clipboardWrite: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+            let perfLine = "\(Date()) | type: paste | sourceFormat: \(fmt) | closePanel: \(ms(t1-t0))ms | clipboardWrite: \(ms(t2-t1))ms | simulatePaste: \(ms(t3-t2))ms | total: \(ms(t3-t0))ms"
             log.info("⏱ \(perfLine, privacy: .public)")
             Self.writePerfLog(perfLine)
         }
@@ -213,6 +286,10 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         ClipboardMonitor.shared.suspend()
 
+        // 先关闭面板，避免收集完整内容时视觉上慢一拍。
+        closePanelForPaste(targetApp: targetApp)
+        let t1 = CFAbsoluteTimeGetCurrent()
+
         // 收集所有文本内容（文本类 + 文件路径），用换行拼接
         let lines = items.compactMap { item -> String? in
             switch item.sourceFormat {
@@ -226,23 +303,15 @@ final class OverlayPanelManager: @unchecked Sendable {
         }
         let combined = lines.joined(separator: "\n")
         PasteboardWriter.writePlainText(combined)
-        let t1 = CFAbsoluteTimeGetCurrent()
-
-        // 音效
-        DispatchQueue.main.async { SoundFeedback.play(Self.pasteSound) }
-
-        // 激活目标 App + 隐藏面板
-        targetApp?.activate()
+        ClipboardMonitor.shared.ignoreCurrentChange()
         let t2 = CFAbsoluteTimeGetCurrent()
-        panel?.orderOut(nil)
-        panel = nil
-        removeKeyboardMonitor()
-        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
-        let t3 = CFAbsoluteTimeGetCurrent()
 
         // ⌘V
-        Self.simulatePaste()
-        let t4 = CFAbsoluteTimeGetCurrent()
+        let didPostPaste = Self.simulatePaste()
+        if didPostPaste {
+            SoundFeedback.play(Self.pasteSound)
+        }
+        let t3 = CFAbsoluteTimeGetCurrent()
 
         // 后台收尾：每个条目更新 DB
         for item in items {
@@ -255,7 +324,7 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
-            let perfLine = "\(Date()) | type: pasteMulti | itemCount: \(items.count) | writeText: \(ms(t1-t0))ms | activateApp: \(ms(t2-t1))ms | orderOut: \(ms(t3-t2))ms | simulatePaste: \(ms(t4-t3))ms | total: \(ms(t4-t0))ms"
+            let perfLine = "\(Date()) | type: pasteMulti | itemCount: \(items.count) | closePanel: \(ms(t1-t0))ms | writeText: \(ms(t2-t1))ms | simulatePaste: \(ms(t3-t2))ms | total: \(ms(t3-t0))ms"
             log.info("⏱ \(perfLine, privacy: .public)")
             Self.writePerfLog(perfLine)
         }
@@ -286,6 +355,13 @@ final class OverlayPanelManager: @unchecked Sendable {
                 self?.pollDragEnd()
             }
         }
+    }
+
+    @MainActor
+    private func closePanelForPaste(targetApp: NSRunningApplication?) {
+        targetApp?.activate()
+        cleanup()
+        NotificationCenter.default.post(name: .overlayDidHide, object: nil)
     }
 
     var isVisible: Bool { panel != nil }
@@ -439,18 +515,16 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     // MARK: - ⌘V 模拟
 
-    private static func simulatePaste() {
+    private static func simulatePaste() -> Bool {
         let vKey = CGKeyCode(9)
         guard let source = CGEventSource(stateID: .privateState) else {
             Logger(subsystem: "com.nekutai.pastry", category: "paste").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
-            NSSound.beep()
-            return
+            return false
         }
 
         guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
               let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false) else {
-            NSSound.beep()
-            return
+            return false
         }
 
         cmdDown.flags = .maskCommand
@@ -459,6 +533,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
         cmdDown.postToPid(pid)
         cmdUp.postToPid(pid)
+        return true
     }
 
     deinit {

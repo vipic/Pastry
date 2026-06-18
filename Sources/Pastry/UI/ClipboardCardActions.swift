@@ -225,11 +225,11 @@ extension ClipboardCardView {
             menu.addItem(sItem)
 
         menu.addItem(.separator())
-        let deleteItem = NSMenuItem(title: L10n["context.delete"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
-        deleteItem.target = handler
-        deleteItem.representedObject = "delete" as NSString
-        deleteItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
-        menu.addItem(deleteItem)
+        let deleteMenuItem = NSMenuItem(title: L10n["context.delete"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        deleteMenuItem.target = handler
+        deleteMenuItem.representedObject = "delete" as NSString
+        deleteMenuItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+        menu.addItem(deleteMenuItem)
 
         NSMenu.popUpContextMenu(menu, with: event, for: view)
     }

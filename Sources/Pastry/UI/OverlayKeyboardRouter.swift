@@ -43,7 +43,10 @@ final class OverlayKeyboardRouter {
     private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
         // Esc：筛选气泡 → 预览 popover → 搜索栏 → 关闭面板（逐层收起）
         if event.keyCode == 53 {
-            if isAlertActive() { return event }
+            if isAlertActive() {
+                NotificationCenter.default.post(name: .overlayAlertCancel, object: nil)
+                return nil
+            }
             if QLPreviewHelper.shared.isShowing {
                 QLPreviewHelper.shared.dismiss()
                 return nil
@@ -56,7 +59,7 @@ final class OverlayKeyboardRouter {
             return nil
         }
 
-        // 弹窗活跃：Enter 确认删除 / 其他按键放行（Esc 已在上方处理）
+        // 弹窗活跃：Enter 确认删除 / Delete 静默消费 / 其他按键放行（Esc 已在上方处理）
         if isAlertActive() {
             if Self.isAlertConfirmKey(keyCode: event.keyCode) {
                 NotificationCenter.default.post(name: .overlayAlertConfirm, object: nil)

@@ -215,24 +215,22 @@ final class StoreManager: ObservableObject {
         performSearchImmediate()
     }
 
-    func deleteItem(_ item: ClipboardItem) {
-        DatabaseManager.shared.delete(id: item.id.uuidString)
-        items.removeAll { $0.id == item.id }
-        performSearchImmediate()
-        refreshAvailableApps()
-    }
-
-    /// 批量删除选中项 — pinned 跳过，仅在所有 items 清空时清系统剪贴板
-    func deleteSelected(_ ids: Set<UUID>) {
+    /// 批量删除选中项。键盘选择删除会保留收藏；右键明确删除可包含收藏。
+    func deleteSelected(
+        _ ids: Set<UUID>,
+        clearSystemClipboardWhenEmpty: Bool = true,
+        preservePinned: Bool = false
+    ) {
         ClipboardMonitor.shared.suspend()
         for id in ids {
-            if let item = items.first(where: { $0.id == id }), !item.isPinned {
+            if let item = items.first(where: { $0.id == id }),
+               !(preservePinned && item.isPinned) {
                 DatabaseManager.shared.delete(id: id.uuidString)
                 items.removeAll { $0.id == id }
             }
         }
 
-        if items.isEmpty {
+        if clearSystemClipboardWhenEmpty, items.isEmpty {
             PasteboardWriter.clearSystemClipboard()
         }
 

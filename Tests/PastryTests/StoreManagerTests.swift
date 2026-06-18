@@ -271,24 +271,9 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertFalse(store.filteredItems[0].isPinned)
     }
 
-    // MARK: - deleteItem
-
-    func testDeleteItemRemovesFromFiltered() {
-        store = makeStoreWithItems([
-            ("A", .text, "Safari", false, 0),
-            ("B", .text, "Chrome", false, 0),
-        ])
-        let item = store.filteredItems[0]
-
-        store.deleteItem(item)
-
-        XCTAssertEqual(store.filteredItems.count, 1)
-        XCTAssertEqual(store.filteredItems[0].content, "B")
-    }
-
     // MARK: - deleteSelected
 
-    func testDeleteSelectedSkipsPinned() {
+    func testDeleteSelectedRemovesPinnedByDefault() {
         store = makeStoreWithItems([
             ("pinned", .text, "Safari", true, 0),
             ("normal", .text, "Chrome", false, 0),
@@ -297,7 +282,18 @@ final class StoreManagerTests: XCTestCase {
         let ids = Set(store.filteredItems.map { $0.id })
         store.deleteSelected(ids)
 
-        // pinned 应保留
+        XCTAssertTrue(store.filteredItems.isEmpty)
+    }
+
+    func testDeleteSelectedCanPreservePinned() {
+        store = makeStoreWithItems([
+            ("pinned", .text, "Safari", true, 0),
+            ("normal", .text, "Chrome", false, 0),
+        ])
+
+        let ids = Set(store.filteredItems.map { $0.id })
+        store.deleteSelected(ids, preservePinned: true)
+
         XCTAssertEqual(store.filteredItems.count, 1)
         XCTAssertEqual(store.filteredItems[0].content, "pinned")
     }
