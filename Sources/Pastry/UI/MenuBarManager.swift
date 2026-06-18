@@ -65,7 +65,6 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             actions: MenuBarMenuActions(
                 openOverlay: #selector(openOverlay),
                 clearHistory: #selector(clearHistoryAction),
-                openAbout: #selector(openAboutAction),
                 openSettings: #selector(openSettingsAction),
                 quit: #selector(quitApp)
             ),
@@ -118,14 +117,6 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     @MainActor
     @objc private func openOverlay() {
         OverlayPanelManager.shared.toggle()
-    }
-
-    @MainActor
-    @objc private func openAboutAction() {
-        OverlayPanelManager.shared.hide()
-        DispatchQueue.main.async {
-            AppDelegate.shared?.openSettingsWindow(selectedTab: .about)
-        }
     }
 
     @MainActor
