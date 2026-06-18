@@ -644,6 +644,7 @@ struct SettingsSceneView: View {
         switch versionUpdateState {
         case .checking:
             ProgressView()
+                .tint(versionWarmAccent)
                 .controlSize(.small)
         case .downloading(let progress):
             VStack(alignment: .trailing, spacing: 6) {
@@ -656,6 +657,7 @@ struct SettingsSceneView: View {
             }
         case .installing:
             ProgressView()
+                .tint(versionWarmAccent)
                 .controlSize(.small)
         case .updateAvailable(let result):
             Button(L10n["update.update_btn"]) {
@@ -752,7 +754,7 @@ struct SettingsSceneView: View {
     private var versionStatusTint: Color {
         switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            return Color(red: 0.88, green: 0.94, blue: 1.0).opacity(0.62)
+            return Color(red: 1.0, green: 0.94, blue: 0.82).opacity(0.62)
         case .error:
             return Color.red.opacity(0.08)
         default:
@@ -763,7 +765,7 @@ struct SettingsSceneView: View {
     private var versionBadgeGradient: LinearGradient {
         let colors: [Color] = switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            [Color(red: 0.45, green: 0.68, blue: 1.0), Color(red: 0.22, green: 0.50, blue: 0.83)]
+            [Color(red: 0.875, green: 0.667, blue: 0.345), Color(red: 0.741, green: 0.463, blue: 0.184)]
         case .error:
             [Color(red: 1.0, green: 0.48, blue: 0.45), Color(red: 0.74, green: 0.24, blue: 0.22)]
         default:
@@ -781,11 +783,15 @@ struct SettingsSceneView: View {
                     .fill(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10))
                     .frame(height: 6)
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color(red: 0.22, green: 0.50, blue: 0.83))
+                    .fill(versionWarmAccent)
                     .frame(width: geo.size.width * CGFloat(visible), height: 6)
             }
         }
         .frame(height: 6)
+    }
+
+    private var versionWarmAccent: Color {
+        Color(red: 0.741, green: 0.463, blue: 0.184)
     }
 
     private func loadVersionCache() {
