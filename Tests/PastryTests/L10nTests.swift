@@ -92,6 +92,8 @@ final class L10nTests: XCTestCase {
             "settings.about.open",
             "settings.about.license",
             "settings.about.license_help",
+            "about.description",
+            "about.copyright",
             "settings.security.subtitle",
             "settings.security.privacy",
             "settings.diagnostics_section",
