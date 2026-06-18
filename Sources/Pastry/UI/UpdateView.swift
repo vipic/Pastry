@@ -22,6 +22,8 @@ struct UpdateView: View {
     var onUpdate: (() -> Void)?
     var onCancel: (() -> Void)?
 
+    private let updateAccent = Color(red: 0.741, green: 0.463, blue: 0.184)
+
     var body: some View {
         VStack(spacing: 0) {
             // App 图标
@@ -92,6 +94,7 @@ struct UpdateView: View {
                 Text(L10n["update.checking"])
                     .font(.system(size: 17, weight: .semibold))
                 ProgressView()
+                    .tint(updateAccent)
                     .scaleEffect(0.7)
                     .frame(width: 18, height: 18)
 
@@ -187,7 +190,7 @@ struct UpdateView: View {
                         ForEach(items, id: \.self) { item in
                             HStack(alignment: .top, spacing: 10) {
                                 Circle()
-                                    .fill(Color.accentColor)
+                                    .fill(updateAccent)
                                     .frame(width: 6, height: 6)
                                     .padding(.top, 5)
                                 Text(item)
@@ -291,7 +294,7 @@ struct UpdateView: View {
                             .fill(Color.primary.opacity(0.1))
                             .frame(height: 6)
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.accentColor)
+                            .fill(updateAccent)
                             .frame(width: geo.size.width * CGFloat(visibleProgress), height: 6)
                     }
                 }
@@ -314,10 +317,19 @@ private struct PrimaryButtonStyle: ButtonStyle {
             .font(.system(size: 13, weight: .medium))
             .padding(.horizontal, 18)
             .padding(.vertical, 8)
-            .background(Color.accentColor)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.875, green: 0.667, blue: 0.345),
+                        Color(red: 0.741, green: 0.463, blue: 0.184)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
             .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            .shadow(color: Color.accentColor.opacity(0.2), radius: 3, y: 1)
+            .shadow(color: Color(red: 0.741, green: 0.463, blue: 0.184).opacity(0.22), radius: 3, y: 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
