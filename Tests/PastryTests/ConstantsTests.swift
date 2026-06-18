@@ -51,8 +51,8 @@ final class ConstantsTests: XCTestCase {
     }
 
     func testHistoryRetentionMetricLabelOmitsActionPrefix() {
-        let saved = UserDefaults.standard.string(forKey: "PastryLanguage")
-        UserDefaults.standard.set("en", forKey: "PastryLanguage")
+        let saved = UserDefaults.standard.string(forKey: UserDefaultsKeys.language)
+        UserDefaults.standard.set("en", forKey: UserDefaultsKeys.language)
         L10n.reloadCatalogForTesting()
 
         XCTAssertEqual(HistoryRetentionPolicy.maxAgeLabel(90), "Keep for 90 days")
@@ -61,9 +61,9 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(HistoryRetentionPolicy.maxAgeMetricLabel(0), "No limit")
 
         if let saved {
-            UserDefaults.standard.set(saved, forKey: "PastryLanguage")
+            UserDefaults.standard.set(saved, forKey: UserDefaultsKeys.language)
         } else {
-            UserDefaults.standard.removeObject(forKey: "PastryLanguage")
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.language)
         }
         L10n.reloadCatalogForTesting()
     }
