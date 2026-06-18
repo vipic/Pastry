@@ -9,7 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     nonisolated(unsafe) static private(set) weak var shared: AppDelegate?
 
     private var settingsWindow: NSWindow?
-    private var aboutWindow: NSWindow?
     private var helpWindow: NSWindow?
     private var updateWindow: NSWindow?
 
@@ -112,35 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     @objc func showAboutWindow() {
-        if let existing = aboutWindow, existing.isVisible {
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-
-        let savedPolicy = NSApp.activationPolicy()
-        NSApp.setActivationPolicy(.regular)
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 320),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "\(L10n["menu.about"]) Pastry"
-        window.titlebarAppearsTransparent = true
-        window.titlebarSeparatorStyle = .none
-        window.center()
-        window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: AboutView())
-
-        let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy)
-        window.delegate = delegate
-        delegate.selfRetain()
-        aboutWindow = window
-
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        openSettingsWindow(selectedTab: .about)
     }
 
     @MainActor

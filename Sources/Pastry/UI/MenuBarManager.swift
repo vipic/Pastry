@@ -124,7 +124,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     @objc private func openAboutAction() {
         OverlayPanelManager.shared.hide()
         DispatchQueue.main.async {
-            AppDelegate.shared?.showAboutWindow()
+            AppDelegate.shared?.openSettingsWindow(selectedTab: .about)
         }
     }
 

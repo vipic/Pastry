@@ -71,7 +71,7 @@ struct SettingsSceneView: View {
     }
 
     enum SettingsTab: String, CaseIterable, Identifiable {
-        case general, shortcut, security, version
+        case general, shortcut, security, version, about
         var id: String { rawValue }
         var label: String {
             switch self {
@@ -79,6 +79,7 @@ struct SettingsSceneView: View {
             case .shortcut: return L10n["settings.tab.shortcut"]
             case .security: return L10n["settings.tab.security"]
             case .version:  return L10n["settings.tab.version"]
+            case .about:    return L10n["settings.tab.about"]
             }
         }
         var icon: String {
@@ -87,6 +88,7 @@ struct SettingsSceneView: View {
             case .shortcut: return "command"
             case .security: return "shield"
             case .version:  return "exclamationmark.circle"
+            case .about:    return "info.circle"
             }
         }
         var usesSymbolIcon: Bool {
@@ -294,6 +296,7 @@ struct SettingsSceneView: View {
         case .shortcut: shortcutTab
         case .security: securityTab
         case .version:  versionTab
+        case .about:    aboutTab
         }
     }
 
@@ -800,6 +803,119 @@ struct SettingsSceneView: View {
             lastCheckDate: lastCheck,
             lastReleaseNotes: versionReleaseNotes
         )
+    }
+
+    // MARK: - 关于 Tab
+
+    private var aboutTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                settingsPaneHeader(
+                    title: L10n["settings.tab.about"],
+                    subtitle: L10n["settings.about.subtitle"]
+                )
+
+                aboutIdentitySection
+
+                HStack(alignment: .top, spacing: 12) {
+                    settingsSection(title: L10n["settings.about.section_product"]) {
+                        settingsRow(
+                            title: L10n["settings.about.version"],
+                            help: "v\(AppVersion.displayCurrent) · Build \(AppVersion.displayBuild)"
+                        ) {
+                            EmptyView()
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.about.created_by"],
+                            help: "Nekutai"
+                        ) {
+                            EmptyView()
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.about.copyright"],
+                            help: L10n["about.copyright"]
+                        ) {
+                            EmptyView()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+
+                    settingsSection(title: L10n["settings.about.section_resources"]) {
+                        settingsRow(
+                            title: L10n["settings.about.source_code"],
+                            help: L10n["settings.about.source_code_help"]
+                        ) {
+                            Button(L10n["settings.about.open"]) {
+                                openExternalURL("https://github.com/vipic/Pastry")
+                            }
+                            .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.about.license"],
+                            help: L10n["settings.about.license_help"]
+                        ) {
+                            EmptyView()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+                }
+            }
+            .padding(.vertical, 24)
+            .padding(.horizontal, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
+        }
+        .background(Color.clear)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var aboutIdentitySection: some View {
+        HStack(alignment: .center, spacing: 16) {
+            AppIconImageView(size: 64)
+                .shadow(color: .black.opacity(0.18), radius: 14, x: 0, y: 8)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(appDisplayName)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Color(red: 0.122, green: 0.145, blue: 0.161))
+                Text(L10n["about.description"])
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.white.opacity(0.56))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                )
+        )
+    }
+
+    private var appDisplayName: String {
+        Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String
+            ?? Bundle.main.infoDictionary?["CFBundleName"] as? String
+            ?? "Pastry"
+    }
+
+    private func openExternalURL(_ rawURL: String) {
+        guard let url = URL(string: rawURL) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     @MainActor
