@@ -120,11 +120,11 @@ struct ClipboardMultiLinkContentView: View {
                 HStack(spacing: 6) {
                     ZStack {
                         Circle()
-                            .fill(Color.accentColor.opacity(0.12))
+                            .fill(Color.pastryWarmAccent.opacity(0.12))
                             .frame(width: 20, height: 20)
                         Text(String(url.host?.prefix(1).uppercased() ?? "?"))
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.pastryWarmAccent)
                     }
 
                     VStack(alignment: .leading, spacing: 0) {
