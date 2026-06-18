@@ -131,7 +131,7 @@ struct OverlayView: View {
                 }
                 .alert(L10n["delete.confirm_title"], isPresented: $showDeleteConfirm) {
                     Button(L10n["delete.confirm_cancel"], role: .cancel) {}
-                    Button(L10n["delete.confirm_ok"], role: .destructive) { deleteSelected() }
+                    Button(L10n["delete.confirm_ok"], role: .destructive) { confirmDeleteSelected() }
                 } message: {
                     Text(String(format: L10n["delete.confirm_msg"], selection.selectedIds.count))
                 }
@@ -141,8 +141,7 @@ struct OverlayView: View {
                                                     userInfo: ["active": showDeleteConfirm])
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayAlertConfirm)) { _ in
-                    deleteSelected()
-                    showDeleteConfirm = false
+                    confirmDeleteSelected()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayCmdStateChanged)) { note in
                     cmdDown = (note.userInfo?["cmdDown"] as? Bool) ?? false
@@ -172,6 +171,10 @@ struct OverlayView: View {
     }
 
     private func handleConfirmPaste() {
+        if showDeleteConfirm {
+            confirmDeleteSelected()
+            return
+        }
         let ids = selection.selectedIds
         guard !ids.isEmpty else {
             SoundFeedback.invalidAction()
@@ -189,6 +192,9 @@ struct OverlayView: View {
     }
 
     private func handleDeleteSelectedRequest() {
+        if showDeleteConfirm {
+            return
+        }
         guard !selection.selectedIds.isEmpty else {
             SoundFeedback.invalidAction()
             return
@@ -197,6 +203,7 @@ struct OverlayView: View {
     }
 
     private func handleCommandPaste(_ note: Notification) {
+        guard !showDeleteConfirm else { return }
         guard let idx = note.userInfo?["index"] as? Int,
               idx > 0,
               idx <= visibleItems.count else {
@@ -208,6 +215,7 @@ struct OverlayView: View {
     }
 
     private func handleSearchEnterPaste() {
+        guard !showDeleteConfirm else { return }
         guard let first = visibleItems.first else {
             SoundFeedback.invalidAction()
             return
@@ -269,6 +277,15 @@ struct OverlayView: View {
     private func deleteSelected() {
         store.deleteSelected(selection.selectedIds)
         selection.reset()
+    }
+
+    private func confirmDeleteSelected() {
+        guard !selection.selectedIds.isEmpty else {
+            showDeleteConfirm = false
+            return
+        }
+        deleteSelected()
+        showDeleteConfirm = false
     }
 
     // MARK: - 搜索框（内联在 header 中）
