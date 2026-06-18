@@ -7,14 +7,7 @@ enum L10n {
     nonisolated(unsafe) private static var catalog: [String: [String: String]] = loadCatalog()
 
     private static func loadCatalog() -> [String: [String: String]] {
-        // 1. deployed app: ~/Applications/Pastry.app/Contents/Resources/
-        // 2. SPM dev: Pastry_Pastry.bundle
-        let url: URL?
-        if let mainURL = Bundle.main.url(forResource: "Localizable", withExtension: "xcstrings") {
-            url = mainURL
-        } else {
-            url = Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings")
-        }
+        let url = catalogURL()
 
         guard let url,
               let data = try? Data(contentsOf: url),
@@ -36,6 +29,25 @@ enum L10n {
             catalog[key] = localizations
         }
         return catalog
+    }
+
+    private static func catalogURL() -> URL? {
+        // deploy.sh copies Localizable.xcstrings directly into Contents/Resources.
+        if let mainURL = Bundle.main.url(forResource: "Localizable", withExtension: "xcstrings") {
+            return mainURL
+        }
+
+        // release.sh copies the SwiftPM resource bundle into Contents/Resources.
+        if let resourceURL = Bundle.main.resourceURL?
+            .appendingPathComponent("Pastry_Pastry.bundle")
+            .appendingPathComponent("Localizable.xcstrings"),
+           FileManager.default.fileExists(atPath: resourceURL.path) {
+            return resourceURL
+        }
+
+        // SwiftPM development/test fallback. Access this last because Bundle.module
+        // traps if the generated bundle cannot be found in a repackaged .app.
+        return Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings")
     }
 
     static subscript(_ key: String) -> String {
