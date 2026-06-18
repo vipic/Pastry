@@ -34,6 +34,7 @@ enum AppIcons {
 // MARK: - UserDefaults Keys
 
 enum UserDefaultsKeys {
+    static let language = "PastryLanguage"
     static let launchAtLogin = "launch_at_login"
     static let soundEnabled = "sound_enabled"
     static let hotkeyKeyCode = "hotkey_keycode"
@@ -43,6 +44,10 @@ enum UserDefaultsKeys {
     static let historyMaxItems = "history_max_items"
     static let historyMaxAgeDays = "history_max_age_days"
     static let performanceLoggingEnabled = "performance_logging_enabled"
+}
+
+extension Notification.Name {
+    static let pastryLanguageDidChange = Notification.Name("pastryLanguageDidChange")
 }
 
 // MARK: - 颜色

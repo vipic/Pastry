@@ -30,6 +30,13 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange),
+            name: .pastryLanguageDidChange,
+            object: nil
+        )
+
         log.info("菜单栏已配置")
     }
 
@@ -85,6 +92,11 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         refreshStats()
         guard let button = statusItem.button else { return }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button)
+    }
+
+    @MainActor
+    @objc private func languageDidChange() {
+        buildMenu()
     }
 
     // MARK: - 操作

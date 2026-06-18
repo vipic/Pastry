@@ -65,7 +65,7 @@ struct SettingsSceneView: View {
 
     init(initialTab: SettingsTab = .general) {
         UserDefaults.standard.removeObject(forKey: "AppleLanguages")
-        let pref = UserDefaults.standard.string(forKey: "PastryLanguage") ?? ""
+        let pref = UserDefaults.standard.string(forKey: UserDefaultsKeys.language) ?? ""
         _selectedTab = State(initialValue: initialTab)
         _selectedLanguage = State(initialValue: Language(rawValue: pref) ?? .system)
     }
@@ -425,9 +425,10 @@ struct SettingsSceneView: View {
             set: { lang in
                 selectedLanguage = lang
                 switch lang {
-                case .system: UserDefaults.standard.removeObject(forKey: "PastryLanguage")
-                default:      UserDefaults.standard.set(lang.rawValue, forKey: "PastryLanguage")
+                case .system: UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.language)
+                default:      UserDefaults.standard.set(lang.rawValue, forKey: UserDefaultsKeys.language)
                 }
+                NotificationCenter.default.post(name: .pastryLanguageDidChange, object: lang.rawValue)
             }
         )
     }
