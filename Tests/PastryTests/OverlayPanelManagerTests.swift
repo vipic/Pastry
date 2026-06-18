@@ -298,148 +298,174 @@ final class OverlayPanelManagerTests: XCTestCase {
 
     func testOverlayPanelSilentlyConsumesArrowKeysWhenSearchInactive() {
         for keyCode in [UInt16(123), UInt16(124), UInt16(125), UInt16(126)] {
-            XCTAssertTrue(
-                ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+            XCTAssertEqual(
+                ClipboardOverlayPanel.keyRoute(
                     keyCode: keyCode,
                     isSearchActive: false
-                )
+                ),
+                .consume
             )
         }
     }
 
     func testOverlayPanelSilentlyConsumesHandledActionKeysWhenSearchInactive() {
         for keyCode in [UInt16(36), UInt16(51), UInt16(117)] {
-            XCTAssertTrue(
-                ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+            XCTAssertEqual(
+                ClipboardOverlayPanel.keyRoute(
                     keyCode: keyCode,
                     isSearchActive: false
-                )
+                ),
+                .consume
             )
         }
     }
 
     func testOverlayPanelConsumesEnterAndDeleteWhenAlertActive() {
-        XCTAssertTrue(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 36,
                 isSearchActive: false,
                 isAlertActive: true
-            )
+            ),
+            .confirmAlert
         )
-        XCTAssertTrue(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 51,
                 isSearchActive: false,
                 isAlertActive: true
-            )
+            ),
+            .consume
         )
     }
 
     func testOverlayPanelRoutesEnterToAlertConfirmWhenAlertActive() {
-        XCTAssertTrue(
-            ClipboardOverlayPanel.shouldConfirmAlert(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 36,
+                isSearchActive: false,
                 isAlertActive: true
-            )
+            ),
+            .confirmAlert
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldConfirmAlert(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 36,
+                isSearchActive: false,
                 isAlertActive: false
-            )
+            ),
+            .consume
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldConfirmAlert(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 51,
+                isSearchActive: false,
                 isAlertActive: true
-            )
+            ),
+            .consume
         )
     }
 
     func testOverlayPanelRoutesCommandAToSelectAllWhenAlertInactive() {
-        XCTAssertTrue(
-            ClipboardOverlayPanel.shouldRouteSelectAll(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 0,
+                isSearchActive: false,
                 isAlertActive: false,
                 modifierFlags: .command
-            )
+            ),
+            .selectAll
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldRouteSelectAll(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 0,
+                isSearchActive: false,
                 isAlertActive: true,
                 modifierFlags: .command
-            )
+            ),
+            .system
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldRouteSelectAll(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 0,
+                isSearchActive: false,
                 isAlertActive: false,
                 modifierFlags: []
-            )
+            ),
+            .system
         )
     }
 
     func testOverlayPanelSilentlyConsumesCommandNumberKeysWhenSearchInactive() {
-        XCTAssertTrue(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 18,
                 isSearchActive: false,
                 modifierFlags: .command
-            )
+            ),
+            .consume
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 18,
                 isSearchActive: false,
                 modifierFlags: []
-            )
+            ),
+            .system
         )
     }
 
     func testOverlayPanelDoesNotConsumeArrowKeysWhenSearchActive() {
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 123,
                 isSearchActive: true
-            )
+            ),
+            .system
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 124,
                 isSearchActive: true
-            )
+            ),
+            .system
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 36,
                 isSearchActive: true
-            )
+            ),
+            .system
         )
-        XCTAssertFalse(
-            ClipboardOverlayPanel.shouldSilentlyConsumeKeyDown(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 18,
                 isSearchActive: true,
                 modifierFlags: .command
-            )
+            ),
+            .system
         )
     }
 
     func testOverlayPanelHandlesEscapeWhenAlertInactive() {
-        XCTAssertTrue(
-            ClipboardOverlayPanel.shouldHandleCancelKey(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 53,
+                isSearchActive: false,
                 isAlertActive: false
-            )
+            ),
+            .cancel
         )
     }
 
     func testOverlayPanelHandlesEscapeWhenAlertActive() {
-        XCTAssertTrue(
-            ClipboardOverlayPanel.shouldHandleCancelKey(
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
                 keyCode: 53,
+                isSearchActive: false,
                 isAlertActive: true
-            )
+            ),
+            .cancel
         )
     }
 }

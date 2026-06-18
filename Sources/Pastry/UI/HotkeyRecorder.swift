@@ -165,7 +165,7 @@ final class HotkeyRecorderField: NSControl {
         let nseventMods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if !nseventMods.contains(.command) && !nseventMods.contains(.option)
             && !nseventMods.contains(.control) && !nseventMods.contains(.shift) {
-            NSSound.beep()
+            SoundFeedback.invalidAction()
             return
         }
 
@@ -196,7 +196,7 @@ final class HotkeyRecorderField: NSControl {
 
         switch state {
         case .recording:
-            NSColor.controlAccentColor.withAlphaComponent(0.15).setFill()
+            NSColor.pastryWarmAccent.withAlphaComponent(0.15).setFill()
         default:
             if isHovered {
                 NSColor.controlBackgroundColor.blended(withFraction: 0.06, of: .secondaryLabelColor)?.setFill()
@@ -209,7 +209,7 @@ final class HotkeyRecorderField: NSControl {
 
         switch state {
         case .recording:
-            NSColor.controlAccentColor.setStroke()
+            NSColor.pastryWarmAccent.setStroke()
             bgPath.lineWidth = 2
         default:
             NSColor.separatorColor.setStroke()

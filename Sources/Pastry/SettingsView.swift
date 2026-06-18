@@ -644,7 +644,7 @@ struct SettingsSceneView: View {
         switch versionUpdateState {
         case .checking:
             ProgressView()
-                .tint(versionWarmAccent)
+                .tint(.pastryWarmAccent)
                 .controlSize(.small)
         case .downloading(let progress):
             VStack(alignment: .trailing, spacing: 6) {
@@ -657,7 +657,7 @@ struct SettingsSceneView: View {
             }
         case .installing:
             ProgressView()
-                .tint(versionWarmAccent)
+                .tint(.pastryWarmAccent)
                 .controlSize(.small)
         case .updateAvailable(let result):
             Button(L10n["update.update_btn"]) {
@@ -765,7 +765,7 @@ struct SettingsSceneView: View {
     private var versionBadgeGradient: LinearGradient {
         let colors: [Color] = switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            [Color(red: 0.875, green: 0.667, blue: 0.345), Color(red: 0.741, green: 0.463, blue: 0.184)]
+            [Color.pastryWarmAccentTop, Color.pastryWarmAccent]
         case .error:
             [Color(red: 1.0, green: 0.48, blue: 0.45), Color(red: 0.74, green: 0.24, blue: 0.22)]
         default:
@@ -783,15 +783,11 @@ struct SettingsSceneView: View {
                     .fill(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10))
                     .frame(height: 6)
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(versionWarmAccent)
+                    .fill(Color.pastryWarmAccent)
                     .frame(width: geo.size.width * CGFloat(visible), height: 6)
             }
         }
         .frame(height: 6)
-    }
-
-    private var versionWarmAccent: Color {
-        Color(red: 0.741, green: 0.463, blue: 0.184)
     }
 
     private func loadVersionCache() {
@@ -1297,10 +1293,7 @@ private struct SettingsPillButtonStyle: ButtonStyle {
         let colors: [Color]
         switch kind {
         case .primary:
-            colors = [
-                Color(red: 0.875, green: 0.667, blue: 0.345),
-                Color(red: 0.741, green: 0.463, blue: 0.184)
-            ]
+            return Color.pastryWarmAccentGradient
         case .secondary:
             colors = [
                 .white.opacity(0.78),
@@ -1419,15 +1412,13 @@ private struct SettingsSwitchBody: View {
     }
 
     private var trackFill: LinearGradient {
-        let colors: [Color] = isOn
-            ? [
-                Color(red: 0.875, green: 0.667, blue: 0.345),
-                Color(red: 0.741, green: 0.463, blue: 0.184)
-            ]
-            : [
-                Color(red: 0.720, green: 0.710, blue: 0.680),
-                Color(red: 0.835, green: 0.820, blue: 0.780)
-            ]
+        if isOn {
+            return Color.pastryWarmAccentGradient
+        }
+        let colors: [Color] = [
+            Color(red: 0.720, green: 0.710, blue: 0.680),
+            Color(red: 0.835, green: 0.820, blue: 0.780)
+        ]
         return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
     }
 
@@ -1538,7 +1529,7 @@ private final class ShortcutCaptureField: NSControl {
         guard nseventMods.contains(.command) || nseventMods.contains(.option)
             || nseventMods.contains(.control) || nseventMods.contains(.shift)
         else {
-            NSSound.beep()
+            SoundFeedback.invalidAction()
             return
         }
 
