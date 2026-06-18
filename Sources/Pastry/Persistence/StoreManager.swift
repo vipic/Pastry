@@ -215,18 +215,22 @@ final class StoreManager: ObservableObject {
         performSearchImmediate()
     }
 
-    /// 批量删除选中项。键盘选择删除会保留收藏；右键明确删除可包含收藏。
+    /// 批量删除选中项。返回实际删除的记录 ID，键盘选择删除会保留收藏；右键明确删除可包含收藏。
+    @discardableResult
     func deleteSelected(
         _ ids: Set<UUID>,
         clearSystemClipboardWhenEmpty: Bool = true,
         preservePinned: Bool = false
-    ) {
+    ) -> Set<UUID> {
+        var deletedIds = Set<UUID>()
+
         ClipboardMonitor.shared.suspend()
         for id in ids {
             if let item = items.first(where: { $0.id == id }),
                !(preservePinned && item.isPinned) {
                 DatabaseManager.shared.delete(id: id.uuidString)
                 items.removeAll { $0.id == id }
+                deletedIds.insert(id)
             }
         }
 
@@ -237,6 +241,8 @@ final class StoreManager: ObservableObject {
         ClipboardMonitor.shared.resume()
         performSearchImmediate()
         refreshAvailableApps()
+
+        return deletedIds
     }
 
     /// 清空除 pinned 外的所有记录（菜单栏使用）

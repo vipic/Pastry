@@ -8,64 +8,40 @@ final class ClipboardOverlayPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 
     override func keyDown(with event: NSEvent) {
-        if Self.shouldHandleCancelKey(
-            keyCode: event.keyCode,
-            isAlertActive: OverlayPanelManager.shared.isAlertActive
-        ) {
+        switch Self.keyRoute(for: event,
+                             isSearchActive: OverlayPanelManager.shared.isSearchActive,
+                             isAlertActive: OverlayPanelManager.shared.isAlertActive) {
+        case .cancel:
             routeCancelKey()
-            return
-        }
-        if Self.shouldConfirmAlert(
-            keyCode: event.keyCode,
-            isAlertActive: OverlayPanelManager.shared.isAlertActive
-        ) {
+        case .confirmAlert:
             routeAlertConfirmKey()
-            return
-        }
-        if Self.shouldRouteSelectAll(
-            keyCode: event.keyCode,
-            isAlertActive: OverlayPanelManager.shared.isAlertActive,
-            modifierFlags: event.modifierFlags
-        ) {
+        case .selectAll:
             routeSelectAllKey()
-            return
+        case .consume:
+            break
+        case .system:
+            super.keyDown(with: event)
         }
-        if Self.shouldSilentlyConsumeKeyDown(
-            keyCode: event.keyCode,
-            isSearchActive: OverlayPanelManager.shared.isSearchActive,
-            isAlertActive: OverlayPanelManager.shared.isAlertActive,
-            modifierFlags: event.modifierFlags
-        ) {
-            return
-        }
-        super.keyDown(with: event)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if Self.shouldConfirmAlert(
-            keyCode: event.keyCode,
-            isAlertActive: OverlayPanelManager.shared.isAlertActive
-        ) {
+        switch Self.keyRoute(for: event,
+                             isSearchActive: OverlayPanelManager.shared.isSearchActive,
+                             isAlertActive: OverlayPanelManager.shared.isAlertActive) {
+        case .cancel:
+            routeCancelKey()
+            return true
+        case .confirmAlert:
             routeAlertConfirmKey()
             return true
-        }
-        if Self.shouldRouteSelectAll(
-            keyCode: event.keyCode,
-            isAlertActive: OverlayPanelManager.shared.isAlertActive,
-            modifierFlags: event.modifierFlags
-        ) {
+        case .selectAll:
             routeSelectAllKey()
             return true
-        }
-        if Self.shouldSilentlyConsumeKeyDown(
-            keyCode: event.keyCode,
-            isSearchActive: OverlayPanelManager.shared.isSearchActive,
-            isAlertActive: OverlayPanelManager.shared.isAlertActive,
-            modifierFlags: event.modifierFlags
-        ) {
+        case .consume:
             return true
+        case .system:
+            return super.performKeyEquivalent(with: event)
         }
-        return super.performKeyEquivalent(with: event)
     }
 
     override func cancelOperation(_ sender: Any?) {
@@ -76,40 +52,61 @@ final class ClipboardOverlayPanel: NSPanel {
         routeCancelKey()
     }
 
-    static func shouldSilentlyConsumeKeyDown(
+    enum KeyRoute: Equatable {
+        case cancel
+        case confirmAlert
+        case selectAll
+        case consume
+        case system
+    }
+
+    static func keyRoute(
         keyCode: UInt16,
         isSearchActive: Bool,
         isAlertActive: Bool = false,
         modifierFlags: NSEvent.ModifierFlags = []
-    ) -> Bool {
-        if isAlertActive {
-            return OverlayKeyboardRouter.isAlertConfirmKey(keyCode: keyCode)
-                || OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: keyCode)
+    ) -> KeyRoute {
+        if keyCode == 53 {
+            return .cancel
         }
-        guard !isSearchActive else { return false }
+
+        if isAlertActive {
+            if OverlayKeyboardRouter.isAlertConfirmKey(keyCode: keyCode) {
+                return .confirmAlert
+            }
+            return OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: keyCode) ? .consume : .system
+        }
+
+        if keyCode == 0, modifierFlags.contains(.command) {
+            return .selectAll
+        }
+
+        guard !isSearchActive else { return .system }
+
         if keyCode == 36 || keyCode == 51 || keyCode == 117 {
-            return true
+            return .consume
         }
         if modifierFlags.contains(.command), OverlayKeyboardRouter.cmdNumberIndex(keyCode: keyCode) != nil {
-            return true
+            return .consume
         }
-        return keyCode == 123 || keyCode == 124 || keyCode == 125 || keyCode == 126
+        if keyCode == 123 || keyCode == 124 || keyCode == 125 || keyCode == 126 {
+            return .consume
+        }
+
+        return .system
     }
 
-    static func shouldConfirmAlert(keyCode: UInt16, isAlertActive: Bool) -> Bool {
-        isAlertActive && OverlayKeyboardRouter.isAlertConfirmKey(keyCode: keyCode)
-    }
-
-    static func shouldRouteSelectAll(
-        keyCode: UInt16,
-        isAlertActive: Bool,
-        modifierFlags: NSEvent.ModifierFlags
-    ) -> Bool {
-        !isAlertActive && keyCode == 0 && modifierFlags.contains(.command)
-    }
-
-    static func shouldHandleCancelKey(keyCode: UInt16, isAlertActive: Bool) -> Bool {
-        keyCode == 53
+    static func keyRoute(
+        for event: NSEvent,
+        isSearchActive: Bool,
+        isAlertActive: Bool
+    ) -> KeyRoute {
+        keyRoute(
+            keyCode: event.keyCode,
+            isSearchActive: isSearchActive,
+            isAlertActive: isAlertActive,
+            modifierFlags: event.modifierFlags
+        )
     }
 
     private func routeAlertConfirmKey() {

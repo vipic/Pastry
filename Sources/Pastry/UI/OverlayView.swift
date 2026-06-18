@@ -286,15 +286,14 @@ struct OverlayView: View {
 
     private func deleteSelected() {
         let ids = pendingDeleteIds.isEmpty ? selection.selectedIds : pendingDeleteIds
+        let deletedIds: Set<UUID>
         switch pendingDeleteMode {
         case .selectionPreservingFavorites:
-            store.deleteSelected(ids, clearSystemClipboardWhenEmpty: true, preservePinned: true)
-            let favoriteIds = Set(visibleItems.filter(\.isPinned).map(\.id))
-            selection.selectedIds.subtract(ids.subtracting(favoriteIds))
+            deletedIds = store.deleteSelected(ids, clearSystemClipboardWhenEmpty: true, preservePinned: true)
         case .direct:
-            store.deleteSelected(ids, clearSystemClipboardWhenEmpty: false, preservePinned: false)
-            selection.selectedIds.subtract(ids)
+            deletedIds = store.deleteSelected(ids, clearSystemClipboardWhenEmpty: false, preservePinned: false)
         }
+        selection.selectedIds.subtract(deletedIds)
         if selection.selectedIds.isEmpty {
             selection.reset()
         }

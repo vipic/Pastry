@@ -22,7 +22,7 @@ struct UpdateView: View {
     var onUpdate: (() -> Void)?
     var onCancel: (() -> Void)?
 
-    private let updateAccent = Color(red: 0.741, green: 0.463, blue: 0.184)
+    private let updateAccent = Color.pastryWarmAccent
 
     var body: some View {
         VStack(spacing: 0) {
@@ -86,9 +86,9 @@ struct UpdateView: View {
                 Text(L10n["update.update_available"])
                     .font(.system(size: 17, weight: .semibold))
                 Circle()
-                    .fill(Color(red: 0.188, green: 0.82, blue: 0.345))
+                    .fill(updateAccent)
                     .frame(width: 8, height: 8)
-                    .shadow(color: Color(red: 0.188, green: 0.82, blue: 0.345).opacity(0.5), radius: 6)
+                    .shadow(color: updateAccent.opacity(0.5), radius: 6)
 
             case .checking:
                 Text(L10n["update.checking"])
@@ -228,7 +228,7 @@ struct UpdateView: View {
                 Button(L10n["update.cancel"]) { onCancel?() }
                     .buttonStyle(SecondaryButtonStyle())
                 Button(L10n["update.update_btn"]) { onUpdate?() }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(PastryPrimaryButtonStyle())
             }
 
         case .downloading:
@@ -311,25 +311,23 @@ struct UpdateView: View {
 
 // MARK: - 按钮样式
 
-private struct PrimaryButtonStyle: ButtonStyle {
+struct PastryPrimaryButtonStyle: ButtonStyle {
+    var fontSize: CGFloat = 13
+    var fontWeight: Font.Weight = .medium
+    var horizontalPadding: CGFloat = 18
+    var verticalPadding: CGFloat = 8
+    var cornerRadius: CGFloat = 8
+    var shadowRadius: CGFloat = 3
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.875, green: 0.667, blue: 0.345),
-                        Color(red: 0.741, green: 0.463, blue: 0.184)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+            .font(.system(size: fontSize, weight: fontWeight))
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .background(Color.pastryWarmAccentGradient)
             .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .shadow(color: Color(red: 0.741, green: 0.463, blue: 0.184).opacity(0.22), radius: 3, y: 1)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .shadow(color: Color.pastryWarmAccent.opacity(0.22), radius: shadowRadius, y: 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }

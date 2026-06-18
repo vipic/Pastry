@@ -280,8 +280,9 @@ final class StoreManagerTests: XCTestCase {
         ])
 
         let ids = Set(store.filteredItems.map { $0.id })
-        store.deleteSelected(ids)
+        let deletedIds = store.deleteSelected(ids)
 
+        XCTAssertEqual(deletedIds, ids)
         XCTAssertTrue(store.filteredItems.isEmpty)
     }
 
@@ -292,8 +293,10 @@ final class StoreManagerTests: XCTestCase {
         ])
 
         let ids = Set(store.filteredItems.map { $0.id })
-        store.deleteSelected(ids, preservePinned: true)
+        let pinnedId = store.filteredItems.first { $0.isPinned }!.id
+        let deletedIds = store.deleteSelected(ids, preservePinned: true)
 
+        XCTAssertEqual(deletedIds, ids.subtracting([pinnedId]))
         XCTAssertEqual(store.filteredItems.count, 1)
         XCTAssertEqual(store.filteredItems[0].content, "pinned")
     }
@@ -306,8 +309,9 @@ final class StoreManagerTests: XCTestCase {
         ])
 
         let ids = Set(store.filteredItems.prefix(2).map { $0.id })
-        store.deleteSelected(ids)
+        let deletedIds = store.deleteSelected(ids)
 
+        XCTAssertEqual(deletedIds, ids)
         XCTAssertEqual(store.filteredItems.count, 1)
     }
 
