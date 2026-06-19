@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pastry Settings Redesign</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-0: #172125;
+      --bg-1: #273239;
+      --window: rgba(242, 238, 226, 0.88);
+      --window-strong: rgba(255, 253, 246, 0.96);
+      --ink: #1f2529;
+      --muted: #65717a;
+      --line: rgba(31, 37, 41, 0.10);
+      --line-strong: rgba(31, 37, 41, 0.18);
+      --glass: rgba(255, 255, 255, 0.34);
+      --accent: #d99d43;
+      --accent-strong: #b77327;
+      --green: #3f9a68;
+      --red: #c95751;
+      --blue: #4d82d8;
+      --sidebar: rgba(46, 51, 54, 0.70);
+      --sidebar-text: rgba(255, 255, 255, 0.88);
+      --sidebar-muted: rgba(255, 255, 255, 0.56);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(980px 520px at 50% 4%, rgba(108, 160, 157, 0.34), transparent 62%),
+        linear-gradient(150deg, #6ea7a7 0%, #3e7282 38%, #223642 70%, #11181d 100%);
+      color: var(--ink);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(115deg, transparent 0 32%, rgba(255,255,255,0.16) 33% 34%, transparent 35% 64%, rgba(255,255,255,0.08) 65% 66%, transparent 67%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 8px);
+      mix-blend-mode: soft-light;
+      opacity: 0.7;
+    }
+
+    .stage {
+      width: min(1040px, calc(100vw - 48px));
+      padding: 34px;
+    }
+
+    .settings-window {
+      width: 880px;
+      max-width: 100%;
+      height: 560px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 206px 1fr;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      border-radius: 16px;
+      background: var(--window);
+      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.36), 0 1px 0 rgba(255, 255, 255, 0.50) inset;
+      backdrop-filter: blur(28px) saturate(1.35);
+    }
+
+    .sidebar {
+      position: relative;
+      padding: 14px 12px;
+      color: var(--sidebar-text);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.08), transparent 26%),
+        var(--sidebar);
+      border-right: 1px solid rgba(0, 0, 0, 0.14);
+    }
+
+    .traffic {
+      display: flex;
+      gap: 8px;
+      height: 18px;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-left: 2px;
+    }
+
+    .traffic span {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0.5px rgba(0,0,0,0.20) inset;
+    }
+
+    .traffic span:nth-child(1) { background: #ff5f57; }
+    .traffic span:nth-child(2) { background: #febc2e; }
+    .traffic span:nth-child(3) { background: #28c840; }
+
+    .brand {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 18px;
+      padding: 8px 6px;
+    }
+
+    .app-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: rgba(255,255,255,0.92);
+      font-weight: 800;
+      letter-spacing: 0;
+      background:
+        linear-gradient(150deg, rgba(255,255,255,0.26), transparent 42%),
+        linear-gradient(135deg, #e7ba71, #c77a36 55%, #79432b);
+      box-shadow: 0 9px 18px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.18) inset;
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.15;
+    }
+
+    .brand-subtitle {
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--sidebar-muted);
+    }
+
+    .nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    .nav label {
+      height: 34px;
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 0 9px;
+      border-radius: 8px;
+      color: var(--sidebar-muted);
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .nav label:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--sidebar-text);
+    }
+
+    .nav .glyph {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.72);
+      background: rgba(255,255,255,0.09);
+    }
+
+    .nav .count {
+      min-width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      font-size: 10px;
+      color: rgba(255,255,255,0.70);
+      background: rgba(255,255,255,0.10);
+    }
+
+    input[type="radio"] {
+      position: fixed;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #tab-general:checked ~ .settings-window label[for="tab-general"],
+    #tab-shortcut:checked ~ .settings-window label[for="tab-shortcut"],
+    #tab-security:checked ~ .settings-window label[for="tab-security"],
+    #tab-updates:checked ~ .settings-window label[for="tab-updates"] {
+      color: #fff;
+      background: rgba(255,255,255,0.16);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.10) inset;
+    }
+
+    #tab-general:checked ~ .settings-window label[for="tab-general"] .glyph,
+    #tab-shortcut:checked ~ .settings-window label[for="tab-shortcut"] .glyph,
+    #tab-security:checked ~ .settings-window label[for="tab-security"] .glyph,
+    #tab-updates:checked ~ .settings-window label[for="tab-updates"] .glyph {
+      color: #2e2110;
+      background: linear-gradient(135deg, #ffe1a6, #d99d43);
+    }
+
+    .sidebar-footer {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 14px;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      color: var(--sidebar-muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .content {
+      position: relative;
+      min-width: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.42), transparent 34%),
+        linear-gradient(135deg, rgba(217,157,67,0.10), transparent 44%),
+        var(--window);
+    }
+
+    .content::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: radial-gradient(rgba(31,37,41,0.055) 1px, transparent 1px);
+      background-size: 18px 18px;
+      opacity: 0.28;
+    }
+
+    .pane {
+      display: none;
+      position: relative;
+      height: 100%;
+      padding: 24px 28px 26px;
+      overflow: hidden;
+    }
+
+    #tab-general:checked ~ .settings-window .general,
+    #tab-shortcut:checked ~ .settings-window .shortcut,
+    #tab-security:checked ~ .settings-window .security,
+    #tab-updates:checked ~ .settings-window .updates {
+      display: block;
+    }
+
+    .pane-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.08;
+      letter-spacing: 0;
+      font-weight: 760;
+    }
+
+    .lede {
+      max-width: 460px;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status-pill {
+      flex: 0 0 auto;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: #1f4f37;
+      background: rgba(63,154,104,0.13);
+      border: 1px solid rgba(63,154,104,0.24);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(63,154,104,0.12);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.56);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.55) inset;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px 9px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 760;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .row {
+      min-height: 48px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .row:first-of-type {
+      border-top-color: transparent;
+    }
+
+    .row-main {
+      min-width: 0;
+    }
+
+    .row-title {
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.25;
+    }
+
+    .row-help {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .select,
+    .button,
+    .shortcut-field {
+      height: 28px;
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1px solid var(--line-strong);
+      background: rgba(255,255,255,0.66);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 620;
+      white-space: nowrap;
+    }
+
+    .select {
+      min-width: 118px;
+      padding: 0 9px;
+      justify-content: space-between;
+    }
+
+    .select::after {
+      content: "⌄";
+      color: var(--muted);
+      font-size: 12px;
+      transform: translateY(-1px);
+    }
+
+    .button {
+      padding: 0 10px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.72) inset;
+    }
+
+    .button.primary {
+      color: #fff;
+      border-color: rgba(183,115,39,0.45);
+      background: linear-gradient(180deg, #dfaa58, #bd762f);
+    }
+
+    .button.danger {
+      color: #fff;
+      border-color: rgba(201,87,81,0.44);
+      background: linear-gradient(180deg, #d56b64, #b9443f);
+    }
+
+    .switch {
+      width: 42px;
+      height: 24px;
+      padding: 3px;
+      border-radius: 999px;
+      background: rgba(31,37,41,0.16);
+      box-shadow: 0 0 0 1px rgba(31,37,41,0.10) inset;
+    }
+
+    .switch::before {
+      content: "";
+      display: block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.24);
+    }
+
+    .switch.on {
+      background: var(--accent);
+    }
+
+    .switch.on::before {
+      transform: translateX(18px);
+    }
+
+    .danger-row {
+      background: rgba(201,87,81,0.055);
+    }
+
+    .metric-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      min-height: 70px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.42);
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 780;
+      line-height: 1;
+    }
+
+    .metric-label {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .shortcut-hero {
+      min-height: 146px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 12px;
+      border: 1px solid rgba(217,157,67,0.22);
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.50), rgba(255,255,255,0.24)),
+        radial-gradient(280px 160px at 50% 20%, rgba(217,157,67,0.18), transparent 70%);
+    }
+
+    .shortcut-field {
+      height: 48px;
+      padding: 0 14px;
+      gap: 8px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.75);
+      box-shadow: 0 10px 24px rgba(119,76,32,0.10), 0 1px 0 rgba(255,255,255,0.78) inset;
+    }
+
+    .key {
+      min-width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      padding: 0 8px;
+      border-radius: 7px;
+      border: 1px solid rgba(31,37,41,0.14);
+      background: linear-gradient(180deg, #fff, #ece7da);
+      box-shadow: 0 2px 0 rgba(31,37,41,0.10);
+      font-size: 15px;
+      font-weight: 760;
+    }
+
+    .security-card {
+      display: grid;
+      grid-template-columns: 46px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid rgba(63,154,104,0.22);
+      border-radius: 14px;
+      margin-bottom: 12px;
+      background: rgba(63,154,104,0.08);
+    }
+
+    .badge {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #58ad7b, #2e7f55);
+      box-shadow: 0 10px 18px rgba(46,127,85,0.18);
+    }
+
+    .app-list {
+      display: grid;
+      gap: 8px;
+      padding: 0 14px 14px;
+    }
+
+    .app-row {
+      height: 42px;
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 9px;
+      align-items: center;
+      padding: 0 10px 0 7px;
+      border-radius: 10px;
+      background: rgba(31,37,41,0.045);
+    }
+
+    .mini-icon {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #5d8fe5, #315fae);
+    }
+
+    .mini-icon.purple { background: linear-gradient(135deg, #8c79dd, #5745a8); }
+
+    .update-card {
+      display: grid;
+      grid-template-columns: 54px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(77,130,216,0.22);
+      background: rgba(77,130,216,0.08);
+      margin-bottom: 12px;
+    }
+
+    .release-notes {
+      height: 180px;
+      overflow: hidden;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.52);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .release-notes strong {
+      color: var(--ink);
+    }
+
+    @media (max-width: 760px) {
+      .stage {
+        width: 100%;
+        padding: 18px;
+      }
+
+      .settings-window {
+        height: auto;
+        min-height: 620px;
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .pane {
+        padding: 22px;
+      }
+
+      .grid,
+      .metric-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <input id="tab-general" name="tab" type="radio" checked>
+    <input id="tab-shortcut" name="tab" type="radio">
+    <input id="tab-security" name="tab" type="radio">
+    <input id="tab-updates" name="tab" type="radio">
+
+    <main class="settings-window" aria-label="Pastry settings redesign">
+      <aside class="sidebar">
+        <div class="traffic"><span></span><span></span><span></span></div>
+        <div class="brand">
+          <div class="app-mark">P</div>
+          <div>
+            <div class="brand-title">Pastry</div>
+            <div class="brand-subtitle">Clipboard settings</div>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Settings sections">
+          <label for="tab-general"><span class="glyph">G</span><span>General</span><span class="count">5</span></label>
+          <label for="tab-shortcut"><span class="glyph">⌘</span><span>Shortcut</span></label>
+          <label for="tab-security"><span class="glyph">S</span><span>Security</span><span class="count">3</span></label>
+          <label for="tab-updates"><span class="glyph">v</span><span>Version</span></label>
+        </nav>
+
+        <div class="sidebar-footer">
+          Local-first clipboard history. Network previews stay off until enabled.
+        </div>
+      </aside>
+
+      <section class="content">
+        <div class="pane general">
+          <div class="pane-head">
+            <div>
+              <h1>General</h1>
+              <div class="lede">Tune the everyday behavior: language, launch, sounds, history retention, and data cleanup.</div>
+            </div>
+            <div class="status-pill"><span class="dot"></span>Ready</div>
+          </div>
+
+          <div class="metric-strip">
+            <div class="metric"><div class="metric-value">1,000</div><div class="metric-label">Maximum items</div></div>
+            <div class="metric"><div class="metric-value">30d</div><div class="metric-label">Retention window</div></div>
+            <div class="metric"><div class="metric-value">v1.2</div><div class="metric-label">Current version</div></div>
+          </div>
+
+          <div class="grid">
+            <div class="section">
+              <div class="section-title">Application</div>
+              <div class="row">
+                <div class="row-main"><div class="row-title">Language</div><div class="row-help">Follow system by default.</div></div>
+                <div class="select">System</div>
+              </div>
+              <div class="row">
+                <div class="row-main"><div class="row-title">Launch at Login</div><div class="row-help">Start Pastry quietly with macOS.</div></div>
+                <div class="switch on"></div>
+              </div>
+              <div class="row">
+                <div class="row-main"><div class="row-title">Sound feedback</div><div class="row-help">Play subtle copy and paste cues.</div></div>
+                <div class="switch"></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">History</div>
+              <div class="row">
+                <div class="row-main"><div class="row-title">Maximum history</div><div class="row-help">Older items are trimmed automatically.</div></div>
+                <div class="select">1,000</div>
+              </div>
+              <div class="row">
+                <div class="row-main"><div class="row-title">Keep records for</div><div class="row-help">Favorites are preserved.</div></div>
+                <div class="select">30 days</div>
+              </div>
+              <div class="row danger-row">
+                <div class="row-main"><div class="row-title">Clear all records</div><div class="row-help">Deletes history and clears the system clipboard.</div></div>
+                <div class="button danger">Clear</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane shortcut">
+          <div class="pane-head">
+            <div>
+              <h1>Shortcut</h1>
+              <div class="lede">Record the global shortcut that opens the overlay. The previous shortcut is paused while recording.</div>
+            </div>
+            <div class="status-pill"><span class="dot"></span>Active</div>
+          </div>
+
+          <div class="shortcut-hero">
+            <div class="shortcut-field">
+              <span class="key">⌘</span>
+              <span class="key">⇧</span>
+              <span class="key">V</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Recorder</div>
+            <div class="row">
+              <div class="row-main"><div class="row-title">Overlay shortcut</div><div class="row-help">Applies immediately after recording.</div></div>
+              <div class="button primary">Record</div>
+            </div>
+            <div class="row">
+              <div class="row-main"><div class="row-title">Clear shortcut</div><div class="row-help">Use menu bar access when no shortcut is set.</div></div>
+              <div class="button">Clear</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane security">
+          <div class="pane-head">
+            <div>
+              <h1>Security</h1>
+              <div class="lede">Control what Pastry can access, which apps are ignored, and whether link previews may use the network.</div>
+            </div>
+            <div class="status-pill"><span class="dot"></span>Protected</div>
+          </div>
+
+          <div class="security-card">
+            <div class="badge">✓</div>
+            <div>
+              <div class="row-title">Accessibility permission granted</div>
+              <div class="row-help">Required only when Pastry simulates paste into another app.</div>
+            </div>
+            <div class="button">Open System Settings</div>
+          </div>
+
+          <div class="grid">
+            <div class="section">
+              <div class="section-title">Privacy</div>
+              <div class="row">
+                <div class="row-main"><div class="row-title">Link preview network</div><div class="row-help">Fetch page metadata and preview images.</div></div>
+                <div class="switch"></div>
+              </div>
+              <div class="row">
+                <div class="row-main"><div class="row-title">Performance logs</div><div class="row-help">Write local timing logs for debugging.</div></div>
+                <div class="switch"></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Excluded Apps <span>2</span></div>
+              <div class="app-list">
+                <div class="app-row"><div class="mini-icon">1P</div><div class="row-title">1Password</div><div class="button">Remove</div></div>
+                <div class="app-row"><div class="mini-icon purple">KC</div><div class="row-title">Keychain Access</div><div class="button">Remove</div></div>
+                <div class="button">Add Application</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane updates">
+          <div class="pane-head">
+            <div>
+              <h1>Version</h1>
+              <div class="lede">Keep version, release notes, and update status close to the rest of settings without turning the page into a dialog.</div>
+            </div>
+          </div>
+
+          <div class="update-card">
+            <div class="badge">v</div>
+            <div>
+              <div class="row-title">Pastry is up to date</div>
+              <div class="row-help">Current version v1.2 · Build 26.06.13</div>
+            </div>
+            <div class="button primary">Check Again</div>
+          </div>
+
+          <div class="release-notes">
+            <strong>Recent changes</strong><br>
+            Improved Handoff image handling and original-file resolution.<br>
+            Refined update download progress behavior.<br>
+            Added broader command-line test documentation.<br>
+            Stabilized launch at login, menu bar, and sandbox-related checks.
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
