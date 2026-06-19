@@ -1378,40 +1378,6 @@
         }
       }
     },
-    "menu.stats": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "共 %lld 条 · 今日 %lld 条"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld total · %lld today"
-          }
-        }
-      }
-    },
-    "menu.storage": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "占用 %lld KB"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld KB used"
-          }
-        }
-      }
-    },
     "context.pin": {
       "extractionState": "manual",
       "localizations": {

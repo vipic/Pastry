@@ -3,15 +3,13 @@ import SwiftUI
 import OSLog
 
 // MARK: - 菜单栏管理器（左键打开面板，右键弹出菜单）
-final class MenuBarManager: NSObject, NSMenuDelegate {
+final class MenuBarManager: NSObject {
 
     nonisolated(unsafe) static let shared = MenuBarManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "menubar")
 
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
-    private var statsItem: NSMenuItem?
-    private var storageItem: NSMenuItem?
 
     private override init() {
         super.init()
@@ -64,31 +62,17 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             target: self,
             actions: MenuBarMenuActions(
                 openOverlay: #selector(openOverlay),
+                checkUpdates: #selector(checkUpdatesAction),
                 clearHistory: #selector(clearHistoryAction),
                 openSettings: #selector(openSettingsAction),
                 quit: #selector(quitApp)
-            ),
-            stats: StoreManager.shared.stats
+            )
         )
         menu = result.menu
-        menu.delegate = self
-        statsItem = result.statsItem
-        storageItem = result.storageItem
-    }
-
-    @MainActor
-    private func refreshStats() {
-        guard let statsItem, let storageItem else { return }
-        MenuBarMenuFactory.updateStats(
-            statsItem: statsItem,
-            storageItem: storageItem,
-            stats: StoreManager.shared.stats
-        )
     }
 
     @MainActor
     private func showMenu() {
-        refreshStats()
         OverlayPanelManager.shared.hide()
         guard let button = statusItem.button else { return }
         let previousMenu = statusItem.menu
@@ -112,6 +96,14 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     private var isUpdateDevBuild: Bool {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         return version.contains("-dev")
+    }
+
+    @MainActor
+    @objc private func checkUpdatesAction() {
+        OverlayPanelManager.shared.hide()
+        DispatchQueue.main.async {
+            AppDelegate.shared?.openSettingsWindow(selectedTab: .version)
+        }
     }
 
     @MainActor
@@ -140,11 +132,4 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         NSApp.terminate(nil)
     }
 
-    // MARK: - NSMenuDelegate
-
-    func menuWillOpen(_ menu: NSMenu) {
-        Task { @MainActor in
-            refreshStats()
-        }
-    }
 }
