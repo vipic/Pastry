@@ -43,6 +43,7 @@ struct SettingsSceneView: View {
         lastReleaseNotes: nil
     )
     @State private var versionReleaseNotes: String?
+    @State private var versionReleaseHistory: [UpdateChecker.ReleaseNote] = []
     @State private var versionCurrentVersion: String?
     @State private var versionLatestVersion: String?
     @State private var isRecordingShortcut = false
@@ -578,7 +579,7 @@ struct SettingsSceneView: View {
         244
     }
 
-    // MARK: - 版本 Tab
+    // MARK: - 更新 Tab
 
     private var versionTab: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -676,15 +677,28 @@ struct SettingsSceneView: View {
     }
 
     private var versionReleaseNotesCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(releaseNotesTitle)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color(red: 0.122, green: 0.145, blue: 0.161))
-            Text(releaseNotesBody)
-                .font(.system(size: 12))
-                .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
-                .lineSpacing(3)
-                .textSelection(.enabled)
+
+            if releaseNotesItems.isEmpty {
+                Text(L10n["settings.version.no_release_notes"])
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                    .lineSpacing(3)
+                    .textSelection(.enabled)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(releaseNotesItems.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 {
+                            settingsDivider
+                                .padding(.horizontal, -14)
+                        }
+                        releaseNoteRow(item, isLatest: index == 0)
+                    }
+                }
+            }
         }
         .padding(16)
         .frame(maxWidth: 600, alignment: .leading)
@@ -715,6 +729,34 @@ struct SettingsSceneView: View {
         }
     }
 
+    private func releaseNoteRow(_ note: UpdateChecker.ReleaseNote, isLatest: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("v\(note.version)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.122, green: 0.145, blue: 0.161))
+                if isLatest, case .updateAvailable = versionUpdateState {
+                    Text(L10n["settings.version.available_badge"])
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.pastryWarmAccent)
+                        )
+                }
+                Spacer()
+            }
+
+            Text(releaseNoteBody(note))
+                .font(.system(size: 12))
+                .foregroundStyle(Color(red: 0.396, green: 0.443, blue: 0.478))
+                .lineSpacing(3)
+                .textSelection(.enabled)
+        }
+    }
+
     private var versionStatusSubtitle: String {
         switch versionUpdateState {
         case .updateAvailable(let result):
@@ -738,9 +780,30 @@ struct SettingsSceneView: View {
         return L10n["settings.version.recent_changes"]
     }
 
-    private var releaseNotesBody: String {
+    private var releaseNotesItems: [UpdateChecker.ReleaseNote] {
+        let history = versionReleaseHistory.filter {
+            !$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        if !history.isEmpty {
+            return Array(history.prefix(3))
+        }
+
         let notes = versionReleaseNotes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return notes.isEmpty ? L10n["settings.version.no_release_notes"] : notes
+        guard !notes.isEmpty else { return [] }
+        let version = versionLatestVersion ?? AppVersion.displayCurrent
+        return [
+            UpdateChecker.ReleaseNote(
+                version: UpdateChecker.displayVersion(version),
+                body: notes,
+                publishedAt: "",
+                htmlURL: ""
+            )
+        ]
+    }
+
+    private func releaseNoteBody(_ note: UpdateChecker.ReleaseNote) -> String {
+        let body = note.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        return body.isEmpty ? L10n["settings.version.no_release_notes"] : body
     }
 
     private var versionBadgeText: String {
@@ -795,7 +858,8 @@ struct SettingsSceneView: View {
 
     private func loadVersionCache() {
         guard versionReleaseNotes == nil else { return }
-        versionReleaseNotes = UpdateChecker.shared.cachedReleaseNotes()
+        versionReleaseHistory = UpdateChecker.shared.cachedReleaseHistory()
+        versionReleaseNotes = versionReleaseHistory.first?.body ?? UpdateChecker.shared.cachedReleaseNotes()
         let lastCheck = UserDefaults.standard.object(forKey: "PastryLastUpdateCheck") as? Date
         versionUpdateState = .upToDate(
             version: AppVersion.displayCurrent,
@@ -819,15 +883,6 @@ struct SettingsSceneView: View {
 
                 HStack(alignment: .top, spacing: 12) {
                     settingsSection(title: L10n["settings.about.section_product"]) {
-                        settingsRow(
-                            title: L10n["settings.about.version"],
-                            help: "v\(AppVersion.displayCurrent) · Build \(AppVersion.displayBuild)"
-                        ) {
-                            EmptyView()
-                        }
-
-                        settingsDivider
-
                         settingsRow(
                             title: L10n["settings.about.created_by"],
                             help: "Nekutai"
@@ -923,11 +978,14 @@ struct SettingsSceneView: View {
         versionUpdateState = .checking
         if let result = await UpdateChecker.shared.checkForUpdate(force: true) {
             versionReleaseNotes = result.releaseNotes
+            versionReleaseHistory = result.releaseHistory
             versionCurrentVersion = result.currentVersion
             versionLatestVersion = result.latestVersion
             versionUpdateState = .updateAvailable(result: result)
         } else {
-            let cachedNotes = UpdateChecker.shared.cachedReleaseNotes()
+            let cachedHistory = UpdateChecker.shared.cachedReleaseHistory()
+            let cachedNotes = cachedHistory.first?.body ?? UpdateChecker.shared.cachedReleaseNotes()
+            versionReleaseHistory = cachedHistory
             versionReleaseNotes = cachedNotes
             versionCurrentVersion = nil
             versionLatestVersion = nil
@@ -944,6 +1002,7 @@ struct SettingsSceneView: View {
     @MainActor
     private func installVersionUpdate(_ result: UpdateChecker.UpdateResult) async {
         versionReleaseNotes = result.releaseNotes
+        versionReleaseHistory = result.releaseHistory
         versionCurrentVersion = result.currentVersion
         versionLatestVersion = result.latestVersion
         versionUpdateState = .downloading(progress: 0)

@@ -140,6 +140,32 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertFalse(UpdateChecker.isNewer(tag: "1.2.3", than: "v1.2.4"))
     }
 
+    func testReleaseNotesNormalizeRecentReleases() {
+        let releases = [
+            UpdateChecker.ReleaseInfo(
+                tag_name: "v1.4.2",
+                html_url: "https://example.com/v1.4.2",
+                body: "- 新增更新页历史记录",
+                published_at: "2026-06-19T00:00:00Z",
+                assets: []
+            ),
+            UpdateChecker.ReleaseInfo(
+                tag_name: "v1.4.1",
+                html_url: "https://example.com/v1.4.1",
+                body: nil,
+                published_at: "2026-06-18T00:00:00Z",
+                assets: []
+            )
+        ]
+
+        let notes = UpdateChecker.releaseNotes(from: releases)
+
+        XCTAssertEqual(notes.map(\.version), ["1.4.2", "1.4.1"])
+        XCTAssertEqual(notes.first?.body, "- 新增更新页历史记录")
+        XCTAssertEqual(notes.last?.body, "")
+        XCTAssertEqual(notes.first?.htmlURL, "https://example.com/v1.4.2")
+    }
+
     func testUpdateInstallScriptUsesBackupReplaceWithoutResigning() {
         let script = UpdateInstallScriptBuilder.script(
             stableDMGPath: "/tmp/pastry_update.dmg",

@@ -41,13 +41,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "版本"
+            "value": "更新"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Version"
+            "value": "Update"
           }
         }
       }
@@ -347,13 +347,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在设置中查看版本、发布说明和更新状态。"
+            "value": "检查更新、查看下载状态和最近发布说明。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "View version, release notes, and update status in Settings."
+            "value": "Check for updates, view download status, and read recent release notes."
           }
         }
       }
@@ -381,13 +381,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "当前版本 %@ · Build %@"
+            "value": "已安装 %@ · Build %@"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Current version %@ · Build %@"
+            "value": "Installed %@ · Build %@"
           }
         }
       }
@@ -415,13 +415,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "最近改动"
+            "value": "发布说明"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recent changes"
+            "value": "Release notes"
           }
         }
       }
@@ -432,13 +432,30 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "检查更新后会在这里显示上一个版本的发布说明。"
+            "value": "检查更新后会在这里显示最近发布说明。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Release notes for the latest checked version will appear here."
+            "value": "Recent release notes will appear here after checking for updates."
+          }
+        }
+      }
+    },
+    "settings.version.available_badge": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可更新"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Available"
           }
         }
       }
@@ -466,13 +483,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "查看 Pastry 的产品信息、作者和项目资源。"
+            "value": "查看 Pastry 的作者、版权和项目资源。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "View Pastry product details, author information, and project resources."
+            "value": "View Pastry author, copyright, and project resources."
           }
         }
       }
@@ -483,13 +500,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "产品"
+            "value": "信息"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Product"
+            "value": "Info"
           }
         }
       }
@@ -507,23 +524,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Resources"
-          }
-        }
-      }
-    },
-    "settings.about.version": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "版本"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version"
           }
         }
       }
