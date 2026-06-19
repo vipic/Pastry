@@ -12,7 +12,7 @@ final class L10nTests: XCTestCase {
         let keys = [
             "menu.open_clipboard", "menu.clear_history",
             "menu.about", "menu.settings", "menu.quit",
-            "menu.stats", "menu.storage"
+            "menu.check_updates"
         ]
         for key in keys {
             let value = L10n[key]
