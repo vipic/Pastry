@@ -60,7 +60,13 @@ swift build -c release -Xswiftc -Osize
 
 脚本会部署开发版、填充剪贴板样本、唤出面板并把截图和日志保存到 `dist/smoke/`。它不进 CI，适合发布前人工确认菜单栏、面板和卡片行为。
 
-测试命令速查见 [docs/TESTING.md](docs/TESTING.md)。
+测试命令速查见 [docs/TESTING.md](docs/TESTING.md)。如果使用 `mise`，统一入口见 [docs/MISE.md](docs/MISE.md)：
+
+```bash
+mise run check
+mise run deploy
+mise run release-auto
+```
 
 不依赖第三方包管理下载；SQLCipher 静态库已 vendored 到仓库内。仅支持 macOS 26+ (至少我的要求是这样，它支持更低那算它厉害)。
 

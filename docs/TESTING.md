@@ -43,6 +43,10 @@ bash -n smoke.sh
 bash -n populate_clipboard.sh
 bash -n bench.sh
 bash -n scripts/check_coverage.sh
+bash -n scripts/next_version.sh
+bash -n .mise/tasks/release
+bash -n .mise/tasks/release-auto
+bash -n .mise/tasks/publish
 ```
 
 ## Coverage
@@ -204,6 +208,10 @@ bash -n smoke.sh
 bash -n populate_clipboard.sh
 bash -n bench.sh
 bash -n scripts/check_coverage.sh
+bash -n scripts/next_version.sh
+bash -n .mise/tasks/release
+bash -n .mise/tasks/release-auto
+bash -n .mise/tasks/publish
 swift test --enable-code-coverage
 scripts/check_coverage.sh 20
 swift build -c release -Xswiftc -Osize
@@ -243,6 +251,10 @@ bash -n smoke.sh
 bash -n populate_clipboard.sh
 bash -n bench.sh
 bash -n scripts/check_coverage.sh
+bash -n scripts/next_version.sh
+bash -n .mise/tasks/release
+bash -n .mise/tasks/release-auto
+bash -n .mise/tasks/publish
 swift test --enable-code-coverage
 scripts/check_coverage.sh
 env CLANG_MODULE_CACHE_PATH=/private/tmp/clang-module-cache PASTRY_SNAPSHOT_TESTS=1 swift test --filter ClipboardCardSnapshotTests
