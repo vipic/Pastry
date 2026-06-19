@@ -46,6 +46,7 @@ struct SettingsSceneView: View {
     @State private var versionReleaseHistory: [UpdateChecker.ReleaseNote] = []
     @State private var versionCurrentVersion: String?
     @State private var versionLatestVersion: String?
+    @State private var didAutoCheckVersionInCurrentWindow = false
     @State private var isRecordingShortcut = false
     @State private var shortcutPreviewKeyCode: Int?
     @State private var shortcutPreviewModifiers = 0
@@ -598,7 +599,7 @@ struct SettingsSceneView: View {
         .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.clear)
-        .onAppear { loadVersionCache() }
+        .onAppear { autoCheckVersionIfNeeded() }
     }
 
     private var versionStatusCard: some View {
@@ -867,6 +868,13 @@ struct SettingsSceneView: View {
             lastCheckDate: lastCheck,
             lastReleaseNotes: versionReleaseNotes
         )
+    }
+
+    private func autoCheckVersionIfNeeded() {
+        loadVersionCache()
+        guard !didAutoCheckVersionInCurrentWindow else { return }
+        didAutoCheckVersionInCurrentWindow = true
+        Task { await checkVersionFromSettings() }
     }
 
     // MARK: - 关于 Tab
