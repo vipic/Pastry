@@ -34,10 +34,20 @@ final class UpdateChecker {
         }
     }
 
+    struct ReleaseNote: Codable, Equatable, Identifiable {
+        let version: String
+        let body: String
+        let publishedAt: String
+        let htmlURL: String
+
+        var id: String { version }
+    }
+
     struct UpdateResult {
         let currentVersion: String
         let latestVersion: String
         let releaseNotes: String
+        let releaseHistory: [ReleaseNote]
         let downloadURL: String
         let downloadSize: Int
         let htmlURL: String
@@ -69,15 +79,15 @@ final class UpdateChecker {
             }
         }
 
-        guard let release = await fetchLatestRelease() else { return nil }
+        guard let releases = await fetchRecentReleases(limit: 3),
+              let release = releases.first else { return nil }
 
         UserDefaults.standard.set(now, forKey: lastCheckKey)
+        cacheResult(releases)
 
         let currentVersion = currentVersionString()
         guard Self.isNewer(tag: release.tag_name, than: currentVersion) else {
             log.info("已是最新版本: \(currentVersion)")
-            // 仍缓存 release notes（供 upToDate 页显示上次更新日志）
-            cacheResult(release)
             return nil
         }
 
@@ -91,6 +101,7 @@ final class UpdateChecker {
             currentVersion: currentVersion,
             latestVersion: Self.displayVersion(release.tag_name),
             releaseNotes: release.body ?? "",
+            releaseHistory: Self.releaseNotes(from: releases),
             downloadURL: dmg.browser_download_url,
             downloadSize: dmg.size,
             htmlURL: release.html_url
@@ -101,16 +112,40 @@ final class UpdateChecker {
 
     private let lastReleaseNotesKey = "PastryLastReleaseNotes"
     private let lastCheckedVersionKey = "PastryLastCheckedVersion"
+    private let releaseHistoryKey = "PastryReleaseHistory"
 
     /// 缓存成功的检查结果（供 upToDate 页显示上次更新日志）
-    private func cacheResult(_ result: ReleaseInfo) {
-        UserDefaults.standard.set(result.body, forKey: lastReleaseNotesKey)
-        UserDefaults.standard.set(result.tag_name, forKey: lastCheckedVersionKey)
+    private func cacheResult(_ results: [ReleaseInfo]) {
+        let notes = Self.releaseNotes(from: results)
+        UserDefaults.standard.set(notes.first?.body, forKey: lastReleaseNotesKey)
+        UserDefaults.standard.set(notes.first?.version, forKey: lastCheckedVersionKey)
+        if let data = try? JSONEncoder().encode(notes) {
+            UserDefaults.standard.set(data, forKey: releaseHistoryKey)
+        }
     }
 
     /// 读取缓存的 release notes
     func cachedReleaseNotes() -> String? {
         UserDefaults.standard.string(forKey: lastReleaseNotesKey)
+    }
+
+    func cachedReleaseHistory() -> [ReleaseNote] {
+        guard let data = UserDefaults.standard.data(forKey: releaseHistoryKey),
+              let notes = try? JSONDecoder().decode([ReleaseNote].self, from: data) else {
+            if let notes = cachedReleaseNotes(), !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let version = UserDefaults.standard.string(forKey: lastCheckedVersionKey) ?? AppVersion.displayCurrent
+                return [
+                    ReleaseNote(
+                        version: Self.displayVersion(version),
+                        body: notes,
+                        publishedAt: "",
+                        htmlURL: ""
+                    )
+                ]
+            }
+            return []
+        }
+        return notes
     }
 
     /// 下载二进制到临时目录，返回文件路径。onProgress 回调 0.0~1.0；调用方负责切回主线程更新 UI。
@@ -208,6 +243,34 @@ final class UpdateChecker {
 
     // MARK: - 网络请求
 
+    private func fetchRecentReleases(limit: Int) async -> [ReleaseInfo]? {
+        guard var components = URLComponents(string: "https://api.github.com/repos/vipic/Pastry/releases") else {
+            return nil
+        }
+        components.queryItems = [
+            URLQueryItem(name: "per_page", value: "\(limit)")
+        ]
+        guard let url = components.url else { return nil }
+
+        var request = URLRequest(url: url)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("Pastry/1.0", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                log.error("GitHub Releases API 返回非 200: \(String(describing: (response as? HTTPURLResponse)?.statusCode))")
+                return nil
+            }
+            let decoder = JSONDecoder()
+            return try decoder.decode([ReleaseInfo].self, from: data)
+        } catch {
+            log.error("获取 Releases 失败: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     private func fetchLatestRelease() async -> ReleaseInfo? {
         guard let url = URL(string: "https://api.github.com/repos/vipic/Pastry/releases/latest") else {
             return nil
@@ -229,6 +292,17 @@ final class UpdateChecker {
         } catch {
             log.error("获取 Release 失败: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    static func releaseNotes(from releases: [ReleaseInfo]) -> [ReleaseNote] {
+        releases.map {
+            ReleaseNote(
+                version: displayVersion($0.tag_name),
+                body: $0.body ?? "",
+                publishedAt: $0.published_at,
+                htmlURL: $0.html_url
+            )
         }
     }
 
