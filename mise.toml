@@ -1,0 +1,83 @@
+[tasks.build]
+description = "Build the debug binary"
+run = "swift build"
+
+[tasks."build:release"]
+description = "Build the release binary with size optimization"
+run = "swift build -c release -Xswiftc -Osize"
+
+[tasks.test]
+description = "Run the Swift test suite"
+run = "swift test"
+
+[tasks."test:coverage"]
+description = "Run tests with coverage enabled"
+run = "swift test --enable-code-coverage"
+
+[tasks.coverage]
+description = "Check the latest Swift coverage report; pass a threshold after --"
+run = "scripts/check_coverage.sh"
+
+[tasks."lint:scripts"]
+description = "Check shell scripts for syntax errors"
+run = "bash -n deploy.sh && bash -n release.sh && bash -n smoke.sh && bash -n populate_clipboard.sh && bash -n bench.sh && bash -n scripts/check_coverage.sh && bash -n scripts/next_version.sh && bash -n .mise/tasks/release && bash -n .mise/tasks/release-auto && bash -n .mise/tasks/publish"
+
+[tasks.check]
+description = "Run the standard local validation suite"
+depends = ["lint:scripts", "test:coverage", "coverage", "build:release"]
+
+[tasks.ci]
+description = "Run the same checks as GitHub Actions"
+depends = ["lint:scripts", "test:coverage", "coverage:ci", "build:release"]
+
+[tasks."coverage:ci"]
+description = "Check coverage with the CI threshold"
+run = "scripts/check_coverage.sh 20"
+
+[tasks.deploy]
+description = "Build, sign, and launch Pastry Dev.app"
+run = "./deploy.sh"
+
+[tasks.smoke]
+description = "Run local UI smoke checks"
+run = "./smoke.sh"
+
+[tasks.populate]
+description = "Populate the pasteboard with sample clipboard data"
+run = "./populate_clipboard.sh"
+
+[tasks.bench]
+description = "Run the local performance benchmark; pass bench flags after --"
+run = "./bench.sh"
+
+[tasks."snapshot:test"]
+description = "Run clipboard card snapshot tests"
+run = "env CLANG_MODULE_CACHE_PATH=/private/tmp/clang-module-cache PASTRY_SNAPSHOT_TESTS=1 swift test --filter ClipboardCardSnapshotTests"
+
+[tasks."snapshot:record"]
+description = "Record clipboard card snapshot baselines"
+run = "env CLANG_MODULE_CACHE_PATH=/private/tmp/clang-module-cache PASTRY_RECORD_SNAPSHOTS=1 swift test --filter ClipboardCardSnapshotTests"
+
+[tasks."test:network"]
+description = "Run network-dependent update checker tests"
+run = "env PASTRY_NETWORK_TESTS=1 swift test --filter UpdateCheckerTests"
+
+[tasks."version:current"]
+description = "Print the latest release tag version"
+run = "git describe --tags --abbrev=0 2>/dev/null || echo 1.0.0"
+
+[tasks."version:next"]
+description = "Calculate the next SemVer version from commits since the latest tag"
+run = "scripts/next_version.sh"
+
+[tasks.release]
+description = "Run release.sh with an explicit version; pass version and flags after --"
+run = ".mise/tasks/release"
+
+[tasks."release-auto"]
+description = "Calculate the next version, then run release.sh"
+run = ".mise/tasks/release-auto"
+
+[tasks.publish]
+description = "Publish a GitHub Release; pass a version after -- or omit it to auto-bump"
+run = ".mise/tasks/publish"
