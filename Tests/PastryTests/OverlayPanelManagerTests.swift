@@ -454,7 +454,27 @@ final class OverlayPanelManagerTests: XCTestCase {
                 modifierFlags: .command,
                 keyboardOwner: .searchField
             ),
-            .consume
+            .openSearch
+        )
+    }
+
+    func testOverlayPanelRoutesCommandFToOpenSearchWithoutSystemBeep() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 3,
+                isSearchActive: false,
+                modifierFlags: .command
+            ),
+            .openSearch
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 3,
+                isSearchActive: true,
+                modifierFlags: .command,
+                keyboardOwner: .searchField
+            ),
+            .openSearch
         )
     }
 

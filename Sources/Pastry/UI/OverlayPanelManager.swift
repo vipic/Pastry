@@ -7,6 +7,24 @@ final class ClipboardOverlayPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown,
+           event.keyCode == 53,
+           OverlayPanelManager.shared.keyboardOwner == .searchField,
+           !OverlayPanelManager.shared.isAlertActive {
+            routeCancelKey()
+            return
+        }
+        if event.type == .keyDown,
+           Self.isSearchShortcut(keyCode: event.keyCode, modifierFlags: event.modifierFlags),
+           OverlayPanelManager.shared.keyboardOwner != .favoriteNoteEditor,
+           !OverlayPanelManager.shared.isAlertActive {
+            routeOpenSearchKey()
+            return
+        }
+        super.sendEvent(event)
+    }
+
     override func keyDown(with event: NSEvent) {
         if !OverlayPanelManager.shared.isAlertActive,
            OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
@@ -26,6 +44,8 @@ final class ClipboardOverlayPanel: NSPanel {
             routeAlertConfirmKey()
         case .selectAll:
             routeSelectAllKey()
+        case .openSearch:
+            routeOpenSearchKey()
         case .consume:
             break
         case .system:
@@ -55,6 +75,9 @@ final class ClipboardOverlayPanel: NSPanel {
         case .selectAll:
             routeSelectAllKey()
             return true
+        case .openSearch:
+            routeOpenSearchKey()
+            return true
         case .consume:
             return true
         case .system:
@@ -71,6 +94,10 @@ final class ClipboardOverlayPanel: NSPanel {
             NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
             return
         }
+        if OverlayPanelManager.shared.keyboardOwner == .searchField {
+            routeCancelKey()
+            return
+        }
         routeCancelKey()
     }
 
@@ -79,6 +106,7 @@ final class ClipboardOverlayPanel: NSPanel {
         case cancelFavoriteNoteEditing
         case confirmAlert
         case selectAll
+        case openSearch
         case consume
         case system
     }
@@ -113,11 +141,12 @@ final class ClipboardOverlayPanel: NSPanel {
             return .cancel
         }
 
+        if Self.isSearchShortcut(keyCode: keyCode, modifierFlags: modifierFlags) {
+            return .openSearch
+        }
+
         if keyboardOwner == .searchField {
             if keyCode == 48, modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
-                return .consume
-            }
-            if keyCode == 3, modifierFlags.contains(.command) {
                 return .consume
             }
             return .system
@@ -177,6 +206,10 @@ final class ClipboardOverlayPanel: NSPanel {
         NotificationCenter.default.post(name: .overlaySelectAll, object: nil)
     }
 
+    private func routeOpenSearchKey() {
+        NotificationCenter.default.post(name: .overlayOpenSearchImmediate, object: nil)
+    }
+
     private func routeCancelKey() {
         if OverlayPanelManager.shared.isAlertActive {
             NotificationCenter.default.post(name: .overlayAlertCancel, object: nil)
@@ -187,6 +220,10 @@ final class ClipboardOverlayPanel: NSPanel {
         } else {
             NotificationCenter.default.post(name: .overlayRequestDismiss, object: nil)
         }
+    }
+
+    private static func isSearchShortcut(keyCode: UInt16, modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        keyCode == 3 && modifierFlags.contains(.command)
     }
 }
 
