@@ -294,6 +294,13 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
+    func testOverlayCancelFavoriteNoteEditingNotificationExists() {
+        XCTAssertEqual(
+            Notification.Name.overlayCancelFavoriteNoteEditing.rawValue,
+            "overlayCancelFavoriteNoteEditing"
+        )
+    }
+
     // MARK: - 面板默认响铃抑制
 
     func testOverlayPanelSilentlyConsumesArrowKeysWhenSearchInactive() {
@@ -393,6 +400,157 @@ final class OverlayPanelManagerTests: XCTestCase {
                 modifierFlags: []
             ),
             .system
+        )
+    }
+
+    func testOverlayPanelDoesNotRouteCardCommandsWhenSearchFieldOwnsKeyboard() {
+        let textEditingKeys: [(UInt16, NSEvent.ModifierFlags)] = [
+            (0, .command),    // ⌘A selects search text
+            (36, []),         // Enter stays in search field
+            (51, []),         // Delete edits search text
+            (117, []),        // Forward delete edits search text
+            (123, []),        // Arrow keys move caret
+            (124, []),
+            (125, []),
+            (126, []),
+            (18, .command)    // ⌘1 does not quick-paste while typing search
+        ]
+
+        for (keyCode, modifiers) in textEditingKeys {
+            XCTAssertEqual(
+                ClipboardOverlayPanel.keyRoute(
+                    keyCode: keyCode,
+                    isSearchActive: true,
+                    modifierFlags: modifiers,
+                    keyboardOwner: .searchField
+                ),
+                .system,
+                "keyCode \(keyCode) should stay with search field"
+            )
+        }
+    }
+
+    func testOverlayPanelKeepsSearchOwnedCommandsScopedToSearch() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 53,
+                isSearchActive: true,
+                keyboardOwner: .searchField
+            ),
+            .cancel
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 48,
+                isSearchActive: true,
+                keyboardOwner: .searchField
+            ),
+            .consume
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 3,
+                isSearchActive: true,
+                modifierFlags: .command,
+                keyboardOwner: .searchField
+            ),
+            .consume
+        )
+    }
+
+    func testOverlayPanelDoesNotRouteCardCommandsWhenFavoriteNoteOwnsKeyboard() {
+        let noteEditingKeys: [(UInt16, NSEvent.ModifierFlags)] = [
+            (0, .command),    // ⌘A selects note text
+            (36, []),         // Enter is handled by note editor submit
+            (51, []),         // Delete edits note text
+            (117, []),
+            (123, []),
+            (124, []),
+            (125, []),
+            (126, []),
+            (18, .command)
+        ]
+
+        for (keyCode, modifiers) in noteEditingKeys {
+            XCTAssertEqual(
+                ClipboardOverlayPanel.keyRoute(
+                    keyCode: keyCode,
+                    isSearchActive: false,
+                    modifierFlags: modifiers,
+                    keyboardOwner: .favoriteNoteEditor
+                ),
+                .system,
+                "keyCode \(keyCode) should stay with favorite note editor"
+            )
+        }
+    }
+
+    func testOverlayPanelRoutesFavoriteNoteEscapeToSilentCancel() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 53,
+                isSearchActive: false,
+                keyboardOwner: .favoriteNoteEditor
+            ),
+            .cancelFavoriteNoteEditing
+        )
+    }
+
+    func testOverlayPanelSilentlyConsumesPrintableKeyThatOpensSearch() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 0,
+                chars: "a",
+                isSearchActive: false
+            ),
+            .consume
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 1,
+                chars: "搜",
+                isSearchActive: false
+            ),
+            .consume
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 0,
+                chars: "a",
+                isSearchActive: false,
+                modifierFlags: .command
+            ),
+            .selectAll
+        )
+    }
+
+    func testOverlayPanelAlertOverridesLocalKeyboardOwner() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 53,
+                isSearchActive: false,
+                isAlertActive: true,
+                keyboardOwner: .favoriteNoteEditor
+            ),
+            .cancel
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 36,
+                isSearchActive: false,
+                isAlertActive: true,
+                keyboardOwner: .favoriteNoteEditor
+            ),
+            .confirmAlert
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 51,
+                isSearchActive: false,
+                isAlertActive: true,
+                keyboardOwner: .searchField
+            ),
+            .consume
         )
     }
 
