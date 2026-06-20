@@ -1,4 +1,6 @@
 import XCTest
+import OSLog
+import CSQLCipher
 @testable import Pastry
 
 // MARK: - DatabaseManager 测试套件
@@ -84,10 +86,65 @@ final class DatabaseManagerTests: XCTestCase {
         db.setRetentionCleanupIntervalForTesting(1)
     }
 
+    private func executeRaw(_ sql: String, on database: OpaquePointer?) {
+        XCTAssertEqual(sqlite3_exec(database, sql, nil, nil, nil), SQLITE_OK)
+    }
+
     // MARK: - 基本 CRUD
 
     func testBuildsPreferFileKeyStorage() {
         XCTAssertTrue(DatabaseManager.prefersFileKeyStorageForTesting)
+    }
+
+    func testPlaintextMigrationPreservesRawFormatBlobBytes() throws {
+        let plaintextPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pastry-plaintext-\(UUID().uuidString).db")
+            .path
+        defer {
+            try? FileManager.default.removeItem(atPath: plaintextPath)
+            try? FileManager.default.removeItem(atPath: plaintextPath + ".plaintext-backup")
+        }
+
+        var plainDB: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(plaintextPath, &plainDB), SQLITE_OK)
+        defer { sqlite3_close(plainDB) }
+
+        executeRaw("""
+            CREATE TABLE clips (
+                id TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                raw_format_data BLOB,
+                raw_format_type TEXT
+            );
+            """, on: plainDB)
+
+        let rawBytes = Data([0x00, 0x01, 0x27, 0xff, 0x41, 0x00, 0x42])
+        var insertStmt: OpaquePointer?
+        XCTAssertEqual(sqlite3_prepare_v2(plainDB, "INSERT INTO clips VALUES ('blob-test', 'content', ?, 'public.rtf');", -1, &insertStmt, nil), SQLITE_OK)
+        _ = rawBytes.withUnsafeBytes { ptr in
+            sqlite3_bind_blob(insertStmt, 1, ptr.baseAddress, Int32(rawBytes.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        }
+        XCTAssertEqual(sqlite3_step(insertStmt), SQLITE_DONE)
+        sqlite3_finalize(insertStmt)
+        sqlite3_close(plainDB)
+        plainDB = nil
+
+        let key = Data(repeating: 7, count: 32)
+        let migrated = DatabaseMigrator(
+            dbPath: plaintextPath,
+            key: key,
+            log: Logger(subsystem: "com.nekutai.pastry.tests", category: "database-migrator")
+        ).migratePlaintextOrCreateFresh()
+        XCTAssertNotNil(migrated)
+        defer { sqlite3_close(migrated) }
+
+        var queryStmt: OpaquePointer?
+        XCTAssertEqual(sqlite3_prepare_v2(migrated, "SELECT raw_format_data FROM clips WHERE id = 'blob-test';", -1, &queryStmt, nil), SQLITE_OK)
+        XCTAssertEqual(sqlite3_step(queryStmt), SQLITE_ROW)
+        let blob = try XCTUnwrap(sqlite3_column_blob(queryStmt, 0))
+        let len = Int(sqlite3_column_bytes(queryStmt, 0))
+        XCTAssertEqual(Data(bytes: blob, count: len), rawBytes)
+        sqlite3_finalize(queryStmt)
     }
 
     /// 插入一条 → recent() 应包含它

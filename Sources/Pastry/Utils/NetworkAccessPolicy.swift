@@ -23,11 +23,17 @@ enum NetworkAccessPolicy {
 
     static func responseWithinLimit(_ response: URLResponse?, maxBytes: Int) -> Bool {
         guard let http = response as? HTTPURLResponse,
-              (200...299).contains(http.statusCode)
+              (200...299).contains(http.statusCode),
+              let finalURL = http.url,
+              isAllowedRemoteResourceURL(finalURL)
         else { return false }
 
         let expected = http.expectedContentLength
         return expected < 0 || expected <= Int64(maxBytes)
+    }
+
+    static func shouldFollowRedirect(to url: URL) -> Bool {
+        isAllowedRemoteResourceURL(url)
     }
 
     private static func isBlockedIPv4(_ host: String) -> Bool {

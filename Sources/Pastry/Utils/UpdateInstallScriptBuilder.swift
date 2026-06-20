@@ -63,7 +63,10 @@ enum UpdateInstallScriptBuilder {
         if [ -z "$CURRENT_REQ" ]; then
             echo "⚠️  无法读取当前 App 签名要求，跳过签名身份连续性校验" >&2
         elif ! /usr/bin/codesign --verify --deep --strict -R="designated => $CURRENT_REQ" "$CANDIDATE" 2>/dev/null; then
-            echo "⚠️  更新包签名身份与当前 App 不匹配，继续安装；系统权限可能需要重新授权" >&2
+            echo "❌ 更新包签名身份与当前 App 不匹配，拒绝自动更新" >&2
+            hdiutil detach "$VOLUME" -quiet || true
+            open "$TARGET"
+            exit 1
         fi
 
         # 替换整个 .app；先备份，复制失败时恢复旧版本
