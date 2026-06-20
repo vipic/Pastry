@@ -512,6 +512,7 @@ struct ClipboardCardView: View {
 
                         TextField(L10n["favorite_note.placeholder"], text: $favoriteNoteDraft)
                             .textFieldStyle(.plain)
+                            .autocorrectionDisabled(true)
                             .font(.system(size: 10))
                             .foregroundColor(.primary)
                             .focused($favoriteNoteFocused)
@@ -562,7 +563,10 @@ struct ClipboardCardView: View {
                     )
                     .onAppear {
                         OverlayPanelManager.shared.keyboardOwner = .favoriteNoteEditor
-                        favoriteNoteFocused = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            guard isEditingFavoriteNote else { return }
+                            favoriteNoteFocused = true
+                        }
                     }
                     .onDisappear {
                         if OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
