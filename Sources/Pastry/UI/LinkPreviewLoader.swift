@@ -30,7 +30,7 @@ final class LinkPreviewLoader {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 6
         config.timeoutIntervalForResource = 8
-        return URLSession(configuration: config)
+        return URLSession(configuration: config, delegate: RemoteResourceRedirectDelegate.shared, delegateQueue: nil)
     }()
 
     private static let htmlTagRegexes: [String: NSRegularExpression] = {

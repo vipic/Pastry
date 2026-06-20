@@ -41,7 +41,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PastryTests",
-            dependencies: ["Pastry"],
+            dependencies: ["Pastry", "CSQLCipher"],
             path: "Tests/PastryTests",
             exclude: ["__Snapshots__"]
         ),
