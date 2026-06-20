@@ -1,5 +1,11 @@
 import Cocoa
 
+enum OverlayKeyboardOwner: Equatable {
+    case overlayNavigation
+    case searchField
+    case favoriteNoteEditor
+}
+
 final class OverlayKeyboardRouter {
     private var keyboardMonitor: Any?
     private var flagsChangedMonitor: Any?
@@ -7,13 +13,16 @@ final class OverlayKeyboardRouter {
 
     private let isAlertActive: () -> Bool
     private let isSearchActive: () -> Bool
+    private let keyboardOwner: () -> OverlayKeyboardOwner
 
     init(
         isAlertActive: @escaping () -> Bool,
-        isSearchActive: @escaping () -> Bool
+        isSearchActive: @escaping () -> Bool,
+        keyboardOwner: @escaping () -> OverlayKeyboardOwner
     ) {
         self.isAlertActive = isAlertActive
         self.isSearchActive = isSearchActive
+        self.keyboardOwner = keyboardOwner
     }
 
     func install() {
@@ -41,14 +50,16 @@ final class OverlayKeyboardRouter {
     }
 
     private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
-        if !isSearchActive(), Self.isTextInputFocused() {
-            return event
-        }
+        let owner = keyboardOwner()
 
         // Esc：筛选气泡 → 预览 popover → 搜索栏 → 关闭面板（逐层收起）
         if event.keyCode == 53 {
             if isAlertActive() {
                 NotificationCenter.default.post(name: .overlayAlertCancel, object: nil)
+                return nil
+            }
+            if owner == .favoriteNoteEditor {
+                NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
                 return nil
             }
             if QLPreviewHelper.shared.isShowing {
@@ -75,6 +86,25 @@ final class OverlayKeyboardRouter {
             return event
         }
 
+        if owner == .favoriteNoteEditor {
+            return event
+        }
+
+        if owner == .searchField {
+            // 搜索框拥有键盘时，文本编辑快捷键（⌘A/Delete/方向键/Enter 等）
+            // 都交给 TextField；只有面板级的 Tab / ⌘F 仍由 overlay 管理。
+            if event.keyCode == 48,
+               event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
+                NotificationCenter.default.post(name: .overlayCloseSearch, object: nil,
+                                                userInfo: ["clearFilter": false])
+                return nil
+            }
+            if event.keyCode == 3, event.modifierFlags.contains(.command) {
+                return nil
+            }
+            return event
+        }
+
         // Tab — 搜索栏↔卡片焦点互相切换（无 Shift/⌘/⌥/⌃ 修饰）
         if event.keyCode == 48,
            event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
@@ -95,7 +125,7 @@ final class OverlayKeyboardRouter {
             return nil
         }
 
-        // ⌘A 全选 — 搜索框聚焦时也选中所有筛选结果（不收拢搜索栏）
+        // ⌘A 全选卡片；文本输入拥有键盘时已在上方放行。
         if event.keyCode == 0, event.modifierFlags.contains(.command) {
             NotificationCenter.default.post(name: .overlaySelectAll, object: nil)
             return nil
@@ -177,7 +207,7 @@ final class OverlayKeyboardRouter {
 
     private func handleFlagsChanged(_ event: NSEvent) -> NSEvent {
         let shouldShowCmdBadges = event.modifierFlags.contains(.command)
-            && (isSearchActive() || !Self.isTextInputFocused())
+            && keyboardOwner() == .overlayNavigation
         if shouldShowCmdBadges != cmdWasDown {
             cmdWasDown = shouldShowCmdBadges
             NotificationCenter.default.post(name: .overlayCmdStateChanged, object: nil,

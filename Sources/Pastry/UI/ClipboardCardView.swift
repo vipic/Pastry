@@ -516,6 +516,7 @@ struct ClipboardCardView: View {
                             .foregroundColor(.primary)
                             .focused($favoriteNoteFocused)
                             .onSubmit { commitFavoriteNote() }
+                            .onExitCommand { cancelFavoriteNoteEditing() }
 
                         Button(action: commitFavoriteNote) {
                             Image(systemName: "checkmark")
@@ -560,7 +561,13 @@ struct ClipboardCardView: View {
                             .stroke(themeColor.opacity(0.18), lineWidth: 0.8)
                     )
                     .onAppear {
+                        OverlayPanelManager.shared.keyboardOwner = .favoriteNoteEditor
                         favoriteNoteFocused = true
+                    }
+                    .onDisappear {
+                        if OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
+                            OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
+                        }
                     }
                 } else {
                     Button(action: beginFavoriteNoteEditing) {
@@ -592,6 +599,10 @@ struct ClipboardCardView: View {
                 }
             }
             .frame(height: 24)
+            .onReceive(NotificationCenter.default.publisher(for: .overlayCancelFavoriteNoteEditing)) { _ in
+                guard isEditingFavoriteNote else { return }
+                cancelFavoriteNoteEditing()
+            }
         }
     }
 
@@ -603,18 +614,25 @@ struct ClipboardCardView: View {
     func beginFavoriteNoteEditing() {
         favoriteNoteDraft = favoriteNoteText ?? ""
         isEditingFavoriteNote = true
+        OverlayPanelManager.shared.keyboardOwner = .favoriteNoteEditor
     }
 
     private func commitFavoriteNote() {
         StoreManager.shared.updateFavoriteNote(item.id, note: favoriteNoteDraft)
         isEditingFavoriteNote = false
         favoriteNoteFocused = false
+        if OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
+            OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
+        }
     }
 
     private func cancelFavoriteNoteEditing() {
         favoriteNoteDraft = favoriteNoteText ?? ""
         isEditingFavoriteNote = false
         favoriteNoteFocused = false
+        if OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
+            OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
+        }
     }
 
     // MARK: - 底部栏
