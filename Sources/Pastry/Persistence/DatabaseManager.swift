@@ -127,6 +127,7 @@ final class DatabaseManager {
         CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
             content,
             link_title,
+            favorite_note,
             content='clips',
             content_rowid='rowid',
             tokenize='porter unicode61'
@@ -229,6 +230,32 @@ final class DatabaseManager {
             """)
             userVersion = 10
         }
+        if version < 11 {
+            _ = execute("ALTER TABLE clips ADD COLUMN favorite_note TEXT;")
+            _ = execute("ALTER TABLE clips ADD COLUMN favorite_note_updated_at REAL;")
+            _ = execute("DROP TABLE IF EXISTS clips_fts;")
+            let ftsSQL = """
+            CREATE VIRTUAL TABLE clips_fts USING fts5(
+                content,
+                link_title,
+                favorite_note,
+                content='clips',
+                content_rowid='rowid',
+                tokenize='porter unicode61'
+            );
+            """
+            _ = execute(ftsSQL)
+            _ = execute("INSERT INTO clips_fts(rowid, content, link_title, favorite_note) SELECT rowid, content, link_title, favorite_note FROM clips;")
+            _ = execute("DROP TRIGGER IF EXISTS trg_clips_fts_delete;")
+            _ = execute("""
+                CREATE TRIGGER trg_clips_fts_delete
+                AFTER DELETE ON clips
+                BEGIN
+                    DELETE FROM clips_fts WHERE rowid = old.rowid;
+                END;
+            """)
+            userVersion = 11
+        }
     }
 
     // MARK: - CRUD
@@ -237,7 +264,7 @@ final class DatabaseManager {
     private static let listColumns = """
         id, timestamp, substr(content, 1, 256) AS content, content_type, app_name, \
         text_annotation, image_urls, segments, is_favorite, display_count, \
-        is_handoff, is_url, link_title
+        is_handoff, is_url, link_title, favorite_note, favorite_note_updated_at
         """
 
     enum InsertResult: Equatable {
@@ -276,8 +303,8 @@ final class DatabaseManager {
         }
 
         let sql = """
-        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, dedup_key, link_title)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT OR IGNORE INTO clips (id, timestamp, content, content_type, app_name, text_annotation, image_urls, segments, is_favorite, display_count, is_handoff, raw_format_data, raw_format_type, is_url, dedup_key, link_title, favorite_note, favorite_note_updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -316,6 +343,16 @@ final class DatabaseManager {
             sqlite3_bind_text(stmt, 16, (lt as NSString).utf8String, -1, nil)
         } else {
             sqlite3_bind_null(stmt, 16)
+        }
+        if let note = item.favoriteNote {
+            sqlite3_bind_text(stmt, 17, (note as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 17)
+        }
+        if let updatedAt = item.favoriteNoteUpdatedAt {
+            sqlite3_bind_double(stmt, 18, updatedAt.timeIntervalSince1970)
+        } else {
+            sqlite3_bind_null(stmt, 18)
         }
 
         let rc = sqlite3_step(stmt)
@@ -391,7 +428,8 @@ final class DatabaseManager {
         // FTS5 搜索（带前缀通配）
         let ftsSQL = """
         SELECT c.id, c.timestamp, substr(c.content, 1, 256) AS content, c.content_type, c.app_name,
-               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff, c.is_url, c.link_title
+               c.text_annotation, c.image_urls, c.segments, c.is_favorite, c.display_count, c.is_handoff, c.is_url,
+               c.link_title, c.favorite_note, c.favorite_note_updated_at
         FROM clips c
         JOIN clips_fts f ON c.rowid = f.rowid
         WHERE clips_fts MATCH ?
@@ -426,7 +464,7 @@ final class DatabaseManager {
         let sql = """
         SELECT \(Self.listColumns)
         FROM clips
-        WHERE content LIKE ? OR link_title LIKE ?
+        WHERE content LIKE ? OR link_title LIKE ? OR favorite_note LIKE ?
         ORDER BY timestamp DESC
         LIMIT ?;
         """
@@ -439,7 +477,8 @@ final class DatabaseManager {
         let pattern = "%\(query)%"
         sqlite3_bind_text(stmt, 1, (pattern as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 2, (pattern as NSString).utf8String, -1, nil)
-        sqlite3_bind_int(stmt, 3, Int32(limit))
+        sqlite3_bind_text(stmt, 3, (pattern as NSString).utf8String, -1, nil)
+        sqlite3_bind_int(stmt, 4, Int32(limit))
 
         let results = readItems(from: stmt)
         sqlite3_finalize(stmt)
@@ -565,6 +604,40 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
         sqlite3_step(stmt)
         sqlite3_finalize(stmt)
+        rebuildFTSRow(id: id)
+    }
+
+    /// 更新收藏备注（nil 表示清空，取消收藏时不会自动清除）
+    @discardableResult
+    func updateFavoriteNote(id: String, note: String?, updatedAt: Date? = Date()) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = "UPDATE clips SET favorite_note = ?, favorite_note_updated_at = ? WHERE id = ?;"
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+
+        if let note {
+            sqlite3_bind_text(stmt, 1, (note as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 1)
+        }
+        if note == nil {
+            sqlite3_bind_null(stmt, 2)
+        } else if let updatedAt {
+            sqlite3_bind_double(stmt, 2, updatedAt.timeIntervalSince1970)
+        } else {
+            sqlite3_bind_null(stmt, 2)
+        }
+        sqlite3_bind_text(stmt, 3, (id as NSString).utf8String, -1, nil)
+
+        let rc = sqlite3_step(stmt)
+        let changed = sqlite3_changes(db)
+        sqlite3_finalize(stmt)
+        if rc == SQLITE_DONE && changed > 0 {
+            rebuildFTSRow(id: id)
+        }
+        return rc == SQLITE_DONE && changed > 0
     }
 
     /// 将条目时间戳更新为现在（移动到列表最前）
@@ -639,8 +712,8 @@ final class DatabaseManager {
 
     private func syncFTS(_ item: ClipboardItem) {
         let sql = """
-        INSERT INTO clips_fts (rowid, content, link_title)
-        VALUES ((SELECT rowid FROM clips WHERE id = ?), ?, ?);
+        INSERT INTO clips_fts (rowid, content, link_title, favorite_note)
+        VALUES ((SELECT rowid FROM clips WHERE id = ?), ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -653,8 +726,33 @@ final class DatabaseManager {
         } else {
             sqlite3_bind_null(stmt, 3)
         }
+        if let note = item.favoriteNote {
+            sqlite3_bind_text(stmt, 4, (note as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 4)
+        }
         sqlite3_step(stmt)
         sqlite3_finalize(stmt)
+    }
+
+    private func rebuildFTSRow(id: String) {
+        let deleteSQL = "DELETE FROM clips_fts WHERE rowid = (SELECT rowid FROM clips WHERE id = ?);"
+        var deleteStmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStmt, nil) == SQLITE_OK {
+            sqlite3_bind_text(deleteStmt, 1, (id as NSString).utf8String, -1, nil)
+            sqlite3_step(deleteStmt)
+        }
+        sqlite3_finalize(deleteStmt)
+
+        let insertSQL = """
+        INSERT INTO clips_fts(rowid, content, link_title, favorite_note)
+        SELECT rowid, content, link_title, favorite_note FROM clips WHERE id = ?;
+        """
+        var insertStmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, insertSQL, -1, &insertStmt, nil) == SQLITE_OK else { return }
+        sqlite3_bind_text(insertStmt, 1, (id as NSString).utf8String, -1, nil)
+        sqlite3_step(insertStmt)
+        sqlite3_finalize(insertStmt)
     }
 
     private func readItems(from stmt: OpaquePointer?) -> [ClipboardItem] {
@@ -687,6 +785,14 @@ final class DatabaseManager {
                 guard let ptr = sqlite3_column_text(stmt, 12) else { return nil }
                 return String(cString: ptr)
             }()
+            let favoriteNote: String? = {
+                guard let ptr = sqlite3_column_text(stmt, 13) else { return nil }
+                return String(cString: ptr)
+            }()
+            let favoriteNoteUpdatedAt: Date? = {
+                guard sqlite3_column_type(stmt, 14) != SQLITE_NULL else { return nil }
+                return Date(timeIntervalSince1970: sqlite3_column_double(stmt, 14))
+            }()
 
             let sourceFormat = SourceFormat(storageKey: typeStr)
             let tags = ContentTags(
@@ -708,7 +814,9 @@ final class DatabaseManager {
                 linkTitle: linkTitle,
                 segmentsJSON: segmentsJSON,
                 displayCount: dispCount,
-                isPinned: pinned
+                isPinned: pinned,
+                favoriteNote: favoriteNote,
+                favoriteNoteUpdatedAt: favoriteNoteUpdatedAt
             )
             items.append(item)
         }

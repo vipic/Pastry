@@ -204,6 +204,27 @@ final class StoreManager: ObservableObject {
         if hasActiveFilters { performSearchImmediate() }
     }
 
+    /// 更新收藏备注（空白文本会清空备注）
+    func updateFavoriteNote(_ itemId: UUID, note: String?) {
+        let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let normalized = trimmed.isEmpty ? nil : trimmed
+        let updatedAt = normalized == nil ? nil : Date()
+
+        guard DatabaseManager.shared.updateFavoriteNote(
+            id: itemId.uuidString,
+            note: normalized,
+            updatedAt: updatedAt
+        ) else { return }
+
+        guard let idx = items.firstIndex(where: { $0.id == itemId }) else {
+            performSearchImmediate()
+            return
+        }
+        items[idx].favoriteNote = normalized
+        items[idx].favoriteNoteUpdatedAt = updatedAt
+        performSearchImmediate()
+    }
+
     /// 批量设置选中项的 pin 状态
     func setPinForSelected(_ ids: Set<UUID>, pinned: Bool) {
         for id in ids {
@@ -317,9 +338,12 @@ final class StoreManager: ObservableObject {
             content: truncatedContent, sourceFormat: item.sourceFormat, tags: item.tags,
             appName: item.appName, isHandoff: item.isHandoff,
             textAnnotation: item.textAnnotation,
+            linkTitle: item.linkTitle,
             segmentsJSON: item.segmentsJSON,
             rawFormatData: item.rawFormatData, rawFormatType: item.rawFormatType,
-            displayCount: item.displayCount, isPinned: item.isPinned
+            displayCount: item.displayCount, isPinned: item.isPinned,
+            favoriteNote: item.favoriteNote,
+            favoriteNoteUpdatedAt: item.favoriteNoteUpdatedAt
         )
         items.insert(listItem, at: 0)
 

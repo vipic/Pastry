@@ -39,7 +39,8 @@ final class DatabaseManagerTests: XCTestCase {
         app: String? = "Safari",
         pinned: Bool = false,
         isHandoff: Bool = false,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        favoriteNote: String? = nil
     ) -> ClipboardItem {
         ClipboardItem(
             timestamp: timestamp,
@@ -47,7 +48,9 @@ final class DatabaseManagerTests: XCTestCase {
             sourceFormat: type,
             appName: app,
             isHandoff: isHandoff,
-            isPinned: pinned
+            isPinned: pinned,
+            favoriteNote: favoriteNote,
+            favoriteNoteUpdatedAt: favoriteNote == nil ? nil : timestamp
         )
     }
 
@@ -318,6 +321,31 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertFalse(db.togglePin(id: UUID().uuidString))
     }
 
+    func testUpdateFavoriteNotePersists() {
+        let item = makeItem(content: "收藏内容", pinned: true)
+        db.insert(item)
+
+        XCTAssertTrue(db.updateFavoriteNote(id: item.id.uuidString, note: "客户 A 的参考方案"))
+
+        let favs = db.favorites()
+        XCTAssertEqual(favs.count, 1)
+        XCTAssertEqual(favs[0].favoriteNote, "客户 A 的参考方案")
+        XCTAssertNotNil(favs[0].favoriteNoteUpdatedAt)
+    }
+
+    func testUnpinPreservesFavoriteNote() {
+        let item = makeItem(content: "收藏内容", pinned: true, favoriteNote: "之后还会用")
+        db.insert(item)
+
+        XCTAssertTrue(db.togglePin(id: item.id.uuidString))
+        XCTAssertEqual(db.favorites().count, 0)
+
+        let recent = db.recent()
+        XCTAssertEqual(recent.count, 1)
+        XCTAssertFalse(recent[0].isPinned)
+        XCTAssertEqual(recent[0].favoriteNote, "之后还会用")
+    }
+
     // MARK: - 清空
 
     func testClearNonPinnedPreservesPinned() {
@@ -423,6 +451,15 @@ final class DatabaseManagerTests: XCTestCase {
         let results = db.search(query: "牛奶")
         XCTAssertEqual(results.count, 1)
         XCTAssertEqual(results[0].content, "去买牛奶")
+    }
+
+    func testSearchFindsFavoriteNote() {
+        db.insert(makeItem(content: "https://example.com", pinned: true, favoriteNote: "clientAlpha reference"))
+        db.insert(makeItem(content: "普通内容", pinned: true, favoriteNote: "other note"))
+
+        let results = db.search(query: "clientAlpha")
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].favoriteNote, "clientAlpha reference")
     }
 
     func testSearchNoMatch() {

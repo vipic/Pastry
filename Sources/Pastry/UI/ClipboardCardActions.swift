@@ -128,6 +128,8 @@ extension ClipboardCardView {
                 switch tag {
                 case "pin":
                     onPin(item, selectedIds)
+                case "edit_note":
+                    beginFavoriteNoteEditing()
                 case "open":       openItem()
                 case "show_in_finder": showInFinder()
                 case "copy":       copyItem()
@@ -150,6 +152,14 @@ extension ClipboardCardView {
         pinItem.representedObject = "pin" as NSString
         pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: nil)
         menu.addItem(pinItem)
+
+        if item.isPinned {
+            let noteItem = NSMenuItem(title: L10n["context.edit_favorite_note"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            noteItem.target = handler
+            noteItem.representedObject = "edit_note" as NSString
+            noteItem.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: nil)
+            menu.addItem(noteItem)
+        }
 
         // Copy
         let copyMenuItem = NSMenuItem(title: L10n["context.copy"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")

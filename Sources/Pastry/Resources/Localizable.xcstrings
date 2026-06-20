@@ -1412,6 +1412,57 @@
         }
       }
     },
+    "context.edit_favorite_note": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑备注…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Note…"
+          }
+        }
+      }
+    },
+    "favorite_note.add": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加备注…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add note…"
+          }
+        }
+      }
+    },
+    "favorite_note.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为什么收藏这条？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why save this?"
+          }
+        }
+      }
+    },
     "toolbar.selected_count": {
       "extractionState": "manual",
       "localizations": {

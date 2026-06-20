@@ -100,6 +100,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let rawFormatType: String?        // 原始格式的剪贴板类型（public.rtf / public.html）
     var displayCount: Int             // 被粘贴回的次数（可变，不计入 hash）
     var isPinned: Bool                // 收藏（favorite），批量删除时保留（可变，不计入 hash）
+    var favoriteNote: String?         // 收藏备注，用来记录保留原因（可变，不计入 hash）
+    var favoriteNoteUpdatedAt: Date?  // 收藏备注更新时间（可变，不计入 hash）
 
     /// segments 按需解码（仅 .html 类型使用，大文本不复制时不解码）
     var segments: [ContentSegment]? {
@@ -136,7 +138,9 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         rawFormatData: Data? = nil,
         rawFormatType: String? = nil,
         displayCount: Int = 0,
-        isPinned: Bool = false
+        isPinned: Bool = false,
+        favoriteNote: String? = nil,
+        favoriteNoteUpdatedAt: Date? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -160,6 +164,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
         self.rawFormatType = rawFormatType
         self.displayCount = displayCount
         self.isPinned = isPinned
+        self.favoriteNote = favoriteNote
+        self.favoriteNoteUpdatedAt = favoriteNoteUpdatedAt
     }
 
     /// 去重用的内容摘要（文本类格式统一前缀，文件/图片保留独立类型）
@@ -178,7 +184,7 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
 // MARK: - 搜索过滤
 extension Array where Element == ClipboardItem {
 
-    /// 搜索过滤：对 content / linkTitle 大小写不敏感子串匹配，可选匹配 appName。
+    /// 搜索过滤：对 content / linkTitle / favoriteNote 大小写不敏感子串匹配，可选匹配 appName。
     /// 空查询或无内容匹配时返回空数组。
     /// - Parameters:
     ///   - query: 搜索关键词（大小写不敏感）
@@ -195,6 +201,9 @@ extension Array where Element == ClipboardItem {
                 return true
             }
             if let title = item.linkTitle, title.lowercased().contains(lowerQuery) {
+                return true
+            }
+            if let note = item.favoriteNote, note.lowercased().contains(lowerQuery) {
                 return true
             }
             if includeAppName, let app = item.appName {

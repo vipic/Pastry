@@ -19,6 +19,12 @@ struct ClipboardCardView: View {
     @State private var themeColor: Color = .accentColor
     @State private var didPaste = false
     @State private var isHovered = false
+    @State private var isEditingFavoriteNote = false
+    @State private var favoriteNoteDraft = ""
+    @State private var isFavoriteNoteHovered = false
+    @State private var isFavoriteNoteCommitHovered = false
+    @State private var isFavoriteNoteCancelHovered = false
+    @FocusState private var favoriteNoteFocused: Bool
 
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
     @State private var previewLoadTrigger = 0
@@ -41,6 +47,11 @@ struct ClipboardCardView: View {
         cardBase
             .onHover { isHovered = $0 }
             .onTapGesture {
+                if isEditingFavoriteNote {
+                    commitFavoriteNote()
+                    return
+                }
+
                 let flags = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
                 let cmdDown = flags.contains(.command)
                 let shiftDown = flags.contains(.shift)
@@ -76,6 +87,9 @@ struct ClipboardCardView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
                 .padding(.vertical, UIConstants.Card.contentVerticalPadding)
+            favoriteNoteStrip
+                .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
+                .padding(.bottom, 5)
             footerBar
                 .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
                 .padding(.bottom, UIConstants.Card.footerBottomPadding)
@@ -121,6 +135,8 @@ struct ClipboardCardView: View {
                 .stroke(didPaste ? Color.green : Color.clear, lineWidth: UIConstants.Card.selectedBorderWidth)
         )
         .animation(.easeOut(duration: 0.5), value: didPaste)
+        .animation(.easeInOut(duration: 0.16), value: item.isPinned)
+        .animation(.easeInOut(duration: 0.16), value: isEditingFavoriteNote)
         .contentShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius))
     }
 
@@ -480,6 +496,125 @@ struct ClipboardCardView: View {
         } else {
             textPreview
         }
+    }
+
+    // MARK: - 收藏备注
+
+    @ViewBuilder
+    private var favoriteNoteStrip: some View {
+        if item.isPinned, isEditingFavoriteNote || favoriteNoteText != nil {
+            Group {
+                if isEditingFavoriteNote {
+                    HStack(spacing: 5) {
+                        Image(systemName: "note.text")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(themeColor)
+
+                        TextField(L10n["favorite_note.placeholder"], text: $favoriteNoteDraft)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 10))
+                            .foregroundColor(.primary)
+                            .focused($favoriteNoteFocused)
+                            .onSubmit { commitFavoriteNote() }
+
+                        Button(action: commitFavoriteNote) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 9, weight: .bold))
+                                .frame(width: 16, height: 16)
+                                .background(
+                                    Circle()
+                                        .fill(isFavoriteNoteCommitHovered ? themeColor.opacity(0.16) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(themeColor)
+                        .onHover { hovering in
+                            isFavoriteNoteCommitHovered = hovering
+                            if hovering { NSCursor.arrow.push() } else { NSCursor.pop() }
+                        }
+
+                        Button(action: cancelFavoriteNoteEditing) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .bold))
+                                .frame(width: 16, height: 16)
+                                .background(
+                                    Circle()
+                                        .fill(isFavoriteNoteCancelHovered ? Color.black.opacity(0.08) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.secondary)
+                        .onHover { hovering in
+                            isFavoriteNoteCancelHovered = hovering
+                            if hovering { NSCursor.arrow.push() } else { NSCursor.pop() }
+                        }
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(themeColor.opacity(0.10))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(themeColor.opacity(0.18), lineWidth: 0.8)
+                    )
+                    .onAppear {
+                        favoriteNoteFocused = true
+                    }
+                } else {
+                    Button(action: beginFavoriteNoteEditing) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "note.text")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(themeColor)
+                            Text(favoriteNoteText ?? L10n["favorite_note.add"])
+                                .font(.system(size: 10))
+                                .foregroundColor(favoriteNoteText == nil ? .secondary : .primary.opacity(0.82))
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(isFavoriteNoteHovered ? themeColor.opacity(0.08) : Color.black.opacity(0.035))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: 0.8)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { hovering in
+                        isFavoriteNoteHovered = hovering
+                    }
+                }
+            }
+            .frame(height: 24)
+        }
+    }
+
+    private var favoriteNoteText: String? {
+        let trimmed = item.favoriteNote?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    func beginFavoriteNoteEditing() {
+        favoriteNoteDraft = favoriteNoteText ?? ""
+        isEditingFavoriteNote = true
+    }
+
+    private func commitFavoriteNote() {
+        StoreManager.shared.updateFavoriteNote(item.id, note: favoriteNoteDraft)
+        isEditingFavoriteNote = false
+        favoriteNoteFocused = false
+    }
+
+    private func cancelFavoriteNoteEditing() {
+        favoriteNoteDraft = favoriteNoteText ?? ""
+        isEditingFavoriteNote = false
+        favoriteNoteFocused = false
     }
 
     // MARK: - 底部栏

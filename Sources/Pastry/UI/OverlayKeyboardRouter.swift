@@ -41,6 +41,10 @@ final class OverlayKeyboardRouter {
     }
 
     private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
+        if !isSearchActive(), Self.isTextInputFocused() {
+            return event
+        }
+
         // Esc：筛选气泡 → 预览 popover → 搜索栏 → 关闭面板（逐层收起）
         if event.keyCode == 53 {
             if isAlertActive() {
@@ -172,11 +176,12 @@ final class OverlayKeyboardRouter {
     }
 
     private func handleFlagsChanged(_ event: NSEvent) -> NSEvent {
-        let cmdNow = event.modifierFlags.contains(.command)
-        if cmdNow != cmdWasDown {
-            cmdWasDown = cmdNow
+        let shouldShowCmdBadges = event.modifierFlags.contains(.command)
+            && (isSearchActive() || !Self.isTextInputFocused())
+        if shouldShowCmdBadges != cmdWasDown {
+            cmdWasDown = shouldShowCmdBadges
             NotificationCenter.default.post(name: .overlayCmdStateChanged, object: nil,
-                                            userInfo: ["cmdDown": cmdNow])
+                                            userInfo: ["cmdDown": shouldShowCmdBadges])
         }
         return event
     }
@@ -206,7 +211,7 @@ final class OverlayKeyboardRouter {
     }
 
     /// 检查当前焦点是否在文本输入框内（搜索框等）
-    private static func isTextInputFocused() -> Bool {
+    static func isTextInputFocused() -> Bool {
         guard let responder = NSApp.keyWindow?.firstResponder else { return false }
         if responder.isKind(of: NSTextView.self) { return true }
         if responder.isKind(of: NSTextField.self) { return true }
