@@ -26,6 +26,7 @@ extension Notification.Name {
     static let overlayCmdPaste       = Notification.Name("overlayCmdPaste")
     static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
     static let overlaySearchEnterPaste = Notification.Name("overlaySearchEnterPaste")
+    static let overlayCancelFavoriteNoteEditing = Notification.Name("overlayCancelFavoriteNoteEditing")
 }
 
 // MARK: - 覆盖层主视图
@@ -163,6 +164,9 @@ struct OverlayView: View {
                     handleSearchEnterPaste()
                 }
                 .onChange(of: showSearch) { onShowSearchChanged() }
+                .onChange(of: isSearchFocused) { _, focused in
+                    OverlayPanelManager.shared.keyboardOwner = focused ? .searchField : .overlayNavigation
+                }
         )
     }
 
@@ -170,12 +174,14 @@ struct OverlayView: View {
         OverlayPanelManager.shared.isSearchActive = showSearch
         if showSearch {
             selection.reset()
+            OverlayPanelManager.shared.keyboardOwner = .searchField
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isSearchFocused = true
             }
         } else {
             isSearchFocused = false
             showFilterPopover = false
+            OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
             // clearFilters 由 closeSearch(clearFilter:) 控制，不在这里自动清
         }
     }
@@ -240,6 +246,7 @@ struct OverlayView: View {
         showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
+        OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
         store.clearFilters()
         selection.reset()
         renderedIds = []
@@ -256,6 +263,7 @@ struct OverlayView: View {
         showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
+        OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
         withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
             cardVisible = false
         }
