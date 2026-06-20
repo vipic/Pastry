@@ -8,18 +8,20 @@ final class ClipboardOverlayPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 
     override func keyDown(with event: NSEvent) {
-        if !OverlayPanelManager.shared.isSearchActive,
-           !OverlayPanelManager.shared.isAlertActive,
-           OverlayKeyboardRouter.isTextInputFocused() {
+        if !OverlayPanelManager.shared.isAlertActive,
+           OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
             super.keyDown(with: event)
             return
         }
 
         switch Self.keyRoute(for: event,
                              isSearchActive: OverlayPanelManager.shared.isSearchActive,
-                             isAlertActive: OverlayPanelManager.shared.isAlertActive) {
+                             isAlertActive: OverlayPanelManager.shared.isAlertActive,
+                             keyboardOwner: OverlayPanelManager.shared.keyboardOwner) {
         case .cancel:
             routeCancelKey()
+        case .cancelFavoriteNoteEditing:
+            routeFavoriteNoteCancelKey()
         case .confirmAlert:
             routeAlertConfirmKey()
         case .selectAll:
@@ -32,17 +34,20 @@ final class ClipboardOverlayPanel: NSPanel {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if !OverlayPanelManager.shared.isSearchActive,
-           !OverlayPanelManager.shared.isAlertActive,
-           OverlayKeyboardRouter.isTextInputFocused() {
+        if !OverlayPanelManager.shared.isAlertActive,
+           OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
             return super.performKeyEquivalent(with: event)
         }
 
         switch Self.keyRoute(for: event,
                              isSearchActive: OverlayPanelManager.shared.isSearchActive,
-                             isAlertActive: OverlayPanelManager.shared.isAlertActive) {
+                             isAlertActive: OverlayPanelManager.shared.isAlertActive,
+                             keyboardOwner: OverlayPanelManager.shared.keyboardOwner) {
         case .cancel:
             routeCancelKey()
+            return true
+        case .cancelFavoriteNoteEditing:
+            routeFavoriteNoteCancelKey()
             return true
         case .confirmAlert:
             routeAlertConfirmKey()
@@ -62,11 +67,16 @@ final class ClipboardOverlayPanel: NSPanel {
             routeCancelKey()
             return
         }
+        if OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
+            NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
+            return
+        }
         routeCancelKey()
     }
 
     enum KeyRoute: Equatable {
         case cancel
+        case cancelFavoriteNoteEditing
         case confirmAlert
         case selectAll
         case consume
@@ -75,11 +85,13 @@ final class ClipboardOverlayPanel: NSPanel {
 
     static func keyRoute(
         keyCode: UInt16,
+        chars: String? = nil,
         isSearchActive: Bool,
         isAlertActive: Bool = false,
-        modifierFlags: NSEvent.ModifierFlags = []
+        modifierFlags: NSEvent.ModifierFlags = [],
+        keyboardOwner: OverlayKeyboardOwner = .overlayNavigation
     ) -> KeyRoute {
-        if keyCode == 53 {
+        if isAlertActive, keyCode == 53 {
             return .cancel
         }
 
@@ -88,6 +100,27 @@ final class ClipboardOverlayPanel: NSPanel {
                 return .confirmAlert
             }
             return OverlayKeyboardRouter.shouldConsumeAlertKeyDown(keyCode: keyCode) ? .consume : .system
+        }
+
+        if keyboardOwner == .favoriteNoteEditor {
+            if keyCode == 53 {
+                return .cancelFavoriteNoteEditing
+            }
+            return .system
+        }
+
+        if keyCode == 53 {
+            return .cancel
+        }
+
+        if keyboardOwner == .searchField {
+            if keyCode == 48, modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
+                return .consume
+            }
+            if keyCode == 3, modifierFlags.contains(.command) {
+                return .consume
+            }
+            return .system
         }
 
         if keyCode == 0, modifierFlags.contains(.command) {
@@ -105,6 +138,13 @@ final class ClipboardOverlayPanel: NSPanel {
         if keyCode == 123 || keyCode == 124 || keyCode == 125 || keyCode == 126 {
             return .consume
         }
+        if OverlayKeyboardRouter.shouldFocusSearch(
+            chars: chars,
+            isSearchActive: isSearchActive,
+            modifierFlags: modifierFlags
+        ) {
+            return .consume
+        }
 
         return .system
     }
@@ -112,18 +152,25 @@ final class ClipboardOverlayPanel: NSPanel {
     static func keyRoute(
         for event: NSEvent,
         isSearchActive: Bool,
-        isAlertActive: Bool
+        isAlertActive: Bool,
+        keyboardOwner: OverlayKeyboardOwner
     ) -> KeyRoute {
         keyRoute(
             keyCode: event.keyCode,
+            chars: event.characters,
             isSearchActive: isSearchActive,
             isAlertActive: isAlertActive,
-            modifierFlags: event.modifierFlags
+            modifierFlags: event.modifierFlags,
+            keyboardOwner: keyboardOwner
         )
     }
 
     private func routeAlertConfirmKey() {
         NotificationCenter.default.post(name: .overlayAlertConfirm, object: nil)
+    }
+
+    private func routeFavoriteNoteCancelKey() {
+        NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
     }
 
     private func routeSelectAllKey() {
@@ -167,7 +214,8 @@ final class OverlayPanelManager: @unchecked Sendable {
     private var panelResignKeyObserver: NSObjectProtocol?
     private lazy var keyboardRouter = OverlayKeyboardRouter(
         isAlertActive: { [weak self] in self?.alertActive ?? false },
-        isSearchActive: { [weak self] in self?.isSearchActive ?? false }
+        isSearchActive: { [weak self] in self?.isSearchActive ?? false },
+        keyboardOwner: { [weak self] in self?.keyboardOwner ?? .overlayNavigation }
     )
 
     private init() {
@@ -379,6 +427,9 @@ final class OverlayPanelManager: @unchecked Sendable {
     /// 搜索栏是否展开 — ESC 优先级判断
     var isSearchActive = false
 
+    /// 当前键盘事件归属。只有 overlayNavigation 会执行卡片级快捷键。
+    var keyboardOwner: OverlayKeyboardOwner = .overlayNavigation
+
     /// 删除确认弹窗是否活跃 — Esc 放行给系统弹窗处理
     var isAlertActive: Bool { alertActive }
 
@@ -487,6 +538,8 @@ final class OverlayPanelManager: @unchecked Sendable {
         panel?.orderOut(nil)
         panel = nil
         previousFrontApp = nil
+        isSearchActive = false
+        keyboardOwner = .overlayNavigation
     }
 
     // MARK: - 键盘事件拦截
