@@ -43,6 +43,7 @@ struct OverlayView: View {
     @State private var showSearch = false
     @State private var showFilterPopover = false
     @State private var hoverSearch = false
+    @State private var hoverClearSearch = false
     @State private var hoverFilter = false
     @State private var hoverGear = false
     @State private var hoverTab: StoreManager.PinTab? = nil
@@ -110,11 +111,10 @@ struct OverlayView: View {
                     closeSearch(clearFilter: clear)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
-                    withAnimation { showSearch = true }
+                    withAnimation(searchExpansionAnimation) { showSearch = true }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearchImmediate)) { _ in
-                    withAnimation { showSearch = true }
-                    isSearchFocused = true
+                    withAnimation(searchExpansionAnimation) { showSearch = true }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
                     let ids = Set(visibleItems.map { $0.id })
@@ -175,14 +175,19 @@ struct OverlayView: View {
         if showSearch {
             selection.reset()
             OverlayPanelManager.shared.keyboardOwner = .searchField
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isSearchFocused = true
-            }
+            focusSearchFieldAfterExpansion()
         } else {
             isSearchFocused = false
             showFilterPopover = false
             OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
             // clearFilters 由 closeSearch(clearFilter:) 控制，不在这里自动清
+        }
+    }
+
+    private func focusSearchFieldAfterExpansion() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            guard showSearch else { return }
+            isSearchFocused = true
         }
     }
 
@@ -275,7 +280,7 @@ struct OverlayView: View {
     private func closeSearch(clearFilter: Bool) {
         guard showSearch else { return }
         if clearFilter { store.clearFilters() }
-        withAnimation {
+        withAnimation(searchExpansionAnimation) {
             showSearch = false
         }
     }
@@ -377,48 +382,70 @@ struct OverlayView: View {
 
     // MARK: - 搜索框（内联在 header 中）
 
-    private var inlineSearchField: some View {
-        HStack(spacing: 6) {
+    private var searchExpansionAnimation: Animation {
+        .spring(response: 0.24, dampingFraction: 0.86)
+    }
+
+    private var searchControlHeight: CGFloat {
+        32
+    }
+
+    private var searchControlWidth: CGFloat {
+        showSearch ? 430 : searchControlHeight
+    }
+
+    private var searchControl: some View {
+        HStack(spacing: showSearch ? 6 : 0) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.white.opacity(0.46))
-                .font(.system(size: 12))
-
-            ZStack(alignment: .leading) {
-                if store.searchQuery.isEmpty {
-                    Text(L10n["search.placeholder"])
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.68))
-                        .allowsHitTesting(false)
-                }
-
-                TextField("", text: $store.searchQuery)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.92))
-                    .focused($isSearchFocused)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
-                    .onExitCommand {
-                        closeSearch(clearFilter: true)
-                    }
-            }
-            .frame(maxWidth: 400)
-
-            Button {
-                store.searchQuery = ""
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.4))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.clearSearchButton)
-            .opacity(store.searchQuery.isEmpty ? 0 : 1)
-            .allowsHitTesting(!store.searchQuery.isEmpty)
-            .onHover { hovering in
-                if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
-            }
+                .font(.system(size: showSearch ? 12 : 13, weight: .semibold))
+                .foregroundColor(showSearch ? .white.opacity(0.46) : toolbarForeground(isActive: false, isHovered: hoverSearch))
+                .frame(width: showSearch ? 12 : searchControlHeight, height: searchControlHeight)
 
             if showSearch {
+                ZStack(alignment: .leading) {
+                    if store.searchQuery.isEmpty {
+                        Text(L10n["search.placeholder"])
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.68))
+                            .allowsHitTesting(false)
+                    }
+
+                    TextField("", text: $store.searchQuery)
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled(true)
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.92))
+                        .focused($isSearchFocused)
+                        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
+                        .onExitCommand {
+                            closeSearch(clearFilter: true)
+                        }
+                }
+                .frame(maxWidth: .infinity)
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .leading)))
+
+                Button {
+                    store.searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .frame(width: 16, height: 16)
+                        .background(
+                            Circle()
+                                .fill(hoverClearSearch ? Color.white.opacity(0.12) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white.opacity(hoverClearSearch ? 0.72 : 0.40))
+                .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.clearSearchButton)
+                .opacity(store.searchQuery.isEmpty ? 0 : 1)
+                .allowsHitTesting(!store.searchQuery.isEmpty)
+                .onHover { hovering in
+                    hoverClearSearch = hovering
+                    if hovering { NSCursor.arrow.push() } else { NSCursor.pop() }
+                }
+                .animation(.easeOut(duration: 0.10), value: hoverClearSearch)
+
                 Text(searchCountText)
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.66))
@@ -432,11 +459,33 @@ struct OverlayView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.94)))
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(height: 32)
-        .background(overlaySearchFieldBackground)
+        .padding(.horizontal, showSearch ? 10 : 0)
+        .padding(.vertical, showSearch ? 6 : 0)
+        .frame(width: searchControlWidth, height: searchControlHeight, alignment: .leading)
+        .background(searchControlBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .scaleEffect(toolbarHoverScale(isHovered: !showSearch && hoverSearch))
+        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
+        .onTapGesture {
+            guard !showSearch else { return }
+            withAnimation(searchExpansionAnimation) { showSearch = true }
+        }
+        .onHover { hovering in
+            hoverSearch = hovering
+        }
+        .animation(searchExpansionAnimation, value: showSearch)
+        .animation(.easeOut(duration: 0.10), value: hoverSearch)
         .padding(.trailing, 6)
+    }
+
+    @ViewBuilder
+    private var searchControlBackground: some View {
+        if showSearch {
+            overlaySearchFieldBackground
+        } else {
+            toolbarButtonBackground(isActive: false, isHovered: hoverSearch)
+        }
     }
 
     // MARK: - 筛选按钮
@@ -594,40 +643,14 @@ struct OverlayView: View {
             Spacer()
 
             // 居中：搜索按钮/框 | tab 组
-            if showSearch {
-                // 搜索框展开 — 占用空间，tab 被挤到右侧
-                inlineSearchField
-                filterButton
-                    .padding(.trailing, 6)
+            searchControl
 
-                tabButton(tab: .all, icon: "tray.full", label: L10n["tab.all"], isSelected: store.pinTab == .all)
-                    .padding(.trailing, 6)
-                tabButton(tab: .pinned, icon: "pin.fill", label: L10n["tab.pinned"], isSelected: store.pinTab == .pinned)
-            } else {
-                // 搜索按钮 — 原位紧凑
-                Button {
-                    withAnimation { showSearch = true }
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(toolbarForeground(isActive: false, isHovered: hoverSearch))
-                        .frame(width: 32, height: 32)
-                        .background(toolbarButtonBackground(isActive: false, isHovered: hoverSearch))
-                }
-                .buttonStyle(.plain)
-                .scaleEffect(toolbarHoverScale(isHovered: hoverSearch))
-                .animation(.easeOut(duration: 0.10), value: hoverSearch)
-                .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
-                .onHover { hoverSearch = $0 }
+            filterButton
                 .padding(.trailing, 6)
 
-                filterButton
-                    .padding(.trailing, 6)
-
-                tabButton(tab: .all, icon: "tray.full", label: L10n["tab.all"], isSelected: store.pinTab == .all)
-                    .padding(.trailing, 6)
-                tabButton(tab: .pinned, icon: "pin.fill", label: L10n["tab.pinned"], isSelected: store.pinTab == .pinned)
-            }
+            tabButton(tab: .all, icon: "tray.full", label: L10n["tab.all"], isSelected: store.pinTab == .all)
+                .padding(.trailing, 6)
+            tabButton(tab: .pinned, icon: "pin.fill", label: L10n["tab.pinned"], isSelected: store.pinTab == .pinned)
 
             Spacer()
 
@@ -656,6 +679,7 @@ struct OverlayView: View {
             }
         }
         .padding(.horizontal, 8)
+        .animation(searchExpansionAnimation, value: showSearch)
     }
 
     private func tabButton(tab: StoreManager.PinTab, icon: String, label: String, isSelected: Bool) -> some View {
@@ -1022,7 +1046,7 @@ struct OverlayView: View {
         return VStack {
             Spacer(minLength: 0)
 
-            VStack(spacing: 9) {
+            VStack(spacing: 10) {
                 ZStack {
                     emptyStateIconBackground(accent: accent)
                     Image(systemName: model.icon)
@@ -1030,23 +1054,23 @@ struct OverlayView: View {
                         .foregroundColor(emptyStateIconColor(icon: model.icon))
                 }
                 .frame(width: 48, height: 48)
-                .padding(.bottom, 2)
+                .padding(.bottom, 4)
 
                 Text(model.title)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(Color(red: 0.122, green: 0.145, blue: 0.161))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.90))
+                    .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
 
                 Text(model.subtitle)
                     .font(.system(size: 12))
-                    .foregroundColor(Color(red: 0.396, green: 0.443, blue: 0.478))
+                    .foregroundColor(.white.opacity(0.56))
                     .multilineTextAlignment(.center)
-                    .lineSpacing(1)
+                    .lineSpacing(2)
                     .lineLimit(2)
                     .frame(maxWidth: 330)
             }
             .padding(.horizontal, 28)
-            .padding(.vertical, 22)
-            .background(emptyStateCardBackground)
+            .padding(.vertical, 24)
 
             Spacer(minLength: 0)
         }
@@ -1055,33 +1079,13 @@ struct OverlayView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.emptyState)
     }
 
-    private var emptyStateCardBackground: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.0, green: 0.985, blue: 0.945).opacity(0.82),
-                        Color(red: 0.94, green: 0.91, blue: 0.84).opacity(0.64)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(.white.opacity(0.46), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.12), radius: 18, x: 0, y: 10)
-            .shadow(color: .white.opacity(0.32), radius: 0, x: 0, y: 1)
-    }
-
     private func emptyStateIconBackground(accent: Color) -> some View {
         RoundedRectangle(cornerRadius: 13, style: .continuous)
             .fill(
                 LinearGradient(
                     colors: [
-                        accent.opacity(0.96),
-                        accent.opacity(0.70)
+                        accent.opacity(0.80),
+                        accent.opacity(0.46)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -1090,19 +1094,17 @@ struct OverlayView: View {
             .overlay(
                 ZStack {
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .stroke(.black.opacity(0.10), lineWidth: 1)
+                        .stroke(.black.opacity(0.14), lineWidth: 1)
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(.white.opacity(0.34), lineWidth: 1)
+                        .stroke(.white.opacity(0.22), lineWidth: 1)
                         .padding(1)
                 }
             )
-            .shadow(color: accent.opacity(0.18), radius: 10, x: 0, y: 5)
+            .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 5)
     }
 
     private func emptyStateIconColor(icon: String) -> Color {
-        icon == "magnifyingglass"
-            ? .white.opacity(0.92)
-            : Color(red: 0.23, green: 0.15, blue: 0.06)
+        .white.opacity(icon == "magnifyingglass" ? 0.92 : 0.84)
     }
 
     private func emptyStateAccent(icon: String) -> Color {
