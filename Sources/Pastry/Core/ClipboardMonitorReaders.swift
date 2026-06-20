@@ -44,12 +44,16 @@ extension ClipboardMonitor {
     }
 
     func readRTF(from pb: NSPasteboard, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
-        guard let data = pb.data(forType: .rtf),
-              let attr = try? NSAttributedString(
-                  data: data,
-                  options: [.documentType: NSAttributedString.DocumentType.rtf],
-                  documentAttributes: nil)
-        else { return nil }
+        guard let data = pb.data(forType: .rtf) else { return nil }
+        return readRTFData(data, appName: appName, isHandoff: isHandoff)
+    }
+
+    func readRTFData(_ data: Data, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
+        guard let attr = try? NSAttributedString(
+            data: data,
+            options: [.documentType: NSAttributedString.DocumentType.rtf],
+            documentAttributes: nil
+        ) else { return nil }
         return ClipboardItem(
             content: attr.string,
             sourceFormat: .rtf,
@@ -65,7 +69,10 @@ extension ClipboardMonitor {
         guard let data = pb.data(forType: .html),
               let html = String(data: data, encoding: .utf8)
         else { return nil }
+        return readHTMLData(data, html: html, sourceURL: readChromiumSourceURL(from: pb), appName: appName, isHandoff: isHandoff)
+    }
 
+    func readHTMLData(_ data: Data, html: String, sourceURL: URL?, appName: String?, isHandoff: Bool = false) -> ClipboardItem? {
         // 提取纯文本
         var content: String
         if let attr = try? NSAttributedString(
@@ -78,7 +85,6 @@ extension ClipboardMonitor {
         }
 
         // 提取 HTML 图文混排的有序段
-        let sourceURL = readChromiumSourceURL(from: pb)
         let segments = extractOrderedSegments(from: html, sourceURL: sourceURL)
 
         return ClipboardItem(
@@ -94,7 +100,7 @@ extension ClipboardMonitor {
     }
 
     /// 从 Chromium 剪贴板自定义字段中读取源页面 URL
-    private func readChromiumSourceURL(from pb: NSPasteboard) -> URL? {
+    func readChromiumSourceURL(from pb: NSPasteboard) -> URL? {
         let sourceType = NSPasteboard.PasteboardType("org.chromium.source-url")
         guard let data = pb.data(forType: sourceType),
               let urlStr = String(data: data, encoding: .utf8)?

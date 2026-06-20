@@ -46,4 +46,31 @@ final class NetworkAccessPolicyTests: XCTestCase {
     func testHTMLByteLimitAllowsLargeModernPages() {
         XCTAssertEqual(NetworkAccessPolicy.maxHTMLBytes, 2_000_000)
     }
+
+    func testRejectsRedirectToPrivateAddress() {
+        XCTAssertFalse(NetworkAccessPolicy.shouldFollowRedirect(to: URL(string: "https://127.0.0.1/admin")!))
+        XCTAssertFalse(NetworkAccessPolicy.shouldFollowRedirect(to: URL(string: "https://192.168.1.1/admin")!))
+    }
+
+    func testResponseWithinLimitRejectsFinalPrivateURL() {
+        let response = HTTPURLResponse(
+            url: URL(string: "https://127.0.0.1/metadata")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Length": "128"]
+        )
+
+        XCTAssertFalse(NetworkAccessPolicy.responseWithinLimit(response, maxBytes: 1_000))
+    }
+
+    func testResponseWithinLimitRejectsOversizedContentLength() {
+        let response = HTTPURLResponse(
+            url: URL(string: "https://example.com/page")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Length": "\(NetworkAccessPolicy.maxHTMLBytes + 1)"]
+        )
+
+        XCTAssertFalse(NetworkAccessPolicy.responseWithinLimit(response, maxBytes: NetworkAccessPolicy.maxHTMLBytes))
+    }
 }

@@ -11,6 +11,7 @@ final class UpdateChecker {
     private let session: URLSession
     private let lastCheckKey = "PastryLastUpdateCheck"
     private let checkInterval: TimeInterval = 86_400 // 24 小时
+    private static let maxDownloadBytes: Int64 = 300 * 1024 * 1024
 
     /// 当前 app 是否为开发版本
     var isDevBuild: Bool {
@@ -309,15 +310,27 @@ final class UpdateChecker {
     enum UpdateError: LocalizedError, Equatable {
         case invalidURL
         case insecureURL
+        case downloadTooLarge
         case downloadFailed
 
         var errorDescription: String? {
             switch self {
             case .invalidURL: return "下载链接无效"
             case .insecureURL: return "下载链接必须使用 HTTPS"
+            case .downloadTooLarge: return "下载文件超过安全大小限制"
             case .downloadFailed: return "下载失败"
             }
         }
+    }
+
+    static func downloadByteLimitForTesting(expectedSize: Int) -> Int64 {
+        downloadByteLimit(expectedSize: expectedSize)
+    }
+
+    fileprivate static func downloadByteLimit(expectedSize: Int) -> Int64 {
+        guard expectedSize > 0 else { return maxDownloadBytes }
+        let expectedWithSlack = Int64(Double(expectedSize) * 1.10) + 1_048_576
+        return min(maxDownloadBytes, max(Int64(expectedSize), expectedWithSlack))
     }
 }
 
@@ -326,6 +339,7 @@ private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate 
 
     private let onProgress: (@Sendable (Double) -> Void)?
     private let expectedSize: Int
+    private let byteLimit: Int64
     private var lastProgress = 0.0
     private var totalBytesWritten: Int64 = 0
     private var totalBytesExpectedToWrite: Int64 = 0
@@ -338,6 +352,7 @@ private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate 
     init(expectedSize: Int, onProgress: (@Sendable (Double) -> Void)?) {
         self.expectedSize = expectedSize
         self.onProgress = onProgress
+        self.byteLimit = UpdateChecker.downloadByteLimit(expectedSize: expectedSize)
     }
 
     func download(from url: URL, using session: URLSession) async throws -> URL {
@@ -370,6 +385,11 @@ private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate 
             finish(with: UpdateChecker.UpdateError.downloadFailed)
             return
         }
+        if response.expectedContentLength > byteLimit {
+            completionHandler(.cancel)
+            finish(with: UpdateChecker.UpdateError.downloadTooLarge)
+            return
+        }
 
         didReceiveSuccessfulResponse = true
         totalBytesExpectedToWrite = response.expectedContentLength
@@ -377,6 +397,12 @@ private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate 
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard totalBytesWritten + Int64(data.count) <= byteLimit else {
+            dataTask.cancel()
+            finish(with: UpdateChecker.UpdateError.downloadTooLarge)
+            return
+        }
+
         do {
             try fileHandle?.write(contentsOf: data)
         } catch {

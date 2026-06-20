@@ -758,7 +758,7 @@ final class DatabaseManager {
     private func readItems(from stmt: OpaquePointer?) -> [ClipboardItem] {
         var items: [ClipboardItem] = []
 
-        while sqlite3_step(stmt) == SQLITE_ROW {
+        while !Task.isCancelled, sqlite3_step(stmt) == SQLITE_ROW {
             let idStr = String(cString: sqlite3_column_text(stmt, 0))
             let timestamp = sqlite3_column_double(stmt, 1)
             let content = String(cString: sqlite3_column_text(stmt, 2))

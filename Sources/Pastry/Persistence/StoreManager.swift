@@ -6,7 +6,7 @@ import OSLog
 // MARK: - 应用数据管理层
 // 连接 ClipboardMonitor → DatabaseManager → SwiftUI
 @MainActor
-final class StoreManager: ObservableObject {
+final class StoreManager: ObservableObject, @unchecked Sendable {
 
     static let shared = StoreManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "store")
@@ -413,23 +413,23 @@ final class StoreManager: ObservableObject {
 
         let generation = searchGeneration
         searchTask?.cancel()
-        searchTask = Task { [weak self] in
-            let filteredResults = await Task.detached(priority: .userInitiated) {
-                let databaseResults = DatabaseManager.shared.search(query: query, limit: 500)
-                return Self.filteredResults(
-                    base: databaseResults,
-                    recentItems: recentItems,
-                    filters: filters,
-                    searchedInDatabase: true
-                )
-            }.value
+        let manager = self
+        searchTask = Task.detached(priority: .userInitiated) { [manager] in
+            guard !Task.isCancelled else { return }
+            let databaseResults = DatabaseManager.shared.search(query: query, limit: 500)
+            guard !Task.isCancelled else { return }
+            let filteredResults = Self.filteredResults(
+                base: databaseResults,
+                recentItems: recentItems,
+                filters: filters,
+                searchedInDatabase: true
+            )
 
             await MainActor.run {
-                guard let self,
-                      !Task.isCancelled,
-                      self.searchGeneration == generation
+                guard !Task.isCancelled,
+                      manager.searchGeneration == generation
                 else { return }
-                self.filteredItems = filteredResults
+                manager.filteredItems = filteredResults
             }
         }
     }
