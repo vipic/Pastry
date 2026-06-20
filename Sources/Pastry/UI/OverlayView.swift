@@ -397,6 +397,9 @@ struct OverlayView: View {
                     .foregroundColor(.white.opacity(0.92))
                     .focused($isSearchFocused)
                     .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
+                    .onExitCommand {
+                        closeSearch(clearFilter: true)
+                    }
             }
             .frame(maxWidth: 400)
 
