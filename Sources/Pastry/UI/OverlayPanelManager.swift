@@ -8,6 +8,13 @@ final class ClipboardOverlayPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 
     override func keyDown(with event: NSEvent) {
+        if !OverlayPanelManager.shared.isSearchActive,
+           !OverlayPanelManager.shared.isAlertActive,
+           OverlayKeyboardRouter.isTextInputFocused() {
+            super.keyDown(with: event)
+            return
+        }
+
         switch Self.keyRoute(for: event,
                              isSearchActive: OverlayPanelManager.shared.isSearchActive,
                              isAlertActive: OverlayPanelManager.shared.isAlertActive) {
@@ -25,6 +32,12 @@ final class ClipboardOverlayPanel: NSPanel {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if !OverlayPanelManager.shared.isSearchActive,
+           !OverlayPanelManager.shared.isAlertActive,
+           OverlayKeyboardRouter.isTextInputFocused() {
+            return super.performKeyEquivalent(with: event)
+        }
+
         switch Self.keyRoute(for: event,
                              isSearchActive: OverlayPanelManager.shared.isSearchActive,
                              isAlertActive: OverlayPanelManager.shared.isAlertActive) {
