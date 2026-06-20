@@ -118,6 +118,20 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(progress), 0.99, accuracy: 0.001)
     }
 
+    func testDownloadByteLimitAllowsSlackAboveExpectedSize() {
+        let limit = UpdateChecker.downloadByteLimitForTesting(expectedSize: 10_000_000)
+
+        XCTAssertGreaterThan(limit, 10_000_000)
+        XCTAssertLessThanOrEqual(limit, 13_000_000)
+    }
+
+    func testDownloadByteLimitCapsUnknownSize() {
+        XCTAssertEqual(
+            UpdateChecker.downloadByteLimitForTesting(expectedSize: 0),
+            300 * 1024 * 1024
+        )
+    }
+
     // MARK: - isDevBuild
 
     func testIsDevBuildDetection() {
@@ -196,7 +210,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertTrue(script.contains("安装后版本仍为"))
     }
 
-    func testUpdateInstallScriptAllowsCertificateRotationButRejectsAdhoc() {
+    func testUpdateInstallScriptRejectsSignatureMismatchAndAdhoc() {
         let script = UpdateInstallScriptBuilder.script(
             stableDMGPath: "/tmp/pastry_update.dmg",
             targetPath: "/Applications/Pastry.app",
@@ -205,14 +219,14 @@ final class UpdateCheckerTests: XCTestCase {
 
         XCTAssertTrue(script.contains("Signature=adhoc"))
         XCTAssertTrue(script.contains("更新包使用 ad-hoc 签名，拒绝自动更新"))
-        XCTAssertTrue(script.contains("系统权限可能需要重新授权"))
+        XCTAssertTrue(script.contains("更新包签名身份与当前 App 不匹配，拒绝自动更新"))
 
         guard let mismatchRange = script.range(of: "更新包签名身份与当前 App 不匹配"),
               let replaceRange = script.range(of: "# 替换整个 .app") else {
-            XCTFail("Script should contain signature mismatch warning and replacement step")
+            XCTFail("Script should contain signature mismatch rejection and replacement step")
             return
         }
         let mismatchBlock = script[mismatchRange.lowerBound..<replaceRange.lowerBound]
-        XCTAssertFalse(mismatchBlock.contains("exit 1"))
+        XCTAssertTrue(mismatchBlock.contains("exit 1"))
     }
 }

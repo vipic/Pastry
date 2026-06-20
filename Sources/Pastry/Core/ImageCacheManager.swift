@@ -6,6 +6,7 @@ final class ImageCacheManager {
     nonisolated(unsafe) static let shared = ImageCacheManager()
 
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "image-cache")
+    private let evictionQueue = DispatchQueue(label: "com.nekutai.pastry.image-cache.eviction", qos: .utility)
 
     /// 缓存磁盘用量上限（超过触发淘汰）
     private static let maxCacheSize: Int64 = 200 * 1024 * 1024  // 200 MB
@@ -59,8 +60,14 @@ final class ImageCacheManager {
             return nil
         }
 
-        evictIfNeeded()
+        scheduleEviction()
         return thumbURL.path
+    }
+
+    private func scheduleEviction() {
+        evictionQueue.async { [weak self] in
+            self?.evictIfNeeded()
+        }
     }
 
     /// 从缩略图路径推导原始图片路径（用于粘贴/拖拽/打开时读取高清数据）

@@ -273,10 +273,69 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
-        if let item = readHTML(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
-            ?? readRTF(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
-            ?? readText(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
+        if let htmlData = pb.data(forType: .html),
+           let html = String(data: htmlData, encoding: .utf8) {
+            let sourceURL = readChromiumSourceURL(from: pb)
+            let fallbackText = readText(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
+            parseRichContentAndPublish(
+                htmlData: htmlData,
+                html: html,
+                rtfData: nil,
+                fallbackText: fallbackText,
+                appName: effectiveApp,
+                isHandoff: isRemoteClipboard,
+                sourceURL: sourceURL
+            )
+            return
+        }
+
+        if let rtfData = pb.data(forType: .rtf) {
+            let fallbackText = readText(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard)
+            parseRichContentAndPublish(
+                htmlData: nil,
+                html: nil,
+                rtfData: rtfData,
+                fallbackText: fallbackText,
+                appName: effectiveApp,
+                isHandoff: isRemoteClipboard,
+                sourceURL: nil
+            )
+            return
+        }
+
+        if let item = readText(from: pb, appName: effectiveApp, isHandoff: isRemoteClipboard) {
             publish(item)
+        }
+    }
+
+    private func parseRichContentAndPublish(
+        htmlData: Data?,
+        html: String?,
+        rtfData: Data?,
+        fallbackText: ClipboardItem?,
+        appName: String?,
+        isHandoff: Bool,
+        sourceURL: URL?
+    ) {
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let item: ClipboardItem?
+            if let htmlData, let html {
+                item = self.readHTMLData(
+                    htmlData,
+                    html: html,
+                    sourceURL: sourceURL,
+                    appName: appName,
+                    isHandoff: isHandoff
+                )
+            } else if let rtfData {
+                item = self.readRTFData(rtfData, appName: appName, isHandoff: isHandoff)
+            } else {
+                item = nil
+            }
+
+            guard let item = item ?? fallbackText else { return }
+            await self.publishOnMain(item)
         }
     }
 

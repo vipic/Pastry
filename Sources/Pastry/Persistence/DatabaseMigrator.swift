@@ -106,11 +106,12 @@ struct DatabaseMigrator {
     private func dumpRows(from tableName: String, in database: OpaquePointer) -> String {
         var dataSQL = ""
         var rowStmt: OpaquePointer?
-        if sqlite3_prepare_v2(database, "SELECT * FROM \(tableName);", -1, &rowStmt, nil) == SQLITE_OK {
+        let quotedTableName = Self.quotedIdentifier(tableName)
+        if sqlite3_prepare_v2(database, "SELECT * FROM \(quotedTableName);", -1, &rowStmt, nil) == SQLITE_OK {
             let colCount = sqlite3_column_count(rowStmt)
             while sqlite3_step(rowStmt) == SQLITE_ROW {
                 let values = (0..<colCount).map { sqlLiteral(column: $0, in: rowStmt) }
-                dataSQL += "INSERT INTO \(tableName) VALUES (\(values.joined(separator: ", ")));\n"
+                dataSQL += "INSERT INTO \(quotedTableName) VALUES (\(values.joined(separator: ", ")));\n"
             }
         }
         sqlite3_finalize(rowStmt)
@@ -118,19 +119,27 @@ struct DatabaseMigrator {
     }
 
     private func sqlLiteral(column: Int32, in statement: OpaquePointer?) -> String {
-        if sqlite3_column_type(statement, column) == SQLITE_NULL {
+        switch sqlite3_column_type(statement, column) {
+        case SQLITE_NULL:
             return "NULL"
-        }
-        if let text = sqlite3_column_text(statement, column) {
-            return "'\(String(cString: text).replacingOccurrences(of: "'", with: "''"))'"
-        }
-        if let blob = sqlite3_column_blob(statement, column) {
+        case SQLITE_BLOB:
+            guard let blob = sqlite3_column_blob(statement, column) else { return "X''" }
             let len = Int(sqlite3_column_bytes(statement, column))
             let data = Data(bytes: blob, count: len)
             let hex = data.map { String(format: "%02x", $0) }.joined()
             return "X'\(hex)'"
+        case SQLITE_INTEGER:
+            return "\(sqlite3_column_int64(statement, column))"
+        case SQLITE_FLOAT:
+            return "\(sqlite3_column_double(statement, column))"
+        default:
+            guard let text = sqlite3_column_text(statement, column) else { return "NULL" }
+            return "'\(String(cString: text).replacingOccurrences(of: "'", with: "''"))'"
         }
-        return "NULL"
+    }
+
+    private static func quotedIdentifier(_ identifier: String) -> String {
+        "\"\(identifier.replacingOccurrences(of: "\"", with: "\"\""))\""
     }
 
     private func createEncryptedDatabase(at path: String, dump: (schema: String, data: String)) -> Bool {
