@@ -19,12 +19,12 @@
 
 ### 一次性设置：代码签名证书
 
-为了让 TCC 权限（辅助功能等）在更新时不丢失，需要固定签名证书。当前脚本默认使用作者级共享证书 `Nekutai`，也可以通过 `CODESIGN_IDENTITY` 指定任意稳定的代码签名证书。证书不再按应用拆分成 Dev/Release；同一个作者的多个应用可以共用一张证书。
+为了让 TCC 权限（辅助功能等）在更新时不丢失，需要固定签名证书。当前脚本默认使用作者级共享证书 `Nekutai`，也可以通过 `CODESIGN_IDENTITY` 指定任意稳定的代码签名证书：自签名代码签名证书或开发者账号证书都可以。同一个作者的多个应用可以共用同一张证书。
 
-| 脚本 | 证书名称 | 用途 |
+| 脚本 | 证书名称 | Bundle ID |
 |---|---|---|
-| `deploy.sh` | `${CODESIGN_IDENTITY:-Nekutai}` | 开发版，`com.nekutai.pastry.dev` |
-| `release.sh` | `${CODESIGN_IDENTITY:-Nekutai}` | 正式版，`com.nekutai.pastry` |
+| `deploy.sh` | `${CODESIGN_IDENTITY:-Nekutai}` | `com.nekutai.pastry.dev` |
+| `release.sh` | `${CODESIGN_IDENTITY:-Nekutai}` | `com.nekutai.pastry` |
 
 **创建方法（只需一次，30 秒）：**
 
@@ -36,7 +36,7 @@
 6. 勾选 **覆盖默认**（覆盖默认值）
 7. 点击「继续」→「创建」
 
-证书缺时脚本自动回退到 ad-hoc 签名，不影响运行，仅 TCC 权限不持久。显式设置 `CODESIGN_IDENTITY="-"` 可强制 ad-hoc。
+Pastry 需要辅助功能授权，不能使用 ad-hoc 签名。证书缺失、签名失败或显式设置 `CODESIGN_IDENTITY="-"` 时，脚本会直接停止；请先创建自签名代码签名证书，或使用开发者账号证书。
 
 ### 手动命令（备用）
 
@@ -49,7 +49,7 @@ cp .build/release/Pastry ~/Applications/Pastry.app/Contents/MacOS/Pastry
 
 # 重签
 rm -rf ~/Applications/Pastry.app/Contents/_CodeSignature
-codesign --force --sign "${CODESIGN_IDENTITY:-Nekutai}" ~/Applications/Pastry.app   # 或 --sign - 回退 ad-hoc
+codesign --force --sign "${CODESIGN_IDENTITY:-Nekutai}" ~/Applications/Pastry.app
 
 # 重启
 pkill -f Pastry; sleep 0.5; open ~/Applications/Pastry.app

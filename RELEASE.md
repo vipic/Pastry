@@ -1,13 +1,13 @@
 # Pastry 发布流程
 
-本文档记录本项目当前的本地发布流程。项目目前没有 Apple Developer ID，因此产物是自签名应用，不做 notarization。
+本文档记录本项目当前的本地发布流程。项目目前没有开发者账号签名和公证，因此产物是自签名应用，不做 notarization。
 
 ## 前置条件
 
 - macOS 26+
 - Xcode Command Line Tools
 - `gh` CLI：仅 `--publish` 发布 GitHub Release 时需要
-- 固定代码签名证书：默认使用作者级证书 `Nekutai`，也可通过 `CODESIGN_IDENTITY` 指定自己的证书名
+- 固定代码签名证书：默认使用作者级证书 `Nekutai`，也可通过 `CODESIGN_IDENTITY` 指定自己的自签名或开发者账号证书名
 
 创建证书（已有同名作者证书可直接复用，多个应用可以共用同一张代码签名证书）：
 
@@ -24,7 +24,7 @@ Keychain Access -> 证书助理 -> 创建证书
 export CODESIGN_IDENTITY="Nekutai"
 ```
 
-没有匹配证书时脚本会回退到 ad-hoc 签名，应用仍可运行，但 macOS 权限持久性会变差。显式设置 `CODESIGN_IDENTITY="-"` 可强制使用 ad-hoc。
+Pastry 需要辅助功能授权，必须使用稳定代码身份。没有匹配证书或签名失败时脚本会直接停止；显式设置 `CODESIGN_IDENTITY="-"` 也会被拒绝。不要使用 ad-hoc 签名，因为每次构建都可能破坏辅助功能授权，导致用户反复重新授权。
 
 ## 版本号规则
 
@@ -107,10 +107,10 @@ Pastry-1.2.3.dmg
 
 当前发布产物没有 notarization。用户首次打开时可能遇到 Gatekeeper 提示，需要在系统设置中允许打开。
 
-这不是脚本错误，而是 Apple 对非公证应用的限制。拿到 Apple Developer ID 后，后续应补充：
+这不是脚本错误，而是 Apple 对非公证应用的限制。拿到开发者账号后，后续应补充：
 
-- Developer ID Application 签名
-- notarization 上传
+- 开发者账号签名
+- 公证上传
 - stapler 固定票据
 - CI 发布链路中的公证校验
 

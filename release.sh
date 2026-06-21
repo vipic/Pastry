@@ -175,26 +175,22 @@ echo "✅ .app bundle 已组装: $STAGING/$APP_NAME.app"
 step 6 "代码签名"
 
 # 固定作者级证书签名 = TCC/Keychain 授权持久保留
-# 默认使用 Nekutai；通过 CODESIGN_IDENTITY 环境变量指定其他作者证书；显式传 "-" 可强制 ad-hoc。
+# 默认使用 Nekutai；通过 CODESIGN_IDENTITY 环境变量指定其他自签名或开发者账号证书。
 if [ "$IDENTITY" = "-" ]; then
-    echo "🔐 签名身份: ad-hoc"
-else
-    echo "🔐 签名身份: $IDENTITY"
+    echo "❌ Pastry 需要稳定代码签名以保留辅助功能授权，不能使用 ad-hoc 签名。"
+    echo "   请创建自签名代码签名证书，或设置 CODESIGN_IDENTITY 为开发者账号证书。"
+    exit 1
 fi
+echo "🔐 签名身份: $IDENTITY"
 
 # 公证提醒（需要付费开发者账号）
 # 有账号后加一行：
 #   xcrun notarytool submit "$DMG_PATH" --keychain-profile "AC_PASSWORD" --wait
 
-if [ "$IDENTITY" != "-" ]; then
-    if codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1; then
-        :
-    else
-        echo "⚠️  \"$IDENTITY\" 签名失败，回退 ad-hoc"
-        codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
-    fi
-else
-    codesign --force --deep --sign - "$STAGING/$APP_NAME.app" 2>&1
+if ! codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1; then
+    echo "❌ \"$IDENTITY\" 签名失败。Pastry 不会改用 ad-hoc，因为这会破坏辅助功能授权体验。"
+    echo "   请检查钥匙串中是否存在该代码签名证书，或通过 CODESIGN_IDENTITY 指定稳定证书。"
+    exit 1
 fi
 
 step 7 "DMG 打包和烟测"
@@ -286,7 +282,7 @@ fi
 SMOKE_APP="$SMOKE_VOLUME/$APP_NAME.app"
 test -d "$SMOKE_APP" || { echo "❌ DMG 内缺少 $APP_NAME.app"; exit 1; }
 codesign --verify --deep --strict "$SMOKE_APP" 2>&1
-spctl --assess --type execute "$SMOKE_APP" 2>/dev/null || echo "⚠️  Gatekeeper 评估未通过（未公证/ad-hoc 签名时预期可能失败）"
+spctl --assess --type execute "$SMOKE_APP" 2>/dev/null || echo "⚠️  Gatekeeper 评估未通过（自签名或未公证签名时预期可能失败）"
 hdiutil detach "${SMOKE_DEVICE:-$SMOKE_VOLUME}" -quiet
 SMOKE_VOLUME=""
 
