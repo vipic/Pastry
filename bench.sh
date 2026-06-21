@@ -11,6 +11,7 @@ BASELINE_FILE=".bench_baseline"
 APP_BIN="$HOME/Applications/Pastry.app/Contents/MacOS/Pastry"
 BUILD_BIN=".build/release/Pastry"
 PERF_LOG="$HOME/Library/Logs/Pastry/perf.log"
+IDENTITY="${CODESIGN_IDENTITY:-Nekutai}"
 
 # macOS 毫秒时间戳
 now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
@@ -159,11 +160,15 @@ echo "测试耗时: ${TEST_MS}ms"
 
 # ── 4. 部署（--bench 需要从 app bundle 运行以获取 Info.plist 等资源）──
 if [[ -f "$BUILD_BIN" ]]; then
+    if [[ "$IDENTITY" == "-" ]]; then
+        echo "❌ Pastry 需要稳定代码签名以保留辅助功能授权，不能使用 ad-hoc 签名。"
+        exit 1
+    fi
     pkill -x Pastry 2>/dev/null || true
     sleep 0.3
     cp "$BUILD_BIN" "$APP_BIN" 2>/dev/null || true
     rm -rf "${APP_BIN%/Contents/MacOS/Pastry}/_CodeSignature" 2>/dev/null || true
-    codesign --force --sign - "${APP_BIN%/Contents/MacOS/Pastry}" 2>/dev/null || true
+    codesign --force --sign "$IDENTITY" "${APP_BIN%/Contents/MacOS/Pastry}" 2>/dev/null
 fi
 
 # ── 5. 启动耗时 ──

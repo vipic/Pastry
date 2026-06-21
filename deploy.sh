@@ -17,10 +17,11 @@ IDENTITY="${CODESIGN_IDENTITY:-Nekutai}"
 echo "⚡ Deploying $APP_NAME (debug)..."
 
 if [ "$IDENTITY" = "-" ]; then
-    echo "🔐 签名身份: ad-hoc"
-else
-    echo "🔐 签名身份: $IDENTITY"
+    echo "❌ Pastry 需要稳定代码签名以保留辅助功能授权，不能使用 ad-hoc 签名。"
+    echo "   请创建自签名代码签名证书，或设置 CODESIGN_IDENTITY 为开发者账号证书。"
+    exit 1
 fi
+echo "🔐 签名身份: $IDENTITY"
 
 cd "$PROJECT_DIR"
 
@@ -100,17 +101,10 @@ echo "✅ 版本号已注入: $DEV_VERSION"
 
 # 6. 清除残留签名（二进制替换后签名失效）并重签
 rm -rf "$APP_DIR/_CodeSignature" 2>/dev/null || true
-if [ "$IDENTITY" != "-" ]; then
-    if codesign --force --sign "$IDENTITY" "$APP_DIR"; then
-        :
-    else
-        echo "⚠️  \"$IDENTITY\" 签名失败，回退 ad-hoc"
-        codesign --force --sign - "$APP_DIR" 2>/dev/null || true
-        echo "⚠️  已用 ad-hoc 签名（TCC/Keychain 授权不持久）"
-    fi
-else
-    codesign --force --sign - "$APP_DIR" 2>/dev/null || true
-    echo "⚠️  已用 ad-hoc 签名（TCC/Keychain 授权不持久）"
+if ! codesign --force --sign "$IDENTITY" "$APP_DIR"; then
+    echo "❌ \"$IDENTITY\" 签名失败。Pastry 不会改用 ad-hoc，因为这会破坏辅助功能授权体验。"
+    echo "   请检查钥匙串中是否存在该代码签名证书，或通过 CODESIGN_IDENTITY 指定稳定证书。"
+    exit 1
 fi
 echo "✅ 代码签名完成"
 
