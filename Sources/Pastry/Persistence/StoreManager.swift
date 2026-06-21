@@ -266,7 +266,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         return deletedIds
     }
 
-    /// 清空除 pinned 外的所有记录（菜单栏使用）
+    /// 清空除 pinned 外的所有记录
     func clearNonPinned() {
         ClipboardMonitor.shared.suspend()
         clearNonPinnedWithClipboard()

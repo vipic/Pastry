@@ -63,7 +63,6 @@ final class MenuBarManager: NSObject {
             actions: MenuBarMenuActions(
                 openOverlay: #selector(openOverlay),
                 checkUpdates: #selector(checkUpdatesAction),
-                clearHistory: #selector(clearHistoryAction),
                 openSettings: #selector(openSettingsAction),
                 quit: #selector(quitApp)
             )
@@ -109,11 +108,6 @@ final class MenuBarManager: NSObject {
     @MainActor
     @objc private func openOverlay() {
         OverlayPanelManager.shared.toggle()
-    }
-
-    @MainActor
-    @objc private func clearHistoryAction() {
-        StoreManager.shared.clearNonPinned()
     }
 
     @MainActor
