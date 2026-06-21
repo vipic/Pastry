@@ -657,7 +657,6 @@ struct SettingsSceneView: View {
                     .scaleEffect(0.72)
             }
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
-            .frame(width: versionCheckButtonWidth)
             .disabled(true)
             .opacity(0.78)
             .transition(.opacity.combined(with: .scale(scale: 0.97)))
@@ -684,13 +683,10 @@ struct SettingsSceneView: View {
                 Task { await checkVersionFromSettings(force: true, allowDevBuild: true, minimumCheckingDuration: 0.45) }
             }
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
-            .frame(width: versionCheckButtonWidth)
             .disabled(isVersionCheckInFlight)
             .transition(.opacity.combined(with: .scale(scale: 0.97)))
         }
     }
-
-    private var versionCheckButtonWidth: CGFloat { 82 }
 
     private var versionReleaseNotesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
