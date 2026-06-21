@@ -15,7 +15,6 @@ final class MenuBarMenuFactoryTests: XCTestCase {
             L10n["menu.open_clipboard"],
             L10n["menu.check_updates"],
             L10n["menu.settings"],
-            L10n["menu.clear_history"],
             L10n["menu.quit"],
         ])
     }
@@ -43,7 +42,6 @@ final class MenuBarMenuFactoryTests: XCTestCase {
             actions: MenuBarMenuActions(
                 openOverlay: #selector(DummyMenuTarget.openOverlay),
                 checkUpdates: #selector(DummyMenuTarget.checkUpdates),
-                clearHistory: #selector(DummyMenuTarget.clearHistory),
                 openSettings: #selector(DummyMenuTarget.openSettings),
                 quit: #selector(DummyMenuTarget.quit)
             )
@@ -58,7 +56,6 @@ final class MenuBarMenuFactoryTests: XCTestCase {
 private final class DummyMenuTarget: NSObject {
     @objc func openOverlay() {}
     @objc func checkUpdates() {}
-    @objc func clearHistory() {}
     @objc func openSettings() {}
     @objc func quit() {}
 }
