@@ -187,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 异步检查更新
         Task { @MainActor in
-            if let result = await UpdateChecker.shared.checkForUpdate(force: true) {
+            if let result = await UpdateChecker.shared.checkForUpdate(force: true, allowDevBuild: true) {
                 let notes = result.releaseNotes
                 hostingView.rootView = UpdateView(
                     state: .updateAvailable(result: result),

@@ -63,10 +63,10 @@ final class UpdateChecker {
 
     // MARK: - 公开方法
 
-    /// 检查更新（dev 版本直接返回 nil）
+    /// 检查更新（dev 版本默认跳过；手动检查可通过 allowDevBuild 请求远端）
     /// 距上次检查不足 24 小时且 force=false 时跳过网络请求
-    func checkForUpdate(force: Bool = false) async -> UpdateResult? {
-        guard !isDevBuild else {
+    func checkForUpdate(force: Bool = false, allowDevBuild: Bool = false) async -> UpdateResult? {
+        guard !isDevBuild || allowDevBuild else {
             log.info("开发版本，跳过更新检查")
             return nil
         }
@@ -202,16 +202,23 @@ final class UpdateChecker {
 
     /// 语义化版本比较：tag > current → true
     static func isNewer(tag: String, than current: String) -> Bool {
-        let tagParts = Self.displayVersion(tag).split(separator: ".")
-        let curParts = Self.displayVersion(current).split(separator: ".")
+        let tagParts = Self.versionNumberParts(tag)
+        let curParts = Self.versionNumberParts(current)
 
         for i in 0..<max(tagParts.count, curParts.count) {
-            let t = i < tagParts.count ? (Int(tagParts[i]) ?? 0) : 0
-            let c = i < curParts.count ? (Int(curParts[i]) ?? 0) : 0
+            let t = i < tagParts.count ? tagParts[i] : 0
+            let c = i < curParts.count ? curParts[i] : 0
             if t > c { return true }
             if t < c { return false }
         }
         return false
+    }
+
+    private static func versionNumberParts(_ version: String) -> [Int] {
+        displayVersion(version).split(separator: ".").map { part in
+            let digits = part.prefix { $0.isNumber }
+            return Int(digits) ?? 0
+        }
     }
 
     static func displayVersion(_ version: String) -> String {
