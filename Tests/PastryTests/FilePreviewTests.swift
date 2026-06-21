@@ -662,4 +662,45 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertEqual(result?.scheme, "https")
         XCTAssertEqual(result?.absoluteString, "https://secure.example.com")
     }
+
+    // MARK: - 文件大小展示
+
+    func testFileLabelWithSize() {
+        let url = URL(fileURLWithPath: "/tmp/report.pdf")
+        let label = FilePreviewContent.formattedFileLabelForTesting(url: url, size: 2_400_000)
+        // ByteCountFormatter 按系统语言环境输出，英文环境为 "2.4 MB"
+        XCTAssertTrue(label.contains("report.pdf"))
+        XCTAssertTrue(label.contains("—"))
+        XCTAssertFalse(label == url.lastPathComponent, "有 size 时不应只返回文件名")
+    }
+
+    func testFileLabelWithoutSize() {
+        let url = URL(fileURLWithPath: "/tmp/missing.txt")
+        let label = FilePreviewContent.formattedFileLabelForTesting(url: url, size: nil)
+        XCTAssertEqual(label, "missing.txt", "无 size 时应仅返回文件名")
+    }
+
+    func testFileLabelByteSize() {
+        let url = URL(fileURLWithPath: "/tmp/tiny.dat")
+        let label = FilePreviewContent.formattedFileLabelForTesting(url: url, size: 512)
+        XCTAssertTrue(label.contains("tiny.dat"))
+        XCTAssertTrue(label.contains("—"))
+        XCTAssertTrue(label.contains("bytes") || label.contains("KB"),
+                      "小文件应显示 bytes 或 KB")
+    }
+
+    func testFileLabelZeroSize() {
+        let url = URL(fileURLWithPath: "/tmp/empty.log")
+        let label = FilePreviewContent.formattedFileLabelForTesting(url: url, size: 0)
+        XCTAssertTrue(label.contains("empty.log"))
+        XCTAssertTrue(label.contains("—"), "即使大小为 0 也应包含分隔符")
+    }
+
+    func testFileLabelGigabyteSize() {
+        let url = URL(fileURLWithPath: "/tmp/large.iso")
+        let label = FilePreviewContent.formattedFileLabelForTesting(url: url, size: 4_500_000_000)
+        XCTAssertTrue(label.contains("large.iso"))
+        XCTAssertTrue(label.contains("—"))
+        XCTAssertTrue(label.contains("GB"), "大文件应显示 GB")
+    }
 }

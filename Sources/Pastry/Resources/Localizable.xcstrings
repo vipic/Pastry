@@ -1327,23 +1327,6 @@
         }
       }
     },
-    "menu.clear_history": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清空普通历史"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear Non-Favorite History"
-          }
-        }
-      }
-    },
     "menu.settings": {
       "extractionState": "manual",
       "localizations": {

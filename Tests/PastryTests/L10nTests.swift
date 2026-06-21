@@ -10,7 +10,7 @@ final class L10nTests: XCTestCase {
     /// 菜单栏所有键在 catalog 中都有中英文翻译
     func testMenuBarKeysExist() {
         let keys = [
-            "menu.open_clipboard", "menu.clear_history",
+            "menu.open_clipboard",
             "menu.about", "menu.settings", "menu.quit",
             "menu.check_updates"
         ]
