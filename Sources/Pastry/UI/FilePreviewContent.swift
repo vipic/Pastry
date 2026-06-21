@@ -6,6 +6,7 @@ struct FilePreviewContent: View {
     let missingURLs: Set<URL>
     let thumbnailImage: NSImage?
     let fileIcons: [URL: NSImage]
+    let fileSizes: [URL: Int64]
     let styleForURL: (URL) -> ClipboardCardView.FilePreviewStyle
 
     var body: some View {
@@ -25,7 +26,7 @@ struct FilePreviewContent: View {
             } else {
                 filePreviewContent(url: url, style: style)
             }
-            Text(url.lastPathComponent)
+            Text(formattedFileLabel(url: url))
                 .font(.system(size: 9))
                 .foregroundColor(isMissing ? .secondary.opacity(0.4) : .secondary)
                 .strikethrough(isMissing)
@@ -89,7 +90,7 @@ struct FilePreviewContent: View {
                             .resizable()
                             .frame(width: 12, height: 12)
                     }
-                    Text(url.lastPathComponent)
+                    Text(formattedFileLabel(url: url))
                         .lineLimit(1)
                         .font(.system(size: 10))
                         .foregroundColor(isMissing ? .secondary.opacity(0.4) : .primary)
@@ -103,6 +104,15 @@ struct FilePreviewContent: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - 文件大小格式化
+
+    private func formattedFileLabel(url: URL) -> String {
+        let name = url.lastPathComponent
+        guard let size = fileSizes[url] else { return name }
+        let sizeStr = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+        return "\(name)  — \(sizeStr)"
     }
 
     private var fallbackPreview: some View {

@@ -32,6 +32,7 @@ struct ClipboardCardView: View {
     // 异步加载状态 — 避免主线程同步 I/O 触发 TCC 死锁
     @State private var asyncFilePreview: NSImage?
     @State private var asyncFileIcons: [URL: NSImage] = [:]
+    @State private var asyncFileSizes: [URL: Int64] = [:]
     @State private var missingFileURLs: Set<URL> = []
 
     /// 路径 → NSImage 缓存，避免重绘时重复创建实例导致闪烁
@@ -358,6 +359,7 @@ struct ClipboardCardView: View {
             missingURLs: missingFileURLs,
             thumbnailImage: asyncFilePreview,
             fileIcons: asyncFileIcons,
+            fileSizes: asyncFileSizes,
             styleForURL: Self.filePreviewStyle(for:)
         )
     }
@@ -370,6 +372,7 @@ struct ClipboardCardView: View {
     private func loadFilePreviewsIfNeeded() async {
         asyncFilePreview = nil
         asyncFileIcons = [:]
+        asyncFileSizes = [:]
         missingFileURLs = []
 
         guard item.sourceFormat == .image || item.sourceFormat == .fileURL else { return }
@@ -411,18 +414,26 @@ struct ClipboardCardView: View {
             return
         }
 
-        // 文件 URL 类型 — 异步检查存在性并加载图标
+        // 文件 URL 类型 — 异步检查存在性并加载图标和文件大小
         if item.sourceFormat == .fileURL {
             let urls = fileURLs
-            let fileLoadTask = Task.detached(priority: .userInitiated, operation: { () -> (missing: Set<URL>, icons: [(URL, NSImage, Bool)]) in
+            let fileLoadTask = Task.detached(priority: .userInitiated, operation: { () -> (missing: Set<URL>, icons: [(URL, NSImage, Bool)], sizes: [URL: Int64]) in
                 var missing: Set<URL> = []
                 var icons: [(URL, NSImage, Bool)] = []
+                var sizes: [URL: Int64] = [:]
                 for url in urls {
                     guard !Task.isCancelled else { break }
                     guard FileManager.default.fileExists(atPath: url.path) else {
                         missing.insert(url)
                         continue
                     }
+
+                    // 收集文件大小
+                    if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                       let fileSize = attrs[.size] as? Int64 {
+                        sizes[url] = fileSize
+                    }
+
                     let style = Self.filePreviewStyle(for: url)
                     let cacheKey: NSString
                     let needsThumbnail: Bool
@@ -449,7 +460,7 @@ struct ClipboardCardView: View {
                         icons.append((url, loaded, needsThumbnail))
                     }
                 }
-                return (missing, icons)
+                return (missing, icons, sizes)
             })
             let result = await withTaskCancellationHandler {
                 await fileLoadTask.value
@@ -459,6 +470,7 @@ struct ClipboardCardView: View {
 
             guard !Task.isCancelled else { return }
             missingFileURLs = result.missing
+            asyncFileSizes = result.sizes
             for (url, icon, isThumbnail) in result.icons {
                 if isThumbnail { asyncFilePreview = icon }
                 else { asyncFileIcons[url] = icon }
