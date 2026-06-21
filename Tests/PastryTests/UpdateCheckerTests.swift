@@ -194,6 +194,8 @@ final class UpdateCheckerTests: XCTestCase {
 
         XCTAssertTrue(script.contains("BACKUP=\"$TARGET_PARENT/.${TARGET_NAME}.update-backup-$(date +%s)\""))
         XCTAssertTrue(script.contains("LOG=\"/tmp/pastry_update.log\""))
+        XCTAssertTrue(script.contains("ERROR_FILE=\"/tmp/pastry_update_error.txt\""))
+        XCTAssertTrue(script.contains(#"printf "%s\n" "$1" > "$ERROR_FILE""#))
         XCTAssertTrue(script.contains("exec >> \"$LOG\" 2>&1"))
         XCTAssertTrue(script.contains("mv \"$TARGET\" \"$BACKUP\""))
         XCTAssertTrue(script.contains("mv \"$BACKUP\" \"$TARGET\""))
@@ -225,13 +227,19 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertTrue(script.contains("Signature=adhoc"))
         XCTAssertTrue(script.contains("更新包使用 ad-hoc 签名，拒绝自动更新"))
         XCTAssertTrue(script.contains("更新包签名身份与当前 App 不匹配，拒绝自动更新"))
+        XCTAssertTrue(script.contains("fail_update \"更新包签名身份与当前 App 不匹配，拒绝自动更新\""))
+        XCTAssertTrue(script.contains("fail_update \"更新包签名校验失败\""))
+        XCTAssertTrue(script.contains("CANDIDATE_REQ=$(/usr/bin/codesign -dr - \"$CANDIDATE\""))
+        XCTAssertTrue(script.contains(#"[ "$CANDIDATE_REQ" != "$CURRENT_REQ" ]"#))
+        XCTAssertFalse(script.contains(#"-R="$CURRENT_REQ""#))
+        XCTAssertFalse(script.contains(#"-R="designated => $CURRENT_REQ""#))
 
-        guard let mismatchRange = script.range(of: "更新包签名身份与当前 App 不匹配"),
+        guard let mismatchRange = script.range(of: "fail_update \"更新包签名身份与当前 App 不匹配"),
               let replaceRange = script.range(of: "# 替换整个 .app") else {
             XCTFail("Script should contain signature mismatch rejection and replacement step")
             return
         }
         let mismatchBlock = script[mismatchRange.lowerBound..<replaceRange.lowerBound]
-        XCTAssertTrue(mismatchBlock.contains("exit 1"))
+        XCTAssertTrue(mismatchBlock.contains("fail_update"))
     }
 }
