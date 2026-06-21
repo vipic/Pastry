@@ -154,6 +154,11 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertFalse(UpdateChecker.isNewer(tag: "1.2.3", than: "v1.2.4"))
     }
 
+    func testVersionComparisonIgnoresDevBuildSuffix() {
+        XCTAssertFalse(UpdateChecker.isNewer(tag: "v1.4.2", than: "1.4.2-dev+abc123"))
+        XCTAssertTrue(UpdateChecker.isNewer(tag: "v1.4.3", than: "1.4.2-dev+abc123"))
+    }
+
     func testReleaseNotesNormalizeRecentReleases() {
         let releases = [
             UpdateChecker.ReleaseInfo(

@@ -47,6 +47,7 @@ struct SettingsSceneView: View {
     @State private var versionCurrentVersion: String?
     @State private var versionLatestVersion: String?
     @State private var didAutoCheckVersionInCurrentWindow = false
+    @State private var isVersionCheckInFlight = false
     @State private var isRecordingShortcut = false
     @State private var shortcutPreviewKeyCode: Int?
     @State private var shortcutPreviewModifiers = 0
@@ -648,9 +649,18 @@ struct SettingsSceneView: View {
     private var versionPrimaryAction: some View {
         switch versionUpdateState {
         case .checking:
-            ProgressView()
-                .tint(.pastryWarmAccent)
-                .controlSize(.small)
+            Button {
+            } label: {
+                ProgressView()
+                    .tint(.white)
+                    .controlSize(.small)
+                    .scaleEffect(0.72)
+            }
+            .buttonStyle(SettingsPillButtonStyle(kind: .primary))
+            .frame(width: versionCheckButtonWidth)
+            .disabled(true)
+            .opacity(0.78)
+            .transition(.opacity.combined(with: .scale(scale: 0.97)))
         case .downloading(let progress):
             VStack(alignment: .trailing, spacing: 6) {
                 progressBar(progress)
@@ -671,11 +681,16 @@ struct SettingsSceneView: View {
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
         default:
             Button(L10n["settings.version.check_again"]) {
-                Task { await checkVersionFromSettings() }
+                Task { await checkVersionFromSettings(force: true, allowDevBuild: true, minimumCheckingDuration: 0.45) }
             }
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
+            .frame(width: versionCheckButtonWidth)
+            .disabled(isVersionCheckInFlight)
+            .transition(.opacity.combined(with: .scale(scale: 0.97)))
         }
     }
+
+    private var versionCheckButtonWidth: CGFloat { 82 }
 
     private var versionReleaseNotesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -874,7 +889,7 @@ struct SettingsSceneView: View {
         loadVersionCache()
         guard !didAutoCheckVersionInCurrentWindow else { return }
         didAutoCheckVersionInCurrentWindow = true
-        Task { await checkVersionFromSettings() }
+        Task { await checkVersionFromSettings(force: false, allowDevBuild: false, minimumCheckingDuration: 0) }
     }
 
     // MARK: - 关于 Tab
@@ -982,15 +997,28 @@ struct SettingsSceneView: View {
     }
 
     @MainActor
-    private func checkVersionFromSettings() async {
-        versionUpdateState = .checking
-        if let result = await UpdateChecker.shared.checkForUpdate(force: true) {
+    private func checkVersionFromSettings(
+        force: Bool = true,
+        allowDevBuild: Bool = true,
+        minimumCheckingDuration: TimeInterval = 0.45
+    ) async {
+        guard !isVersionCheckInFlight else { return }
+        isVersionCheckInFlight = true
+        let startedAt = Date()
+        withAnimation(.easeOut(duration: 0.16)) {
+            versionUpdateState = .checking
+        }
+        if let result = await UpdateChecker.shared.checkForUpdate(force: force, allowDevBuild: allowDevBuild) {
+            await waitForMinimumCheckingDuration(startedAt: startedAt, minimumDuration: minimumCheckingDuration)
             versionReleaseNotes = result.releaseNotes
             versionReleaseHistory = result.releaseHistory
             versionCurrentVersion = result.currentVersion
             versionLatestVersion = result.latestVersion
-            versionUpdateState = .updateAvailable(result: result)
+            withAnimation(.easeOut(duration: 0.16)) {
+                versionUpdateState = .updateAvailable(result: result)
+            }
         } else {
+            await waitForMinimumCheckingDuration(startedAt: startedAt, minimumDuration: minimumCheckingDuration)
             let cachedHistory = UpdateChecker.shared.cachedReleaseHistory()
             let cachedNotes = cachedHistory.first?.body ?? UpdateChecker.shared.cachedReleaseNotes()
             versionReleaseHistory = cachedHistory
@@ -1005,6 +1033,13 @@ struct SettingsSceneView: View {
                 lastReleaseNotes: cachedNotes
             )
         }
+        isVersionCheckInFlight = false
+    }
+
+    private func waitForMinimumCheckingDuration(startedAt: Date, minimumDuration: TimeInterval) async {
+        let remaining = minimumDuration - Date().timeIntervalSince(startedAt)
+        guard remaining > 0 else { return }
+        try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
     }
 
     @MainActor
