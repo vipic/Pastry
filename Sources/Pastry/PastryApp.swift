@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var helpWindow: NSWindow?
     private var updateWindow: NSWindow?
+    private let updateErrorPath = "/tmp/pastry_update_error.txt"
 
     override init() {
         super.init()
@@ -52,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 初次启动：写入常见密码管理器的默认排除名单
         seedDefaultExcludedApps()
+        showPendingUpdateErrorIfNeeded()
     }
 
     private func configureApplicationIcon() {
@@ -282,6 +284,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 onCancel: { [weak window] in window?.close() }
             )
         }
+    }
+
+    @MainActor
+    private func showPendingUpdateErrorIfNeeded() {
+        let url = URL(fileURLWithPath: updateErrorPath)
+        guard let message = try? String(contentsOf: url, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else { return }
+
+        try? FileManager.default.removeItem(at: url)
+        showUpdateErrorWindow(message: message)
+    }
+
+    @MainActor
+    private func showUpdateErrorWindow(message: String) {
+        if let existing = updateWindow, existing.isVisible {
+            existing.close()
+        }
+
+        let savedPolicy = NSApp.activationPolicy()
+        NSApp.setActivationPolicy(.regular)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Pastry"
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: UpdateView(
+            state: .error(message),
+            releaseNotes: nil,
+            currentVersion: nil,
+            latestVersion: nil,
+            onCancel: { [weak window] in
+                window?.close()
+            }
+        ))
+
+        let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy)
+        window.delegate = delegate
+        delegate.selfRetain()
+        updateWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - 搜索栏聚焦（Edit > Find 菜单）
