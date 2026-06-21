@@ -3,7 +3,6 @@ import Cocoa
 struct MenuBarMenuActions {
     let openOverlay: Selector
     let checkUpdates: Selector
-    let clearHistory: Selector
     let openSettings: Selector
     let quit: Selector
 }
@@ -46,15 +45,6 @@ enum MenuBarMenuFactory {
             keyEquivalentModifierMask: .command
         )
         menu.addItem(settingsItem)
-        menu.addItem(.separator())
-
-        let clearItem = item(
-            title: L10n["menu.clear_history"],
-            action: actions.clearHistory,
-            target: target,
-            symbolName: "trash"
-        )
-        menu.addItem(clearItem)
         menu.addItem(.separator())
 
         let quitItem = item(
