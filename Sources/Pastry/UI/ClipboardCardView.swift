@@ -514,7 +514,7 @@ struct ClipboardCardView: View {
 
     @ViewBuilder
     private var favoriteNoteStrip: some View {
-        if item.isPinned, isEditingFavoriteNote || favoriteNoteText != nil {
+        if isEditingFavoriteNote || favoriteNoteText != nil {
             Group {
                 if isEditingFavoriteNote {
                     HStack(spacing: 5) {
