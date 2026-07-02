@@ -1,14 +1,31 @@
 import Foundation
 
 enum UpdateInstallScriptBuilder {
+    /// 把任意字符串转成 bash 单引号安全字面量：用 `'…'` 包裹，内部 `'` 转成 `'\''`。
+    /// 防止 expectedVersion（来自 GitHub tag_name）等外部输入注入 shell 命令。
+    static func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    /// 校验版本号只含数字和点，拒绝任何 shell 元字符。
+    static func isValidVersionString(_ version: String) -> Bool {
+        let allowed = CharacterSet(charactersIn: "0123456789.")
+        return !version.isEmpty && version.unicodeScalars.allSatisfy { allowed.contains($0) }
+    }
+
     static func script(stableDMGPath: String, targetPath: String, expectedVersion: String) -> String {
-        """
+        // 版本号严格校验：只允许数字和点，杜绝 shell 注入面
+        let safeVersion = Self.isValidVersionString(expectedVersion) ? expectedVersion : "0.0.0"
+        let dmg = Self.shellQuote(stableDMGPath)
+        let target = Self.shellQuote(targetPath)
+
+        return """
         #!/bin/bash
         set -e
 
-        DMG="\(stableDMGPath)"
-        TARGET="\(targetPath)"
-        EXPECTED_VERSION="\(expectedVersion)"
+        DMG=\(dmg)
+        TARGET=\(target)
+        EXPECTED_VERSION="\(safeVersion)"
         LOG="/tmp/pastry_update.log"
         ERROR_FILE="/tmp/pastry_update_error.txt"
         exec >> "$LOG" 2>&1

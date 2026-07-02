@@ -174,6 +174,10 @@ final class UpdateChecker {
         try? FileManager.default.removeItem(at: stableDMG)
         try FileManager.default.moveItem(at: tempURL, to: stableDMG)
 
+        // 应用层预校验 DMG 内 .app 的签名，避免退出后才在 helper 脚本里发现签名问题。
+        // 失败直接抛错，不进入 terminate 流程。
+        try Self.verifyDMGSignature(at: stableDMG)
+
         // 写 helper 脚本：当前进程 terminate 后由它完成替换
         let scriptPath = NSTemporaryDirectory() + "pastry_update.sh"
         let script = UpdateInstallScriptBuilder.script(
@@ -192,6 +196,66 @@ final class UpdateChecker {
         try task.run()
 
         NSApp.terminate(nil)
+    }
+
+    /// 挂载 DMG 校验内部 Pastry.app 的签名与 ad-hoc 状态。
+    /// 退出前预检，让 helper 脚本的签名校验从「最后兜底」变成「冗余二次校验」。
+    private static func verifyDMGSignature(at dmgURL: URL) throws {
+        // 挂载 DMG（nobrowse，不显示在 Finder）
+        let mount = Process()
+        mount.launchPath = "/usr/bin/hdiutil"
+        mount.arguments = ["attach", "-noverify", "-noautoopen", "-nobrowse", dmgURL.path]
+        let pipe = Pipe()
+        mount.standardOutput = pipe
+        try mount.run()
+        mount.waitUntilExit()
+        guard mount.terminationStatus == 0 else {
+            throw NSError(domain: "PastryUpdate", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "DMG 挂载失败，无法预校验签名"])
+        }
+
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        // 解析挂载点：取最后一个 /Volumes/ 行
+        guard let volume = output.components(separatedBy: "\n").last(where: { $0.contains("/Volumes/") })?
+                .components(separatedBy: "\t").last?
+                .trimmingCharacters(in: .whitespaces),
+              !volume.isEmpty else {
+            throw NSError(domain: "PastryUpdate", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "无法解析 DMG 挂载点"])
+        }
+
+        defer { _ = try? FileManager.default.removeItem(atPath: volume) }
+        let candidate = (volume as NSString).appendingPathComponent("Pastry.app")
+        guard FileManager.default.fileExists(atPath: candidate) else {
+            throw NSError(domain: "PastryUpdate", code: 3,
+                          userInfo: [NSLocalizedDescriptionKey: "DMG 内缺少 Pastry.app"])
+        }
+
+        // codesign --verify --deep --strict
+        let verify = Process()
+        verify.launchPath = "/usr/bin/codesign"
+        verify.arguments = ["--verify", "--deep", "--strict", candidate]
+        try verify.run()
+        verify.waitUntilExit()
+        guard verify.terminationStatus == 0 else {
+            throw NSError(domain: "PastryUpdate", code: 4,
+                          userInfo: [NSLocalizedDescriptionKey: "更新包签名校验失败，拒绝更新"])
+        }
+
+        // 拒绝 ad-hoc 签名
+        let dv = Process()
+        dv.launchPath = "/usr/bin/codesign"
+        dv.arguments = ["-dv", candidate]
+        let dvPipe = Pipe()
+        dv.standardOutput = dvPipe
+        dv.standardError = dvPipe
+        try dv.run()
+        dv.waitUntilExit()
+        let dvOutput = String(data: dvPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        if dvOutput.contains("Signature=adhoc") {
+            throw NSError(domain: "PastryUpdate", code: 5,
+                          userInfo: [NSLocalizedDescriptionKey: "更新包使用 ad-hoc 签名，拒绝更新"])
+        }
     }
 
     // MARK: - 版本比较
