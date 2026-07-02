@@ -62,9 +62,24 @@ final class MainThreadWatchdog {
             guard let self else { return }
             let lastResponse = self.lock.withLock { self.lastPong }
             if lastResponse < pingTime {
-                self.sampleProcess(reason: "主线程 \(Int(self.hangThreshold))s 无响应")
+                self.sampleProcess(reason: "主线程 \\(Int(self.hangThreshold))s 无响应")
+                // 自救：强制关闭遮挡整个屏幕的面板 + 禁用全系统事件 tap。
+                // 这些操作不依赖主线程——CGEvent.tapEnable / CFMachPortInvalidate
+                // 直接操作 WindowServer 中的 tap，不需要主线程 RunLoop 配合。
+                // NSPanel.orderOut 虽然需要 WindowServer 响应，但不阻塞事件系统。
+                self.recoverEventSystem()
             }
         }
+    }
+
+    /// 强制恢复事件系统（可在任意线程调用，不依赖主线程）。
+    /// 关闭 overlay 面板 + 停用 CGEvent tap，让系统事件恢复畅通。
+    private func recoverEventSystem() {
+        log.warning("⚠️ 看门狗自救：关闭面板 + 停用事件 tap")
+        DispatchQueue.main.async {
+            OverlayPanelManager.shared.hide()
+        }
+        ClipboardMonitor.shared.stopEventTap()
     }
 
     /// 调用 /usr/bin/sample 采集进程堆栈，写入文件
