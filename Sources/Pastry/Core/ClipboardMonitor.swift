@@ -1,10 +1,10 @@
-import ApplicationServices
 import Cocoa
 import Combine
 import OSLog
 
 // MARK: - 剪贴板监听器
-// 核心策略：轮询 NSPasteboard.changeCount，检测变化后立即读取
+// 核心策略：50ms 定时器轮询 NSPasteboard.changeCount，检测变化后立即读取。
+// 不使用 CGEvent tap（全键盘监听），避免隐私顾虑和系统事件链阻塞风险。
 final class ClipboardMonitor: ObservableObject {
 
     // MARK: 单例
@@ -21,16 +21,8 @@ final class ClipboardMonitor: ObservableObject {
     private var lastChangeCount = NSPasteboard.general.changeCount
     private var ignoredChangeCounts: Set<Int> = []
     private var timer: Timer?
-    private let pollInterval: TimeInterval = 0.2
+    private let pollInterval: TimeInterval = 0.05   // 50ms，人耳无法感知延迟
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
-
-    /// CGEvent tap：监听 ⌘C/⌘X/截图 按键，立即触发轮询（不等 timer，降低延迟）
-    /// 同时追踪所有按键事件的目标进程 PID，用于精确来源检测（解决浮动面板场景）
-    private var eventTap: CFMachPort?
-
-    /// 最近一次按键事件的目标进程（由 CGEvent tap 在事件瞬间捕获，线程通过 DispatchQueue.main 保护）
-    private var lastEventTargetPID: pid_t?
-    private var lastEventTime: Date?
 
     /// 自定义复制提示音
     private static let copySound: NSSound? = {
@@ -87,109 +79,21 @@ final class ClipboardMonitor: ObservableObject {
         RunLoop.main.add(t, forMode: .common)
         timer = t
 
-        // CGEvent tap 延迟到首次需要时创建，避免启动时弹出辅助功能授权对话框。
-        // 在 poll() 首次检测到剪贴板变化时调用 setupEventTap()。
-
         log.info("剪贴板监听已启动 (interval: \(self.pollInterval)s)")
-    }
-
-    /// ⌘C 事件监听：延迟到首次剪贴板变化时创建（避免启动时弹出辅助功能授权对话框）。
-    /// 首次 ⌘C 的来源检测由 AX 缓存 + frontmostApp 兜底，后续自动切换为 event tap。
-    ///
-    /// - Privacy: 此 tap 监听的是 keyUp 级别的全部系统按键事件（CGEventMask 无法按 keyCode 过滤）。
-    ///   回调中记录 eventTargetUnixProcessID 用于精确来源检测，超 0.3s 即丢弃。
-    ///   Pastry 不读取、不存储、不传输任何按键内容与 keyCode 信息。
-    func setupEventTap() {
-        guard eventTap == nil else { return }
-
-        let eventMask = CGEventMask(1 << CGEventType.keyUp.rawValue)
-        eventTap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: eventMask,
-            callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
-                if type == .keyUp {
-                    let monitor = Unmanaged<ClipboardMonitor>
-                        .fromOpaque(refcon!).takeUnretainedValue()
-                    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                    let flags = event.flags
-                    let targetPID = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
-
-                    let isCopy       = keyCode == 8  && flags.contains(.maskCommand)                           // C
-                    let isCut        = keyCode == 7  && flags.contains(.maskCommand)                           // X
-                    let isScreenshot = (keyCode == 20 || keyCode == 21 || keyCode == 23)                       // 3/4/5
-                                        && flags.contains(.maskCommand) && flags.contains(.maskShift)
-                    let isCtrlCmdA   = keyCode == 0 && flags.contains(.maskCommand) && flags.contains(.maskControl)  // A
-
-                    DispatchQueue.main.async {
-                        // 追踪按键目标进程（用于精确来源检测：1Password Quick Open 等浮动面板）
-                        if targetPID > 0 {
-                            monitor.lastEventTargetPID = targetPID
-                            monitor.lastEventTime = Date()
-                        }
-                        if isCopy || isCut || isScreenshot || isCtrlCmdA {
-                            monitor.poll()
-                        }
-                    }
-                }
-                return Unmanaged.passUnretained(event)
-            },
-            userInfo: UnsafeMutableRawPointer(
-                Unmanaged.passUnretained(self).toOpaque()
-            )
-        )
-        if let tap = eventTap {
-            let runLoopSource = CFMachPortCreateRunLoopSource(
-                kCFAllocatorDefault, tap, 0
-            )
-            CFRunLoopAddSource(
-                RunLoop.main.getCFRunLoop(), runLoopSource, .commonModes
-            )
-            CGEvent.tapEnable(tap: tap, enable: true)
-            log.info("⌘C 事件监听已启动")
-        } else {
-            log.warning("CGEvent tap 创建失败 — 可能需要辅助功能权限")
-        }
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
-        stopEventTap()
         isRunning = false
         log.info("剪贴板监听已停止")
     }
 
-    /// 仅停用 CGEvent tap，保留定时器轮询。
-    /// 供看门狗在主线程卡死时自救——移除 headInsertEventTap 后系统事件恢复正常。
-    func stopEventTap() {
-        guard let tap = eventTap else { return }
-        CGEvent.tapEnable(tap: tap, enable: false)
-        CFMachPortInvalidate(tap)
-        eventTap = nil
-        log.info("CGEvent tap 已停用（定时器轮询保留）")
-    }
-
     // MARK: - 轮询
 
-    /// 来源检测（按优先级）：
-    /// 1. CGEvent tap 捕获的按键目标 PID（事件瞬间记录，解决浮动面板关闭时序问题）
-    /// 2. 前台 App（`NSWorkspace.shared.frontmostApplication`）
+    /// 来源检测：前台 App（`NSWorkspace.shared.frontmostApplication`）
     private func resolveSourceApp() -> (name: String?, bundleID: String?) {
         let frontApp = NSWorkspace.shared.frontmostApplication
-
-        // Layer 1: CGEvent tap 捕获的按键目标进程（事件瞬间记录，比 AX 轮询更精确）
-        if let eventPID = lastEventTargetPID,
-           let eventTime = lastEventTime,
-           Date().timeIntervalSince(eventTime) < 0.3,
-           let app = NSRunningApplication(processIdentifier: eventPID),
-           let bundleID = app.bundleIdentifier,
-           bundleID != frontApp?.bundleIdentifier {
-            return (app.localizedName, bundleID)
-        }
-
-        // Layer 2: 前台 App
         return (frontApp?.localizedName, frontApp?.bundleIdentifier)
     }
 
@@ -205,13 +109,10 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
-        // 首次检测到剪贴板变化时延迟创建 event tap，避免应用启动时弹出辅助功能授权
-        setupEventTap()
-
         var (capturedApp, capturedBundleID) = resolveSourceApp()
 
         // 1Password Quick Open 在 pasteboard 上写 com.agilebits.onepassword 自定义类型。
-        // 用它覆写来源——比 AX 缓存和 frontmostApplication 更可靠。
+        // 用它覆写来源——比 frontmostApplication 更可靠。
         if let types = pb.types, types.contains(where: { $0.rawValue == "com.agilebits.onepassword" }) {
             capturedApp = "1Password"
             capturedBundleID = "com.agilebits.onepassword"
