@@ -754,9 +754,9 @@ struct OverlayView: View {
             .overlay(
                 ZStack {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(toolbarButtonBorder(isActive: isActive), lineWidth: 1)
+                        .stroke(toolbarButtonBorder(isActive: isActive), lineWidth: 0.5)
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(.white.opacity(isActive ? 0.30 : 0.13), lineWidth: 1)
+                        .stroke(.white.opacity(isActive ? 0.30 : 0.13), lineWidth: 0.5)
                         .padding(1)
                 }
             )
