@@ -10,6 +10,7 @@ struct RemoteThumbnail: View {
     private static let cache: NSCache<NSString, NSImage> = {
         let c = NSCache<NSString, NSImage>()
         c.countLimit = 300
+        c.totalCostLimit = 80_000_000  // 80 MB 封顶，防数百张大图撑爆内存
         return c
     }()
 
@@ -37,7 +38,8 @@ struct RemoteThumbnail: View {
 
         RemoteImageLoader.shared.load(urlString: urlString) { img in
             guard let img else { return }
-            Self.cache.setObject(img, forKey: key)
+            let cost = img.tiffRepresentation?.count ?? img.representations.reduce(0) { $0 + $1.pixelsWide * $1.pixelsHigh * 4 } / 1024
+            Self.cache.setObject(img, forKey: key, cost: cost)
             image = img
         }
     }

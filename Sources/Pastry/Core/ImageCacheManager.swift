@@ -65,8 +65,15 @@ final class ImageCacheManager {
     }
 
     private func scheduleEviction() {
-        evictionQueue.async { [weak self] in
-            self?.evictIfNeeded()
+        // 在主线程上预先捕获收藏路径快照（StoreManager 限定 @MainActor），
+        // 再交由 evictionQueue 异步执行磁盘清理。
+        Task { @MainActor in
+            let pinned = Set(StoreManager.shared.items.filter(\.isPinned)
+                .filter { $0.sourceFormat == .image || $0.sourceFormat == .fileURL }
+                .map(\.content))
+            evictionQueue.async { [weak self] in
+                self?.evictIfNeeded(pinnedPaths: pinned)
+            }
         }
     }
 
@@ -100,9 +107,8 @@ final class ImageCacheManager {
     }
 
     /// LRU 磁盘淘汰：超过 maxCacheSize 时按修改时间删除最旧文件，直到低于 targetCacheSize。
-    /// 跳过数据库中仍被引用的文件。
-    private func evictIfNeeded() {
-        let activePaths = DatabaseManager.shared.allImageContentPaths()
+    /// 跳过被收藏（pinned）条目引用的文件，其余按 LRU 清理。
+    private func evictIfNeeded(pinnedPaths: Set<String>) {
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(
             at: cacheDir,
@@ -130,9 +136,9 @@ final class ImageCacheManager {
 
         for info in fileInfos {
             guard totalSize > Self.targetCacheSize else { break }
-            // 跳过数据库中仍被引用的文件（防止卡片显示破损图标）
+            // 跳过被收藏条目引用的文件（防止卡片显示破损图标）
             let thumbPath = thumbnailPath(forCachedFile: info.url)
-            if let tp = thumbPath, activePaths.contains(tp) { continue }
+            if let tp = thumbPath, pinnedPaths.contains(tp) { continue }
             do {
                 try fm.removeItem(at: info.url)
                 totalSize -= info.size

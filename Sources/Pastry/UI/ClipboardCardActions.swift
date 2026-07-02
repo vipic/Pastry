@@ -150,20 +150,21 @@ extension ClipboardCardView {
         let pinItem = NSMenuItem(title: pinTitle, action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         pinItem.target = handler
         pinItem.representedObject = "pin" as NSString
-        pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: nil)
+        pinItem.image = NSImage(systemSymbolName: item.isPinned ? "pin.slash" : "pin", accessibilityDescription: pinTitle)
         menu.addItem(pinItem)
 
-        let noteItem = NSMenuItem(title: L10n["context.edit_favorite_note"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+        let noteLabel = L10n["context.edit_favorite_note"]
+        let noteItem = NSMenuItem(title: noteLabel, action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         noteItem.target = handler
         noteItem.representedObject = "edit_note" as NSString
-        noteItem.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: nil)
+        noteItem.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: noteLabel)
         menu.addItem(noteItem)
 
         // Copy
         let copyMenuItem = NSMenuItem(title: L10n["context.copy"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         copyMenuItem.target = handler
         copyMenuItem.representedObject = "copy" as NSString
-        copyMenuItem.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)
+        copyMenuItem.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: L10n["context.copy"])
         menu.addItem(copyMenuItem)
 
         let isFileBased = item.sourceFormat == .fileURL || item.sourceFormat == .image
@@ -180,13 +181,13 @@ extension ClipboardCardView {
             let oItem = NSMenuItem(title: L10n["context.open"], action: openEnabled ? #selector(_MenuHandler.invoke(_:)) : nil, keyEquivalent: "")
             oItem.target = openEnabled ? handler : nil
             oItem.representedObject = openEnabled ? "open" as NSString : nil
-            oItem.image = NSImage(systemSymbolName: "arrow.up.forward.app", accessibilityDescription: nil)
+            oItem.image = NSImage(systemSymbolName: "arrow.up.forward.app", accessibilityDescription: L10n["context.open"])
             oItem.isEnabled = openEnabled
             menu.addItem(oItem)
 
             let owEnabled = !isMultiFile && (hasAnyFile || (!isFileBased && openableURL != nil))
             let owItem = NSMenuItem(title: L10n["context.open_with"], action: nil, keyEquivalent: "")
-            owItem.image = NSImage(systemSymbolName: "square.on.square", accessibilityDescription: nil)
+            owItem.image = NSImage(systemSymbolName: "square.on.square", accessibilityDescription: L10n["context.open_with"])
             owItem.isEnabled = owEnabled
             if owEnabled, let submenu = buildOpenWithSubmenu(for: handler) {
                 menu.setSubmenu(submenu, for: owItem)
@@ -198,7 +199,7 @@ extension ClipboardCardView {
                 let finderItem = NSMenuItem(title: L10n["context.show_in_finder"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
                 finderItem.target = handler
                 finderItem.representedObject = "show_in_finder" as NSString
-                finderItem.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+                finderItem.image = NSImage(systemSymbolName: "folder", accessibilityDescription: L10n["context.show_in_finder"])
                 menu.addItem(finderItem)
             }
         }
@@ -221,14 +222,14 @@ extension ClipboardCardView {
             let pItem = NSMenuItem(title: L10n["context.preview"], action: previewEnabled ? #selector(_MenuHandler.invoke(_:)) : nil, keyEquivalent: "")
             pItem.target = previewEnabled ? handler : nil
             pItem.representedObject = previewEnabled ? "preview" as NSString : nil
-            pItem.image = NSImage(systemSymbolName: "eye", accessibilityDescription: nil)
+            pItem.image = NSImage(systemSymbolName: "eye", accessibilityDescription: L10n["context.preview"])
             pItem.isEnabled = previewEnabled
             menu.addItem(pItem)
 
             let sItem = NSMenuItem(title: L10n["context.share"], action: shareEnabled ? #selector(_MenuHandler.invoke(_:)) : nil, keyEquivalent: "")
             sItem.target = shareEnabled ? handler : nil
             sItem.representedObject = shareEnabled ? "share" as NSString : nil
-            sItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
+            sItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: L10n["context.share"])
             sItem.isEnabled = shareEnabled
             menu.addItem(sItem)
 
@@ -236,7 +237,7 @@ extension ClipboardCardView {
         let deleteMenuItem = NSMenuItem(title: L10n["context.delete"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
         deleteMenuItem.target = handler
         deleteMenuItem.representedObject = "delete" as NSString
-        deleteMenuItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+        deleteMenuItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: L10n["context.delete"])
         menu.addItem(deleteMenuItem)
 
         NSMenu.popUpContextMenu(menu, with: event, for: view)

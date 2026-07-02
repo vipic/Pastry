@@ -95,6 +95,10 @@ final class ClipboardMonitor: ObservableObject {
 
     /// ⌘C 事件监听：延迟到首次剪贴板变化时创建（避免启动时弹出辅助功能授权对话框）。
     /// 首次 ⌘C 的来源检测由 AX 缓存 + frontmostApp 兜底，后续自动切换为 event tap。
+    ///
+    /// - Privacy: 此 tap 监听的是 keyUp 级别的全部系统按键事件（CGEventMask 无法按 keyCode 过滤）。
+    ///   回调中记录 eventTargetUnixProcessID 用于精确来源检测，超 0.3s 即丢弃。
+    ///   Pastry 不读取、不存储、不传输任何按键内容与 keyCode 信息。
     func setupEventTap() {
         guard eventTap == nil else { return }
 

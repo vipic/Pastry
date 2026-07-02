@@ -573,6 +573,7 @@ struct OverlayView: View {
             }
             .padding(.top, 10)
             .frame(minHeight: 262)  // 240 card + 6 LazyStack padding + 6 outer padding + 10 top
+            .clipped()
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 10)
@@ -793,6 +794,9 @@ struct OverlayView: View {
 
     // MARK: - 卡片列表
 
+    /// 横向/纵向布局切换，根据屏幕宽 > 1200 决定。
+    /// 初始化时同步读取 NSEvent/NSScreen（SwiftUI body 在主线程，安全）。
+    /// 若将来在此处引入后台调用，需改为主线程异步赋值。
     @State private var isHorizontalLayout: Bool = {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
@@ -848,6 +852,7 @@ struct OverlayView: View {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                             cardView(item, index: idx, multiSelectDrag: multiSelectDrag)
                                 .frame(maxWidth: UIConstants.Overlay.compactCardMaxWidth)
+                                .clipped()
                         }
                     }
                     .padding(.vertical, 3)
