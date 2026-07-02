@@ -99,9 +99,9 @@ else
 fi
 echo "✅ 版本号已注入: $DEV_VERSION"
 
-# 6. 清除残留签名（二进制替换后签名失效）并重签
+# 6. 清除残留签名（二进制替换后签名失效）并深签整个 bundle
 rm -rf "$APP_DIR/_CodeSignature" 2>/dev/null || true
-if ! codesign --force --sign "$IDENTITY" "$APP_DIR"; then
+if ! codesign --force --deep --sign "$IDENTITY" "$APP_DIR"; then
     echo "❌ \"$IDENTITY\" 签名失败。Pastry 不会改用 ad-hoc，因为这会破坏辅助功能授权体验。"
     echo "   请检查钥匙串中是否存在该代码签名证书，或通过 CODESIGN_IDENTITY 指定稳定证书。"
     exit 1

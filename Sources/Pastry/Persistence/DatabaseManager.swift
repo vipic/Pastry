@@ -134,24 +134,16 @@ final class DatabaseManager {
         );
         """
 
-        // 安全网触发器：超过 50000 条时强制裁剪（兜底，主清理由 StoreManager 定时执行）
+        // 安全网触发器：超过 50000 条时强制裁剪（仅非收藏，收藏项永远保留）
         let cleanupTrigger = """
         CREATE TRIGGER IF NOT EXISTS trg_cleanup_old
         AFTER INSERT ON clips
         BEGIN
-            DELETE FROM clips WHERE rowid IN (
-                SELECT rowid FROM clips ORDER BY timestamp ASC
-                LIMIT MAX(0, (SELECT COUNT(*) FROM clips) - 50000)
+            DELETE FROM clips WHERE is_favorite = 0 AND rowid IN (
+                SELECT rowid FROM clips WHERE is_favorite = 0
+                ORDER BY timestamp ASC
+                LIMIT MAX(0, (SELECT COUNT(*) FROM clips WHERE is_favorite = 0) - 50000)
             );
-        END;
-        """
-
-        // 同步 FTS 删除
-        let ftsDeleteTrigger = """
-        CREATE TRIGGER IF NOT EXISTS trg_clips_fts_delete
-        AFTER DELETE ON clips
-        BEGIN
-            DELETE FROM clips_fts WHERE rowid = old.rowid;
         END;
         """
 
@@ -159,9 +151,40 @@ final class DatabaseManager {
         _ = execute(idxSQL)
         _ = execute(ftsSQL)
         _ = execute(cleanupTrigger)
-        _ = execute(ftsDeleteTrigger)
+        _ = execute(Self.ftsDeleteTriggerSQL)
+        // INSERT/UPDATE 触发器在 runMigrations() 末尾统一创建，
+        // 因为这里 base clips 表还没有 link_title/favorite_note 等列。
 
         log.info("数据库表初始化完成")
+    }
+
+    /// 在事务中执行一段迁移：任意语句失败 → 回滚并返回 false，且不递增 userVersion。
+    /// 不复用 autocommit 的 `execute`；用 sqlite3_exec 直接走 BEGIN/ROLLBACK/COMMIT。
+    @discardableResult
+    private func runMigrationInTransaction(_ label: String, _ block: () -> Bool) -> Bool {
+        guard execute("BEGIN IMMEDIATE;") else {
+            log.error("迁移 [\(label, privacy: .public)] 开启事务失败: \(self.lastError)")
+            return false
+        }
+        let ok = block()
+        if ok {
+            guard execute("COMMIT;") else {
+                log.error("迁移 [\(label, privacy: .public)] 提交失败: \(self.lastError)")
+                _ = execute("ROLLBACK;")
+                return false
+            }
+            return true
+        } else {
+            _ = execute("ROLLBACK;")
+            log.error("迁移 [\(label, privacy: .public)] 失败已回滚")
+            return false
+        }
+    }
+
+    /// 迁移块内执行的语句；失败返回 false（事务会被外层回滚）。
+    @discardableResult
+    private func migrateExec(_ sql: String) -> Bool {
+        execute(sql)
     }
 
     private func runMigrations() {
@@ -169,44 +192,41 @@ final class DatabaseManager {
         if version < 1 {
             userVersion = 1
         }
-        if version < 2 {
-            _ = execute("ALTER TABLE clips ADD COLUMN text_annotation TEXT;")
+        if version < 2, runMigrationInTransaction("v2", { migrateExec("ALTER TABLE clips ADD COLUMN text_annotation TEXT;") }) {
             userVersion = 2
         }
-        if version < 3 {
-            _ = execute("ALTER TABLE clips ADD COLUMN image_urls TEXT;")
+        if version < 3, runMigrationInTransaction("v3", { migrateExec("ALTER TABLE clips ADD COLUMN image_urls TEXT;") }) {
             userVersion = 3
         }
-        if version < 4 {
-            _ = execute("ALTER TABLE clips ADD COLUMN segments TEXT;")
+        if version < 4, runMigrationInTransaction("v4", { migrateExec("ALTER TABLE clips ADD COLUMN segments TEXT;") }) {
             userVersion = 4
         }
-        if version < 5 {
-            _ = execute("ALTER TABLE clips ADD COLUMN is_handoff INTEGER DEFAULT 0;")
+        if version < 5, runMigrationInTransaction("v5", { migrateExec("ALTER TABLE clips ADD COLUMN is_handoff INTEGER DEFAULT 0;") }) {
             userVersion = 5
         }
-        if version < 6 {
-            _ = execute("ALTER TABLE clips ADD COLUMN raw_format_data BLOB;")
-            _ = execute("ALTER TABLE clips ADD COLUMN raw_format_type TEXT;")
+        if version < 6, runMigrationInTransaction("v6", {
+            guard migrateExec("ALTER TABLE clips ADD COLUMN raw_format_data BLOB;") else { return false }
+            return migrateExec("ALTER TABLE clips ADD COLUMN raw_format_type TEXT;")
+        }) {
             userVersion = 6
         }
-        if version < 7 {
-            _ = execute("ALTER TABLE clips ADD COLUMN is_url INTEGER DEFAULT 0;")
-            _ = execute("UPDATE clips SET content_type = 'text', is_url = 1 WHERE content_type = 'url';")
+        if version < 7, runMigrationInTransaction("v7", {
+            guard migrateExec("ALTER TABLE clips ADD COLUMN is_url INTEGER DEFAULT 0;") else { return false }
+            return migrateExec("UPDATE clips SET content_type = 'text', is_url = 1 WHERE content_type = 'url';")
+        }) {
             userVersion = 7
         }
-        if version < 8 {
-            _ = execute("ALTER TABLE clips ADD COLUMN dedup_key TEXT;")
-            _ = execute("CREATE INDEX IF NOT EXISTS idx_clips_dedup ON clips(dedup_key);")
+        if version < 8, runMigrationInTransaction("v8", {
+            guard migrateExec("ALTER TABLE clips ADD COLUMN dedup_key TEXT;") else { return false }
+            return migrateExec("CREATE INDEX IF NOT EXISTS idx_clips_dedup ON clips(dedup_key);")
+        }) {
             userVersion = 8
         }
-        if version < 9 {
-            _ = execute("ALTER TABLE clips ADD COLUMN link_title TEXT;")
+        if version < 9, runMigrationInTransaction("v9", { migrateExec("ALTER TABLE clips ADD COLUMN link_title TEXT;") }) {
             userVersion = 9
         }
-        if version < 10 {
-            // 重建 FTS5 表以加入 link_title 列，然后全量重建索引
-            _ = execute("DROP TABLE IF EXISTS clips_fts;")
+        if version < 10, runMigrationInTransaction("v10", {
+            guard migrateExec("DROP TABLE IF EXISTS clips_fts;") else { return false }
             let ftsSQL = """
             CREATE VIRTUAL TABLE clips_fts USING fts5(
                 content,
@@ -216,24 +236,21 @@ final class DatabaseManager {
                 tokenize='porter unicode61'
             );
             """
-            _ = execute(ftsSQL)
-            // 重新插入所有已有数据到 FTS 索引
-            _ = execute("INSERT INTO clips_fts(rowid, content, link_title) SELECT rowid, content, link_title FROM clips;")
-            // 重建 FTS 删除触发器
-            _ = execute("DROP TRIGGER IF EXISTS trg_clips_fts_delete;")
-            _ = execute("""
-                CREATE TRIGGER trg_clips_fts_delete
-                AFTER DELETE ON clips
-                BEGIN
-                    DELETE FROM clips_fts WHERE rowid = old.rowid;
-                END;
-            """)
+            guard migrateExec(ftsSQL) else { return false }
+            guard migrateExec("INSERT INTO clips_fts(rowid, content, link_title) SELECT rowid, content, link_title FROM clips;") else { return false }
+            guard migrateExec("DROP TRIGGER IF EXISTS trg_clips_fts_delete;") else { return false }
+            guard migrateExec("DROP TRIGGER IF EXISTS trg_clips_fts_insert;") else { return false }
+            guard migrateExec("DROP TRIGGER IF EXISTS trg_clips_fts_update;") else { return false }
+            guard migrateExec(Self.ftsDeleteTriggerSQL) else { return false }
+            guard migrateExec(Self.ftsInsertTriggerSQL) else { return false }
+            return migrateExec(Self.ftsUpdateTriggerSQL)
+        }) {
             userVersion = 10
         }
-        if version < 11 {
-            _ = execute("ALTER TABLE clips ADD COLUMN favorite_note TEXT;")
-            _ = execute("ALTER TABLE clips ADD COLUMN favorite_note_updated_at REAL;")
-            _ = execute("DROP TABLE IF EXISTS clips_fts;")
+        if version < 11, runMigrationInTransaction("v11", {
+            guard migrateExec("ALTER TABLE clips ADD COLUMN favorite_note TEXT;") else { return false }
+            guard migrateExec("ALTER TABLE clips ADD COLUMN favorite_note_updated_at REAL;") else { return false }
+            guard migrateExec("DROP TABLE IF EXISTS clips_fts;") else { return false }
             let ftsSQL = """
             CREATE VIRTUAL TABLE clips_fts USING fts5(
                 content,
@@ -244,19 +261,62 @@ final class DatabaseManager {
                 tokenize='porter unicode61'
             );
             """
-            _ = execute(ftsSQL)
-            _ = execute("INSERT INTO clips_fts(rowid, content, link_title, favorite_note) SELECT rowid, content, link_title, favorite_note FROM clips;")
-            _ = execute("DROP TRIGGER IF EXISTS trg_clips_fts_delete;")
-            _ = execute("""
-                CREATE TRIGGER trg_clips_fts_delete
-                AFTER DELETE ON clips
-                BEGIN
-                    DELETE FROM clips_fts WHERE rowid = old.rowid;
-                END;
-            """)
+            guard migrateExec(ftsSQL) else { return false }
+            guard migrateExec("INSERT INTO clips_fts(rowid, content, link_title, favorite_note) SELECT rowid, content, link_title, favorite_note FROM clips;") else { return false }
+            guard migrateExec("DROP TRIGGER IF EXISTS trg_clips_fts_delete;") else { return false }
+            guard migrateExec("DROP TRIGGER IF EXISTS trg_clips_fts_insert;") else { return false }
+            guard migrateExec("DROP TRIGGER IF EXISTS trg_clips_fts_update;") else { return false }
+            guard migrateExec(Self.ftsDeleteTriggerSQL) else { return false }
+            guard migrateExec(Self.ftsInsertTriggerSQL) else { return false }
+            return migrateExec(Self.ftsUpdateTriggerSQL)
+        }) {
             userVersion = 11
         }
+
+        // 迁移完成后统一重建 FTS 触发器。
+        // createTables 和早期迁移创建触发器时，clips 可能还没有全部 FTS 列
+        // （如 favorite_note 在 v11 才加入），触发器会因列不存在而静默创建失败。
+        // 这里所有列已就绪，统一重建一次保证触发器始终存在。
+        _ = execute("DROP TRIGGER IF EXISTS trg_clips_fts_delete;")
+        _ = execute("DROP TRIGGER IF EXISTS trg_clips_fts_insert;")
+        _ = execute("DROP TRIGGER IF EXISTS trg_clips_fts_update;")
+        _ = execute(Self.ftsDeleteTriggerSQL)
+        _ = execute(Self.ftsInsertTriggerSQL)
+        _ = execute(Self.ftsUpdateTriggerSQL)
     }
+
+    // MARK: - FTS 触发器 SQL（createTables 与迁移复用）
+    //
+    // 外部 content FTS5 表（content='clips'）的同步必须用 FTS5 的特殊 'delete' 命令，
+    // 而非普通 `DELETE FROM clips_fts`。后者会触发 "database disk image is malformed"。
+    // 参见 SQLite FTS5 文档 external content tables 章节。
+
+    private static let ftsDeleteTriggerSQL = """
+    CREATE TRIGGER IF NOT EXISTS trg_clips_fts_delete
+    AFTER DELETE ON clips
+    BEGIN
+        INSERT INTO clips_fts(clips_fts, rowid, content, link_title, favorite_note)
+        VALUES('delete', old.rowid, old.content, old.link_title, old.favorite_note);
+    END;
+    """
+    private static let ftsInsertTriggerSQL = """
+    CREATE TRIGGER IF NOT EXISTS trg_clips_fts_insert
+    AFTER INSERT ON clips
+    BEGIN
+        INSERT INTO clips_fts(rowid, content, link_title, favorite_note)
+        VALUES (new.rowid, new.content, new.link_title, new.favorite_note);
+    END;
+    """
+    private static let ftsUpdateTriggerSQL = """
+    CREATE TRIGGER IF NOT EXISTS trg_clips_fts_update
+    AFTER UPDATE ON clips
+    BEGIN
+        INSERT INTO clips_fts(clips_fts, rowid, content, link_title, favorite_note)
+        VALUES('delete', old.rowid, old.content, old.link_title, old.favorite_note);
+        INSERT INTO clips_fts(rowid, content, link_title, favorite_note)
+        VALUES (new.rowid, new.content, new.link_title, new.favorite_note);
+    END;
+    """
 
     // MARK: - CRUD
 
@@ -360,8 +420,11 @@ final class DatabaseManager {
 
         guard rc == SQLITE_DONE else { return .skipped }
 
-        syncFTS(item)
+        // FTS 由 AFTER INSERT 触发器自动同步；保留策略与 INSERT 放在同一事务内，
+        // 避免主表插入成功但清理失败时出现部分提交。
+        _ = execute("BEGIN IMMEDIATE;")
         enforceHistoryRetentionIfNeeded()
+        _ = execute("COMMIT;")
 
         // 更新去重缓存
         lastKey = key
@@ -604,7 +667,7 @@ final class DatabaseManager {
         sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
         sqlite3_step(stmt)
         sqlite3_finalize(stmt)
-        rebuildFTSRow(id: id)
+        // FTS 由 AFTER UPDATE 触发器自动同步，无需手动 rebuildFTSRow
     }
 
     /// 更新收藏备注（nil 表示清空，取消收藏时不会自动清除）
@@ -631,13 +694,15 @@ final class DatabaseManager {
         }
         sqlite3_bind_text(stmt, 3, (id as NSString).utf8String, -1, nil)
 
+        // AFTER UPDATE 触发器会改写 sqlite3_changes 计数（触发器最后一条语句是 FTS INSERT），
+        // 无法用 changes 判断 UPDATE 是否命中行。改用 total_changes 差值。
+        let totalBefore = sqlite3_total_changes(db)
         let rc = sqlite3_step(stmt)
-        let changed = sqlite3_changes(db)
+        let totalDelta = sqlite3_total_changes(db) - totalBefore
         sqlite3_finalize(stmt)
-        if rc == SQLITE_DONE && changed > 0 {
-            rebuildFTSRow(id: id)
-        }
-        return rc == SQLITE_DONE && changed > 0
+        // FTS 由 AFTER UPDATE 触发器自动同步，无需手动 rebuildFTSRow
+        // totalDelta >= 1 表示至少 UPDATE 命中一行（触发器的额外变更只会让 delta 更大）
+        return rc == SQLITE_DONE && totalDelta >= 1
     }
 
     /// 将条目时间戳更新为现在（移动到列表最前）

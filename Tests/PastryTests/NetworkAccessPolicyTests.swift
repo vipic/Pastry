@@ -4,7 +4,8 @@ import XCTest
 final class NetworkAccessPolicyTests: XCTestCase {
 
     func testAllowsPublicHTTPSURL() {
-        XCTAssertTrue(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://example.com/article")!))
+        // 用 IP 字面量避开测试环境 DNS 劫持（某些 CI/代理会把 example.com 解析到 198.18.x）
+        XCTAssertTrue(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://8.8.8.8/article")!))
     }
 
     func testRejectsHTTPURL() {

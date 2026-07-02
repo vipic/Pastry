@@ -16,6 +16,11 @@ struct DatabaseMigrator {
     }
 
     /// 检测到现有数据库不可用时：优先按明文迁移，失败则保留原库并创建新加密库。
+    ///
+    /// 使用 SQLCipher 官方推荐的 `sqlcipher_export()` 流程：在新加密库上 ATTACH 明文库，
+    /// 用一条 `INSERT INTO … SELECT …` 把数据按行绑定复制过来，再重建 schema。
+    /// 相比旧版 dump-and-replay（按 `;\n` 分割 SQL 字符串），不会因剪贴板内容包含
+    /// `;\n` 而损坏还原，且全程走 SQLite 的参数/值通道，无注入与截断风险。
     func migratePlaintextOrCreateFresh() -> OpaquePointer? {
         let plainPath = dbPath
         let tempEncPath = dbPath + ".enc-migrate"
@@ -35,11 +40,9 @@ struct DatabaseMigrator {
             log.error("迁移跳过：数据库不是可读明文库，原文件已保留")
             return preserveUnreadableDatabaseAndCreateFresh()
         }
-
-        let dump = dumpPlaintextDatabase(plain)
         sqlite3_close(plain)
 
-        guard createEncryptedDatabase(at: tempEncPath, dump: dump) else {
+        guard createEncryptedDatabaseViaExport(at: tempEncPath, plainPath: plainPath) else {
             return nil
         }
 
@@ -63,7 +66,9 @@ struct DatabaseMigrator {
 
         let migrated = openEncryptedDatabase(at: plainPath)
         if migrated != nil {
-            log.info("明文数据库迁移完成 → 加密")
+            // 迁移成功后立刻删除明文备份，避免历史内容明文滞留磁盘 / 被 Time Machine 快照
+            try? FileManager.default.removeItem(atPath: backupPath)
+            log.info("明文数据库迁移完成 → 加密，明文备份已删除")
         } else {
             log.error("迁移后无法打开加密数据库")
         }
@@ -78,75 +83,13 @@ struct DatabaseMigrator {
         return ok
     }
 
-    private func dumpPlaintextDatabase(_ database: OpaquePointer) -> (schema: String, data: String) {
-        var schemaSQL = ""
-        var dumpStmt: OpaquePointer?
-        if sqlite3_prepare_v2(database, "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type, name;", -1, &dumpStmt, nil) == SQLITE_OK {
-            while sqlite3_step(dumpStmt) == SQLITE_ROW {
-                if let sql = sqlite3_column_text(dumpStmt, 0) {
-                    schemaSQL += String(cString: sql) + ";\n"
-                }
-            }
-        }
-        sqlite3_finalize(dumpStmt)
-
-        var dataSQL = ""
-        var tableStmt: OpaquePointer?
-        if sqlite3_prepare_v2(database, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';", -1, &tableStmt, nil) == SQLITE_OK {
-            while sqlite3_step(tableStmt) == SQLITE_ROW {
-                guard let tableName = sqlite3_column_text(tableStmt, 0) else { continue }
-                dataSQL += dumpRows(from: String(cString: tableName), in: database)
-            }
-        }
-        sqlite3_finalize(tableStmt)
-
-        return (schemaSQL, dataSQL)
-    }
-
-    private func dumpRows(from tableName: String, in database: OpaquePointer) -> String {
-        var dataSQL = ""
-        var rowStmt: OpaquePointer?
-        let quotedTableName = Self.quotedIdentifier(tableName)
-        if sqlite3_prepare_v2(database, "SELECT * FROM \(quotedTableName);", -1, &rowStmt, nil) == SQLITE_OK {
-            let colCount = sqlite3_column_count(rowStmt)
-            while sqlite3_step(rowStmt) == SQLITE_ROW {
-                let values = (0..<colCount).map { sqlLiteral(column: $0, in: rowStmt) }
-                dataSQL += "INSERT INTO \(quotedTableName) VALUES (\(values.joined(separator: ", ")));\n"
-            }
-        }
-        sqlite3_finalize(rowStmt)
-        return dataSQL
-    }
-
-    private func sqlLiteral(column: Int32, in statement: OpaquePointer?) -> String {
-        switch sqlite3_column_type(statement, column) {
-        case SQLITE_NULL:
-            return "NULL"
-        case SQLITE_BLOB:
-            guard let blob = sqlite3_column_blob(statement, column) else { return "X''" }
-            let len = Int(sqlite3_column_bytes(statement, column))
-            let data = Data(bytes: blob, count: len)
-            let hex = data.map { String(format: "%02x", $0) }.joined()
-            return "X'\(hex)'"
-        case SQLITE_INTEGER:
-            return "\(sqlite3_column_int64(statement, column))"
-        case SQLITE_FLOAT:
-            return "\(sqlite3_column_double(statement, column))"
-        default:
-            guard let text = sqlite3_column_text(statement, column) else { return "NULL" }
-            return "'\(String(cString: text).replacingOccurrences(of: "'", with: "''"))'"
-        }
-    }
-
-    private static func quotedIdentifier(_ identifier: String) -> String {
-        "\"\(identifier.replacingOccurrences(of: "\"", with: "\"\""))\""
-    }
-
-    private func createEncryptedDatabase(at path: String, dump: (schema: String, data: String)) -> Bool {
-        try? FileManager.default.removeItem(atPath: path)
+    /// 用 `sqlcipher_export()` 把已 ATTACH 的明文库逐行复制到新加密库。
+    /// 整个过程在单条事务内，schema + 数据 + 索引/触发器由 SQLCipher 自动重建。
+    private func createEncryptedDatabaseViaExport(at encPath: String, plainPath: String) -> Bool {
+        try? FileManager.default.removeItem(atPath: encPath)
 
         var encDB: OpaquePointer?
-        guard sqlite3_open(path, &encDB) == SQLITE_OK, let enc = encDB else {
+        guard sqlite3_open(encPath, &encDB) == SQLITE_OK, let enc = encDB else {
             log.error("迁移失败：无法创建加密数据库")
             return false
         }
@@ -154,13 +97,34 @@ struct DatabaseMigrator {
 
         applyKey(to: enc)
 
-        for statement in dump.schema.components(separatedBy: ";\n") {
-            executeRaw(statement, on: enc)
+        // ATTACH 明文库（无 key，明文库不需要解密）
+        let attachSQL = "ATTACH DATABASE '\(escapedSQLLiteral(plainPath))' AS plaintext KEY '';"
+        if sqlite3_exec(enc, attachSQL, nil, nil, nil) != SQLITE_OK {
+            log.error("迁移失败：ATTACH 明文库失败: \(String(cString: sqlite3_errmsg(enc)))")
+            return false
         }
-        for statement in dump.data.components(separatedBy: ";\n") {
-            executeRaw(statement, on: enc)
+
+        // 用 sqlcipher_export 把 plaintext 的全部对象复制到主库（加密）
+        // 事务包裹，任一步失败回滚
+        let exportSQL = """
+        BEGIN;
+        SELECT sqlcipher_export('main', 'plaintext');
+        COMMIT;
+        """
+        if sqlite3_exec(enc, exportSQL, nil, nil, nil) != SQLITE_OK {
+            log.error("迁移失败：sqlcipher_export 失败: \(String(cString: sqlite3_errmsg(enc)))")
+            _ = sqlite3_exec(enc, "ROLLBACK;", nil, nil, nil)
+            _ = sqlite3_exec(enc, "DETACH DATABASE plaintext;", nil, nil, nil)
+            return false
         }
+
+        _ = sqlite3_exec(enc, "DETACH DATABASE plaintext;", nil, nil, nil)
         return true
+    }
+
+    /// 转义路径中的单引号，用于内联到 ATTACH 的 KEY 子句（路径来自本地文件系统，可信但仍防御）。
+    private func escapedSQLLiteral(_ value: String) -> String {
+        value.replacingOccurrences(of: "'", with: "''")
     }
 
     private func validateEncryptedDatabase(at path: String) -> Bool {
@@ -200,19 +164,5 @@ struct DatabaseMigrator {
         _ = key.withUnsafeBytes { ptr in
             sqlite3_key(database, ptr.baseAddress, Int32(key.count))
         }
-    }
-
-    @discardableResult
-    private func executeRaw(_ sql: String, on database: OpaquePointer) -> Bool {
-        let trimmed = sql.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return true }
-
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(database, trimmed, -1, &stmt, nil) == SQLITE_OK else {
-            sqlite3_finalize(stmt)
-            return false
-        }
-        defer { sqlite3_finalize(stmt) }
-        return sqlite3_step(stmt) == SQLITE_DONE
     }
 }
