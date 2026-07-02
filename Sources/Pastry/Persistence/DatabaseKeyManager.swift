@@ -3,15 +3,11 @@ import Darwin
 import Foundation
 import IOKit
 import OSLog
-import Security
 
 // MARK: - SQLCipher 密钥管理
 
 struct DatabaseKeyManager {
     static let prefersFileKeyStorage = true
-
-    private static let keychainService = "com.nekutai.pastry.dbkey"
-    private static let keychainAccount = "clips.db"
 
     private let dbPath: String
     private let log: Logger
@@ -25,73 +21,22 @@ struct DatabaseKeyManager {
 
     /// 获取或创建 256-bit 加密密钥。
     ///
-    /// 存储策略（双写冗余，任一可用即可解锁）：
-    /// - 文件密钥：设备派生 KEK 加密后写入 `.key`（向后兼容，跨用户隔离靠 0600 权限）
-    /// - Keychain 副本：原始 DEK 直接存入，`WhenUnlockedThisDeviceOnly` 可访问性
-    ///   受用户登录会话保护，弥补文件 KEK 仅依赖公开 UUID 的弱点
+    /// 存储策略：设备派生 KEK 加密后写入 `.key` 文件。
+    /// - KEK 由 IOPlatformUUID 经 HKDF 派生，同设备永远相同，跨设备无法复现
+    /// - `.key` 文件权限 0600，跨用户隔离
+    /// - 不访问 Keychain，避免启动时触发安全授权弹窗
     func getOrCreateKey() -> Data {
-        // 1. 文件密钥优先（已有用户走老路径，零迁移）
+        // 1. 读取已有文件密钥
         if let fileKey = readKeyFromFile() {
-            // 老用户首次启动：补写 Keychain 副本
-            if readKeyFromKeychain() == nil {
-                writeKeyToKeychain(fileKey)
-            }
             return fileKey
         }
 
-        // 2. 文件丢失但 Keychain 还在 → 用 Keychain 恢复，重建文件
-        if let key = readKeyFromKeychain() {
-            writeKeyToFile(key)
-            return key
-        }
-
-        // 3. 全新安装 → 生成 DEK，双写
+        // 2. 全新安装 → 生成 DEK，写入文件
         var keyBytes = [UInt8](repeating: 0, count: 32)
         _ = SecRandomCopyBytes(kSecRandomDefault, 32, &keyBytes)
         let newKey = Data(keyBytes)
         writeKeyToFile(newKey)
-        writeKeyToKeychain(newKey)
         return newKey
-    }
-
-    private func readKeyFromKeychain() -> Data? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
-            kSecAttrAccount as String: Self.keychainAccount,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let keyData = result as? Data else { return nil }
-        return keyData
-    }
-
-    /// 把 DEK 副本写入 Keychain（设备本地、解锁后可读、不同步到 iCloud）。
-    private func writeKeyToKeychain(_ key: Data) {
-        // 先尝试更新，再尝试新增；避免重复插入报 errSecDuplicateItem
-        let baseQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
-            kSecAttrAccount as String: Self.keychainAccount,
-        ]
-        let attrs: [String: Any] = [
-            kSecValueData as String: key,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-        ]
-        let updateStatus = SecItemUpdate(baseQuery as CFDictionary, attrs as CFDictionary)
-        if updateStatus == errSecItemNotFound {
-            var addQuery = baseQuery
-            addQuery[kSecValueData as String] = key
-            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-            if addStatus != errSecSuccess {
-                log.error("Keychain 副本写入失败: \(addStatus)")
-            }
-        } else if updateStatus != errSecSuccess {
-            log.error("Keychain 副本更新失败: \(updateStatus)")
-        }
     }
 
     // MARK: 文件密钥存储（设备派生 KEK，AES-256-GCM 加密）

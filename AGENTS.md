@@ -216,10 +216,10 @@ Button(action: { selectedItem = item }) { ... }
 
 ### 架构
 
-`clips.db` 使用 SQLCipher 全库加密，保护剪贴板历史不被直接读取。当前版本优先使用数据库旁的 `.key` 文件保存加密后的密钥；macOS Keychain（service: `com.nekutai.pastry.dbkey`）仅作为旧版本迁移来源，避免每次重新签名后反复弹出钥匙串授权。
+`clips.db` 使用 SQLCipher 全库加密，保护剪贴板历史不被直接读取。密钥通过设备派生 KEK 加密后存储在数据库旁的 `.key` 文件中，无 Keychain 依赖。
 
 - **密钥生成**：首次启动时 `SecRandomCopyBytes` 生成 256-bit 随机密钥，使用设备派生 KEK 加密后写入 `.key` 文件
-- **旧密钥迁移**：如果 `.key` 不存在但 Keychain 里有旧密钥，会读取一次并迁移到 `.key`
+- **旧密钥迁移**：如果 `.key` 不存在但 Keychain 里有旧版密钥，会读取一次并迁移到 `.key`，然后删除 Keychain 条目
 - **加密激活**：`sqlite3_key()` 在打开数据库后立即调用
 - **透明性**：FTS5 全文搜索正常工作，查询逻辑无变化
 - **测试跳过**：`init(dbPath:)` 构造函数通过 `openDatabase(useEncryption: false)` 跳过加密
