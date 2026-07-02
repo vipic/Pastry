@@ -156,13 +156,19 @@ final class ClipboardMonitor: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            CFMachPortInvalidate(tap)
-            eventTap = nil
-        }
+        stopEventTap()
         isRunning = false
         log.info("剪贴板监听已停止")
+    }
+
+    /// 仅停用 CGEvent tap，保留定时器轮询。
+    /// 供看门狗在主线程卡死时自救——移除 headInsertEventTap 后系统事件恢复正常。
+    func stopEventTap() {
+        guard let tap = eventTap else { return }
+        CGEvent.tapEnable(tap: tap, enable: false)
+        CFMachPortInvalidate(tap)
+        eventTap = nil
+        log.info("CGEvent tap 已停用（定时器轮询保留）")
     }
 
     // MARK: - 轮询
