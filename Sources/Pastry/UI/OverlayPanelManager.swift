@@ -465,6 +465,7 @@ final class OverlayPanelManager: @unchecked Sendable {
     var isSearchActive = false
 
     /// 当前键盘事件归属。只有 overlayNavigation 会执行卡片级快捷键。
+    /// ⚠️ 必须只在主线程读写（无锁/actor 保护，放任何非主线程访问即 data race）。
     var keyboardOwner: OverlayKeyboardOwner = .overlayNavigation
 
     /// 删除确认弹窗是否活跃 — Esc 放行给系统弹窗处理

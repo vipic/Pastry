@@ -4,6 +4,10 @@ import OSLog
 
 // MARK: - SQLite 数据库管理
 // 使用原生 sqlite3 API，SQLCipher 全库加密
+//
+// ⚠️ 线程安全由 NSRecursiveLock 保证（非 Sendable / nonisolated(unsafe) 压制 Swift 6 检查）。
+// 新增任何公开方法必须手动 lock.lock() / defer { lock.unlock() }，否则 data race。
+// 目前只有 StoreManager.performSearch() 从 Task.detached 调用 DatabaseManager。
 final class DatabaseManager {
 
     nonisolated(unsafe) static let shared = DatabaseManager()
@@ -30,6 +34,8 @@ final class DatabaseManager {
         openDatabase()
         createTables()
         runMigrations()
+        // 启动时立即执行一次保留策略清理，避免闲置期间旧数据越过保留期而不清理
+        enforceHistoryRetention()
     }
 
     /// 测试专用：使用临时数据库，不污染生产数据（跳过加密，无需 Keychain）
@@ -48,7 +54,7 @@ final class DatabaseManager {
 
     deinit {
         if let db = db {
-            sqlite3_close(db)
+            sqlite3_close_v2(db)
         }
     }
 
@@ -74,8 +80,9 @@ final class DatabaseManager {
 
         // 验证密钥是否正确：执行简单查询检测文件是否可读
         var testStmt: OpaquePointer?
+        defer { sqlite3_finalize(testStmt) }
         if sqlite3_prepare_v2(db, "SELECT count(*) FROM sqlite_master;", -1, &testStmt, nil) == SQLITE_OK {
-            sqlite3_finalize(testStmt)
+            // 密钥正确，验证通过
         } else {
             // 密钥不对或文件损坏 → 尝试迁移现有明文数据库
             sqlite3_close(db)
@@ -646,7 +653,10 @@ final class DatabaseManager {
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
 
         sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
-        sqlite3_step(stmt)
+        let rc = sqlite3_step(stmt)
+        if rc != SQLITE_DONE {
+            log.warning("incrementDisplayCount failed: \(self.lastError)")
+        }
         sqlite3_finalize(stmt)
     }
 
@@ -665,7 +675,10 @@ final class DatabaseManager {
             sqlite3_bind_null(stmt, 1)
         }
         sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
-        sqlite3_step(stmt)
+        let rc = sqlite3_step(stmt)
+        if rc != SQLITE_DONE {
+            log.warning("updateLinkTitle failed: \(self.lastError)")
+        }
         sqlite3_finalize(stmt)
         // FTS 由 AFTER UPDATE 触发器自动同步，无需手动 rebuildFTSRow
     }
@@ -716,7 +729,10 @@ final class DatabaseManager {
 
         sqlite3_bind_double(stmt, 1, Date().timeIntervalSince1970)
         sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
-        sqlite3_step(stmt)
+        let rc = sqlite3_step(stmt)
+        if rc != SQLITE_DONE {
+            log.warning("bumpTimestamp failed: \(self.lastError)")
+        }
         sqlite3_finalize(stmt)
     }
 

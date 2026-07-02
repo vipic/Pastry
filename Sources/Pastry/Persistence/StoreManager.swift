@@ -150,6 +150,12 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     func start() {
         ClipboardMonitor.shared.start()
         refreshStats()
+        // 低频定时器兜底：每 10 分钟执行一次保留策略，确保闲置期间旧数据也会按策略清理
+        let retentionTimer = Timer(timeInterval: 600, repeats: true) { [weak self] _ in
+            DatabaseManager.shared.enforceHistoryRetention()
+            self?.refreshStats()
+        }
+        RunLoop.main.add(retentionTimer, forMode: .common)
         log.info("Store 启动")
     }
 
