@@ -22,7 +22,7 @@ struct UpdateView: View {
     var onUpdate: (() -> Void)?
     var onCancel: (() -> Void)?
 
-    private let updateAccent = Color.pastryWarmAccent
+    private let updateAccent = PastryPalette.warmAccent
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,26 +72,26 @@ struct UpdateView: View {
             switch state {
             case .upToDate:
                 Text(L10n["update.up_to_date"])
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.title2, weight: .semibold))
                 ZStack {
                     Circle()
-                        .fill(Color(red: 0.188, green: 0.82, blue: 0.345))
+                        .fill(PastryPalette.success)
                         .frame(width: 18, height: 18)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: UIConstants.TypeSize.caption, weight: .bold))
                         .foregroundColor(.white)
                 }
 
             case .updateAvailable, .downloading, .installing:
                 Text(L10n["update.update_available"])
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.title2, weight: .semibold))
                 Circle()
                     .fill(updateAccent)
                     .frame(width: 8, height: 8)
 
             case .checking:
                 Text(L10n["update.checking"])
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.title2, weight: .semibold))
                 ProgressView()
                     .tint(updateAccent)
                     .scaleEffect(0.7)
@@ -99,7 +99,7 @@ struct UpdateView: View {
 
             case .error:
                 Text(L10n["update.check_failed"])
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.title2, weight: .semibold))
             }
         }
     }
@@ -119,7 +119,7 @@ struct UpdateView: View {
         }
 
         return Text(String(format: L10n["update.last_checked"], relative))
-            .font(.system(size: 12))
+            .font(.system(size: UIConstants.TypeSize.callout))
             .foregroundColor(.secondary)
     }
 
@@ -130,7 +130,7 @@ struct UpdateView: View {
         switch state {
         case .upToDate(let version, let build, _, _):
             Text("\(L10n["update.current"]) v\(UpdateChecker.displayVersion(version)) · Build \(build)")
-                .font(.system(size: 13))
+                .font(.system(size: UIConstants.TypeSize.body))
                 .foregroundColor(.secondary)
 
         case .updateAvailable(let result):
@@ -142,7 +142,7 @@ struct UpdateView: View {
                 Text("\(L10n["update.latest"]) v\(UpdateChecker.displayVersion(result.latestVersion))")
                     .fontWeight(.medium)
             }
-            .font(.system(size: 13))
+            .font(.system(size: UIConstants.TypeSize.body))
 
         case .checking:
             EmptyView()
@@ -155,19 +155,19 @@ struct UpdateView: View {
                     Text("→").foregroundColor(.secondary.opacity(0.5))
                     Text("\(L10n["update.latest"]) v\(UpdateChecker.displayVersion(lat))").fontWeight(.medium)
                 }
-                .font(.system(size: 13))
+                .font(.system(size: UIConstants.TypeSize.body))
             } else {
                 EmptyView()
             }
 
         case .installing:
             Text(L10n["update.installing_msg"])
-                .font(.system(size: 13))
+                .font(.system(size: UIConstants.TypeSize.body))
                 .foregroundColor(.secondary)
 
         case .error(let message):
             Text(message)
-                .font(.system(size: 13))
+                .font(.system(size: UIConstants.TypeSize.body))
                 .foregroundColor(.secondary)
         }
     }
@@ -181,7 +181,7 @@ struct UpdateView: View {
             if !items.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n["update.whats_new"])
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
                         .foregroundColor(.secondary)
                         .textCase(.uppercase)
 
@@ -193,7 +193,7 @@ struct UpdateView: View {
                                     .frame(width: 6, height: 6)
                                     .padding(.top, 5)
                                 Text(item)
-                                    .font(.system(size: 13))
+                                    .font(.system(size: UIConstants.TypeSize.body))
                                     .lineSpacing(2)
                             }
                         }
@@ -202,7 +202,7 @@ struct UpdateView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
                 .background(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.card)
                         .fill(Color.primary.opacity(0.04))
                 )
             }
@@ -234,7 +234,7 @@ struct UpdateView: View {
             VStack(spacing: 10) {
                 progressBar
                 Text(L10n["update.downloading"])
-                    .font(.system(size: 12))
+                    .font(.system(size: UIConstants.TypeSize.callout))
                     .foregroundColor(.secondary)
                 HStack {
                     Spacer()
@@ -289,10 +289,10 @@ struct UpdateView: View {
                 let visibleProgress = max(clampedProgress, 0.02)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
                             .fill(Color.primary.opacity(0.1))
                             .frame(height: 6)
-                        RoundedRectangle(cornerRadius: 3)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
                             .fill(updateAccent)
                             .frame(width: geo.size.width * CGFloat(visibleProgress), height: 6)
                     }
@@ -300,7 +300,7 @@ struct UpdateView: View {
                 .frame(height: 6)
 
                 Text("\(Int(clampedProgress * 100))%")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
                     .foregroundColor(.secondary)
                     .monospacedDigit()
             }
@@ -311,39 +311,39 @@ struct UpdateView: View {
 // MARK: - 按钮样式
 
 struct PastryPrimaryButtonStyle: ButtonStyle {
-    var fontSize: CGFloat = 13
+    var fontSize: CGFloat = UIConstants.TypeSize.body
     var fontWeight: Font.Weight = .medium
     var horizontalPadding: CGFloat = 18
     var verticalPadding: CGFloat = 8
-    var cornerRadius: CGFloat = 8
+    var cornerRadius: CGFloat = UIConstants.Radius.chip
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: fontSize, weight: fontWeight))
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
-            .background(Color.pastryWarmAccent)
+            .background(PastryPalette.warmAccent)
             .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+            .animation(.easeOut(duration: UIConstants.Motion.instant), value: configuration.isPressed)
     }
 }
 
 private struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .medium))
+            .font(.system(size: UIConstants.TypeSize.body, weight: .medium))
             .padding(.horizontal, 18)
             .padding(.vertical, 8)
             .background(Color.primary.opacity(0.06))
             .foregroundColor(.primary)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.chip))
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.chip)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: UIConstants.Stroke.hairline)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+            .animation(.easeOut(duration: UIConstants.Motion.instant), value: configuration.isPressed)
     }
 }

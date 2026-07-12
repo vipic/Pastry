@@ -90,48 +90,48 @@ extension SettingsSceneView {
             .padding(.horizontal, 14)
             .frame(height: 48)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                     .fill(Color.white.opacity(0.88))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(SettingsPalette.ink.opacity(0.14), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
+                            .stroke(SettingsPalette.ink.opacity(0.14), lineWidth: UIConstants.Stroke.hairline)
                     )
                     .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 3)
             )
             Spacer()
         }
         .frame(maxWidth: 600, minHeight: 142)
-        .settingsCardChrome(cornerRadius: 14, fill: SettingsPalette.cardFillSoft)
+        .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: SettingsPalette.cardFillSoft)
     }
 
     func shortcutKeycap(_ segment: String) -> some View {
         Text(segment)
-            .font(.system(size: 15, weight: .bold, design: .rounded))
+            .font(.system(size: UIConstants.TypeSize.title, weight: .bold, design: .rounded))
             .foregroundStyle(SettingsPalette.ink)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
             .frame(minWidth: 30, minHeight: 30)
             .padding(.horizontal, segment.count > 1 ? 8 : 0)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
                     // Physical keycap: top-lit face + raised edge, not flat chip chrome.
                     .fill(
                         LinearGradient(
                             colors: [
                                 .white,
-                                Color(red: 0.925, green: 0.906, blue: 0.855)
+                                PastryPalette.keycapBottom
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(SettingsPalette.ink.opacity(0.14), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
+                            .stroke(SettingsPalette.ink.opacity(0.14), lineWidth: UIConstants.Stroke.hairline)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(.white.opacity(0.70), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
+                            .stroke(.white.opacity(0.70), lineWidth: UIConstants.Stroke.hairline)
                             .padding(1)
                     )
                     .shadow(color: SettingsPalette.ink.opacity(0.12), radius: 0, x: 0, y: 2)
