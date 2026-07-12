@@ -1696,6 +1696,11 @@ final class KeyboardEventHandler: ObservableObject {
                 let flags = event.modifierFlags
                 self?.lastMouseHasCommand = flags.contains(.command)
                 self?.lastMouseHasShift = flags.contains(.shift)
+                // applicationDefined 预览：点外部只关预览，不连带关托盘
+                if QLPreviewHelper.shared.isShowing, !QLPreviewHelper.shared.contains(event) {
+                    QLPreviewHelper.shared.dismiss()
+                    return nil
+                }
                 return event
             }
         }

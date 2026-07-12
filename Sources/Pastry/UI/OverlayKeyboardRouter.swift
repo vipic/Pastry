@@ -58,16 +58,26 @@ final class OverlayKeyboardRouter {
                 NotificationCenter.default.post(name: .overlayAlertCancel, object: nil)
                 return nil
             }
-            if owner == .favoriteNoteEditor {
+            if owner == .favoriteNoteEditor
+                || Self.shouldCancelFavoriteNoteEditingOnEscape(
+                    owner: owner,
+                    isSearchActive: isSearchActive(),
+                    textInputFocused: Self.isTextInputFocused()
+                )
+            {
                 NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
+                OverlayPanelManager.shared.noteFavoriteNoteEditingCancelled()
                 return nil
             }
             if OverlayPanelManager.shared.isFilterPopoverActive {
                 NotificationCenter.default.post(name: .overlayCloseFilter, object: nil)
                 return nil
             }
-            if QLPreviewHelper.shared.isShowing {
+            if QLPreviewHelper.shared.shouldConsumeEscape {
                 QLPreviewHelper.shared.dismiss()
+                return nil
+            }
+            if OverlayPanelManager.shared.shouldSwallowOverlayCancel {
                 return nil
             }
             if isSearchActive() {
@@ -273,6 +283,17 @@ final class OverlayKeyboardRouter {
         if responder.isKind(of: NSTextField.self) { return true }
         if responder.isKind(of: NSSearchField.self) { return true }
         return false
+    }
+
+    /// Esc 应取消收藏备注编辑（含 owner 尚未同步、但输入框已聚焦的情况）。
+    static func shouldCancelFavoriteNoteEditingOnEscape(
+        owner: OverlayKeyboardOwner,
+        isSearchActive: Bool,
+        textInputFocused: Bool
+    ) -> Bool {
+        if owner == .favoriteNoteEditor { return true }
+        // 备注 TextField 已聚焦，但 keyboardOwner 尚未切到 favoriteNoteEditor
+        return textInputFocused && !isSearchActive && owner != .searchField
     }
 
     /// 当前输入框是否有 IME 正在拼写（中文拼音等）。

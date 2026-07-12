@@ -101,7 +101,7 @@ struct ClipboardCardView: View {
                 .padding(.vertical, UIConstants.Card.contentVerticalPadding)
             favoriteNoteStrip
                 .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
-                .padding(.bottom, 5)
+                .padding(.bottom, UIConstants.Card.favoriteNoteBottomPadding)
             footerBar
                 .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
                 .padding(.bottom, UIConstants.Card.footerBottomPadding)
@@ -173,6 +173,7 @@ struct ClipboardCardView: View {
         }
         return UIConstants.Stroke.hairline
     }
+
 
     /// ⌘+数字角标 — 按住 ⌘ 时在卡片右下角显示序号
     private func cmdBadge(_ idx: Int) -> some View {
@@ -474,7 +475,15 @@ struct ClipboardCardView: View {
                             .foregroundColor(.primary)
                             .focused($favoriteNoteFocused)
                             .onSubmit { commitFavoriteNote() }
-                            .onExitCommand { cancelFavoriteNoteEditing() }
+                            .onKeyPress(.escape) {
+                                cancelFavoriteNoteEditing()
+                                return .handled
+                            }
+                            .onChange(of: favoriteNoteFocused) { _, focused in
+                                if focused {
+                                    OverlayPanelManager.shared.keyboardOwner = .favoriteNoteEditor
+                                }
+                            }
 
                         Button(action: commitFavoriteNote) {
                             Image(systemName: "checkmark")
@@ -591,9 +600,7 @@ struct ClipboardCardView: View {
         favoriteNoteDraft = favoriteNoteText ?? ""
         isEditingFavoriteNote = false
         favoriteNoteFocused = false
-        if OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
-            OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
-        }
+        OverlayPanelManager.shared.noteFavoriteNoteEditingCancelled()
     }
 
     // MARK: - 底部栏

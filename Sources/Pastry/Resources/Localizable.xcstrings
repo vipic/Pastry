@@ -1752,6 +1752,23 @@
         }
       }
     },
+    "card.link_preview_enable_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可在设置中开启网络预览"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable network preview in Settings"
+          }
+        }
+      }
+    },
     "card.extra_links": {
       "extractionState": "manual",
       "localizations": {

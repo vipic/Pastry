@@ -540,6 +540,30 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
+    func testEscapeCancelsFavoriteNoteWhenTextFieldFocusedEvenIfOwnerStale() {
+        XCTAssertTrue(
+            OverlayKeyboardRouter.shouldCancelFavoriteNoteEditingOnEscape(
+                owner: .overlayNavigation,
+                isSearchActive: false,
+                textInputFocused: true
+            )
+        )
+        XCTAssertFalse(
+            OverlayKeyboardRouter.shouldCancelFavoriteNoteEditingOnEscape(
+                owner: .searchField,
+                isSearchActive: true,
+                textInputFocused: true
+            )
+        )
+        XCTAssertFalse(
+            OverlayKeyboardRouter.shouldCancelFavoriteNoteEditingOnEscape(
+                owner: .overlayNavigation,
+                isSearchActive: false,
+                textInputFocused: false
+            )
+        )
+    }
+
     func testOverlayPanelSilentlyConsumesPrintableKeyThatOpensSearch() {
         XCTAssertEqual(
             ClipboardOverlayPanel.keyRoute(
@@ -668,6 +692,50 @@ final class OverlayPanelManagerTests: XCTestCase {
                 isAlertActive: true
             ),
             .cancel
+        )
+    }
+
+    func testShouldKeepOverlayAfterResignKeyWhilePreviewShowing() {
+        XCTAssertTrue(
+            OverlayPanelManager.shouldKeepOverlayAfterResignKey(
+                isPreviewShowing: true,
+                suppressUntil: 0,
+                now: 100,
+                appIsActive: true
+            )
+        )
+    }
+
+    func testShouldKeepOverlayAfterResignKeyDuringPreviewDismissGrace() {
+        XCTAssertTrue(
+            OverlayPanelManager.shouldKeepOverlayAfterResignKey(
+                isPreviewShowing: false,
+                suppressUntil: 100.4,
+                now: 100.1,
+                appIsActive: true
+            )
+        )
+    }
+
+    func testShouldHideOverlayAfterResignKeyWhenAppInactive() {
+        XCTAssertFalse(
+            OverlayPanelManager.shouldKeepOverlayAfterResignKey(
+                isPreviewShowing: true,
+                suppressUntil: 200,
+                now: 100,
+                appIsActive: false
+            )
+        )
+    }
+
+    func testShouldHideOverlayAfterResignKeyWhenIdle() {
+        XCTAssertFalse(
+            OverlayPanelManager.shouldKeepOverlayAfterResignKey(
+                isPreviewShowing: false,
+                suppressUntil: 50,
+                now: 100,
+                appIsActive: true
+            )
         )
     }
 

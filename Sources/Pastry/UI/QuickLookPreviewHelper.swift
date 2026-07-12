@@ -17,9 +17,24 @@ final class QLPreviewHelper: NSObject {
     private var previewView: QLPreviewView?
     private var closeObserver: NSObjectProtocol?
     private var currentMetadata: PreviewMetadata?
+    /// dismiss() 同步执行期间为 true，防止 close 重入的 Esc 把托盘一并关掉。
+    private(set) var isDismissing = false
 
     /// 是否有预览 popover 正在显示
     var isShowing: Bool { popover != nil }
+
+    /// Esc 应只关预览（显示中或正在关掉）。
+    var shouldConsumeEscape: Bool { isShowing || isDismissing }
+
+    /// 事件是否落在预览内容窗口内（用于点击外部只关预览）。
+    func contains(_ event: NSEvent) -> Bool {
+        guard let contentView = popover?.contentViewController?.view,
+              let previewWindow = contentView.window,
+              event.window === previewWindow
+        else { return false }
+        let point = contentView.convert(event.locationInWindow, from: nil)
+        return contentView.bounds.contains(point)
+    }
 
     /// 以 popover 形式预览文件（三角指向源卡片，不影响面板 key 状态）
     func showPreview(metadata: PreviewMetadata, from sourceView: NSView) {
@@ -45,7 +60,9 @@ final class QLPreviewHelper: NSObject {
 
         let p = NSPopover()
         p.contentViewController = vc
-        p.behavior = .transient
+        // applicationDefined：Esc 不由系统吞掉关 popover，避免关掉后 isShowing=false
+        // 再落到「关托盘」；Esc 由 Overlay 键盘路由逐层收起。
+        p.behavior = .applicationDefined
         p.animates = true
 
         closeObserver = NotificationCenter.default.addObserver(
@@ -59,14 +76,26 @@ final class QLPreviewHelper: NSObject {
     }
 
     func dismiss() {
+        guard !isDismissing else { return }
+        let wasShowing = popover != nil
+        guard wasShowing || closeObserver != nil else { return }
+
+        isDismissing = true
+        defer { isDismissing = false }
+
         if let observer = closeObserver {
             NotificationCenter.default.removeObserver(observer)
             closeObserver = nil
         }
-        popover?.close()
+        let closing = popover
         popover = nil
         previewView = nil
         currentMetadata = nil
+        // 先登记宽限再 close：close 会让定位面板 resignKey，此时 isShowing 已是 false。
+        if wasShowing {
+            OverlayPanelManager.shared.notePreviewDismissed()
+        }
+        closing?.close()
     }
 
     private func shareFromContainer() {

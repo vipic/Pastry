@@ -110,6 +110,7 @@ final class ClipboardOverlayPanel: NSPanel {
         }
         if OverlayPanelManager.shared.keyboardOwner == .favoriteNoteEditor {
             NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
+            OverlayPanelManager.shared.noteFavoriteNoteEditingCancelled()
             return
         }
         if OverlayPanelManager.shared.keyboardOwner == .searchField {
@@ -226,6 +227,7 @@ final class ClipboardOverlayPanel: NSPanel {
 
     private func routeFavoriteNoteCancelKey() {
         NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
+        OverlayPanelManager.shared.noteFavoriteNoteEditingCancelled()
     }
 
     private func routeSelectAllKey() {
@@ -241,8 +243,10 @@ final class ClipboardOverlayPanel: NSPanel {
             NotificationCenter.default.post(name: .overlayAlertCancel, object: nil)
         } else if OverlayPanelManager.shared.isFilterPopoverActive {
             NotificationCenter.default.post(name: .overlayCloseFilter, object: nil)
-        } else if QLPreviewHelper.shared.isShowing {
+        } else if QLPreviewHelper.shared.shouldConsumeEscape {
             QLPreviewHelper.shared.dismiss()
+        } else if OverlayPanelManager.shared.shouldSwallowOverlayCancel {
+            return
         } else if OverlayPanelManager.shared.isSearchActive {
             NotificationCenter.default.post(name: .overlayCloseSearch, object: nil)
         } else {
@@ -277,6 +281,10 @@ final class OverlayPanelManager: @unchecked Sendable {
     private var isPasting = false
     private var isDragThrough = false
     private var panelResignKeyObserver: NSObjectProtocol?
+    /// 关掉预览后 popover.close() 会让面板失焦；短暂忽略 resignKey→hide，避免 Esc 连带关托盘。
+    private var suppressResignKeyHideUntil: CFAbsoluteTime = 0
+    /// 同一按键可能同时走 monitor / cancelOperation / keyEquivalent；预览关掉后极短吞掉重复 cancel。
+    private var swallowOverlayCancelUntil: CFAbsoluteTime = 0
     private lazy var keyboardRouter = OverlayKeyboardRouter(
         isAlertActive: { [weak self] in self?.alertActive ?? false },
         isSearchActive: { [weak self] in self?.isSearchActive ?? false },
@@ -318,6 +326,44 @@ final class OverlayPanelManager: @unchecked Sendable {
         NotificationCenter.default.post(name: .overlayDidHide, object: nil)
         DeveloperDiagnostics.record(DiagnosticsEvent.overlayDismiss)
         log.info("覆盖层已关闭")
+    }
+
+    /// 预览关掉后把 key 夺回托盘，避免下一次 Esc 落到别处。
+    func makePanelKey() {
+        panel?.makeKey()
+    }
+
+    /// Esc/点击关闭预览时调用：popover.close() 触发的 resignKey 不应连带 hide 托盘。
+    func notePreviewDismissed() {
+        let now = CFAbsoluteTimeGetCurrent()
+        suppressResignKeyHideUntil = now + 0.45
+        swallowOverlayCancelUntil = now + 0.05
+        makePanelKey()
+    }
+
+    /// 预览刚被同一 Esc 关掉时，吞掉级联的第二次 cancel（勿关托盘）。
+    var shouldSwallowOverlayCancel: Bool {
+        CFAbsoluteTimeGetCurrent() < swallowOverlayCancelUntil
+    }
+
+    /// Esc 取消备注编辑后：吞掉同一次按键级联的关托盘，并夺回 key。
+    func noteFavoriteNoteEditingCancelled() {
+        swallowOverlayCancelUntil = CFAbsoluteTimeGetCurrent() + 0.2
+        if keyboardOwner == .favoriteNoteEditor {
+            keyboardOwner = .overlayNavigation
+        }
+        makePanelKey()
+    }
+
+    /// 失焦是否应保留托盘（预览显示中，或刚关掉预览的宽限期内且 App 仍活跃）。
+    static func shouldKeepOverlayAfterResignKey(
+        isPreviewShowing: Bool,
+        suppressUntil: CFAbsoluteTime,
+        now: CFAbsoluteTime,
+        appIsActive: Bool
+    ) -> Bool {
+        guard appIsActive else { return false }
+        return isPreviewShowing || now < suppressUntil
     }
 
     /// Quick Look popover 的兜底锚点（卡片未渲染时用面板 contentView）。
@@ -584,12 +630,26 @@ final class OverlayPanelManager: @unchecked Sendable {
         }
         Self.hotkeyFiredAt = nil
 
-        // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起（拖拽穿透期间除外）
+        // 面板失焦（Cmd+Tab / 点其他 App）→ 自动收起（拖拽穿透 / 预览关合抢焦点除外）
         panelResignKeyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: newPanel, queue: .main
         ) { [weak self] _ in
             guard let self, !self.isPasting, !self.alertActive, !self.isDragThrough else { return }
-            DispatchQueue.main.async { self.hide() }
+            DispatchQueue.main.async {
+                if Self.shouldKeepOverlayAfterResignKey(
+                    isPreviewShowing: QLPreviewHelper.shared.isShowing,
+                    suppressUntil: self.suppressResignKeyHideUntil,
+                    now: CFAbsoluteTimeGetCurrent(),
+                    appIsActive: NSApp.isActive
+                ) {
+                    self.panel?.makeKey()
+                    return
+                }
+                if QLPreviewHelper.shared.isShowing {
+                    QLPreviewHelper.shared.dismiss()
+                }
+                self.hide()
+            }
         }
 
         self.panel = newPanel
@@ -605,6 +665,9 @@ final class OverlayPanelManager: @unchecked Sendable {
             panelResignKeyObserver = nil
         }
         removeKeyboardMonitor()
+        QLPreviewHelper.shared.dismiss()
+        suppressResignKeyHideUntil = 0
+        swallowOverlayCancelUntil = 0
         isDragThrough = false
         panel?.ignoresMouseEvents = false
         panel?.orderOut(nil)

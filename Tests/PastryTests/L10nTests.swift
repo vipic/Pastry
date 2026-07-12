@@ -109,6 +109,7 @@ final class L10nTests: XCTestCase {
             "settings.developer_diagnostics_hint",
             "settings.excluded_remove",
             "card.selected",
+            "card.link_preview_enable_hint",
             "delete.confirm_title",
             "delete.confirm_msg",
             "delete.confirm_msg_with_favorites",

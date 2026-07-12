@@ -9,6 +9,8 @@ enum UIConstants {
         static let contentHorizontalPadding: CGFloat = 10
         static let contentVerticalPadding: CGFloat = 6
         static let footerBottomPadding: CGFloat = 8
+        /// 备注与 footer / hover 操作之间的间距
+        static let favoriteNoteBottomPadding: CGFloat = 12
         static let idleBorderOpacity: CGFloat = 0.08
         static let hoverBorderOpacity: CGFloat = 0.15
         static let selectedBorderWidth: CGFloat = Stroke.emphasis

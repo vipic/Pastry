@@ -6,6 +6,8 @@ import Cocoa
 struct ClipboardLinkContentView: View {
     let preview: LinkPreviewLoader.Preview?
     let text: ClipboardCardView.LinkCardText
+    @AppStorage(UserDefaultsKeys.linkPreviewNetworkEnabled)
+    private var linkPreviewNetworkEnabled = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,10 +58,35 @@ struct ClipboardLinkContentView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                Image(systemName: "link")
-                    .font(.system(size: UIConstants.TypeSize.subhead, weight: .light))
-                    .foregroundColor(.secondary.opacity(0.35))
+                if linkPreviewNetworkEnabled {
+                    Image(systemName: "link")
+                        .font(.system(size: UIConstants.TypeSize.subhead, weight: .light))
+                        .foregroundColor(.secondary.opacity(0.35))
+                } else {
+                    Button(action: openLinkPreviewNetworkSettings) {
+                        Text(L10n["card.link_preview_enable_hint"])
+                            .font(.system(size: UIConstants.TypeSize.caption2, weight: .medium))
+                            .foregroundColor(.secondary.opacity(0.72))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                            .padding(.horizontal, 10)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(L10n["card.link_preview_enable_hint"])
+                    .onHover { hovering in
+                        if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                    }
+                }
             }
+        }
+    }
+
+    private func openLinkPreviewNetworkSettings() {
+        OverlayPanelManager.shared.hide()
+        DispatchQueue.main.async {
+            AppDelegate.shared?.openSettingsWindow(selectedTab: .security)
         }
     }
 }
