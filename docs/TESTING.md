@@ -30,7 +30,18 @@ swift test
 swift test --filter StoreManagerTests
 swift test --filter ClipboardCardSnapshotTests
 swift test --filter UpdateCheckerTests
+swift test --filter SelectionStateTests
+swift test --filter OverlayInteractionModelTests
 ```
+
+### 面板多选交互（防回归）
+
+鼠标 ⌘ 多选 / ⇧ 区间选的**纯逻辑**在：
+
+- `SelectionStateTests`：`handleTap` 与键盘 extend 的状态机
+- `OverlayInteractionModelTests`：修饰键合并、点击管线、**空白 clear 不得与卡片击 simultaneous**
+
+改托盘 `onTapGesture` / `simultaneousGesture` 或卡片点击时务必跑这两组。SwiftUI 手势组合本身很难单测，因此把约定抽到 `OverlayInteractionModel.shouldClearSelectionOnTrayBackgroundTap` 用单测锁住。
 
 ## 脚本语法检查
 

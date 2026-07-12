@@ -601,8 +601,16 @@ struct OverlayView: View {
         .shadow(color: .black.opacity(0.24), radius: 16, x: 0, y: 10)
         .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
         .contentShape(Rectangle())
-        // simultaneous：避免父级 Tap 手势抢走 ScrollView 的滚轮/拖动手势
-        .simultaneousGesture(TapGesture().onEnded { selection.reset() })
+        // 仅空白区清空选择。必须用 onTapGesture 而非 simultaneousGesture：
+        // simultaneous 会与卡片点击一并触发，把 ⌘/⇧ 多选立刻 reset 掉。
+        // 策略见 OverlayInteractionModel.shouldClearSelectionOnTrayBackgroundTap + 单测回归。
+        .onTapGesture {
+            if OverlayInteractionModel.shouldClearSelectionOnTrayBackgroundTap(
+                cardClickHandledThisEvent: false
+            ) {
+                selection.reset()
+            }
+        }
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.cardContainer)
         .onChange(of: displayItems.count) { _, count in
             stripScrollIndex = min(stripScrollIndex, max(0, count - 1))
@@ -1013,12 +1021,17 @@ struct OverlayView: View {
         return result
     }
 
-    /// 卡片单击：委托给 SelectionState
+    /// 卡片单击：委托可测管线（修饰键解析 + SelectionState）
     private func handleCardTap(_ item: ClipboardItem) {
-        selection.handleTap(
+        // 优先当前点击事件修饰键；mouseDown monitor 作兜底（gesture 时 currentEvent 偶发丢失 flags）
+        let flags = NSApp.currentEvent?.modifierFlags ?? []
+        OverlayInteractionModel.applyCardClick(
+            selection: &selection,
             item: item,
-            cmdDown: keyHandler.lastMouseHasCommand,
-            shiftDown: keyHandler.lastMouseHasShift,
+            eventCommand: flags.contains(.command),
+            eventShift: flags.contains(.shift),
+            monitoredCommand: keyHandler.lastMouseHasCommand,
+            monitoredShift: keyHandler.lastMouseHasShift,
             visibleItems: visibleItems
         )
     }
