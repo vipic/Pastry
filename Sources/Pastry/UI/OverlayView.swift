@@ -505,8 +505,7 @@ struct OverlayView: View {
                     .frame(minWidth: 14, minHeight: 14)
                     .background(
                         Circle()
-                            .fill(Color(red: 0.90, green: 0.70, blue: 0.40))
-                            .shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1)
+                            .fill(Color.pastryWarmAccent)
                     )
                     .offset(x: 4, y: -4)
                     .transition(.scale(scale: 0.72).combined(with: .opacity))
@@ -991,7 +990,6 @@ struct OverlayView: View {
                 Text(model.title)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white.opacity(0.90))
-                    .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
 
                 Text(model.subtitle)
                     .font(.system(size: 12))
@@ -1013,26 +1011,7 @@ struct OverlayView: View {
 
     private func emptyStateIconBackground(accent: Color) -> some View {
         RoundedRectangle(cornerRadius: 13, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        accent.opacity(0.80),
-                        accent.opacity(0.46)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .stroke(.black.opacity(0.14), lineWidth: 0.5)
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(.white.opacity(0.22), lineWidth: 0.5)
-                        .padding(1)
-                }
-            )
-            .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 5)
+            .fill(accent.opacity(0.72))
     }
 
     private func emptyStateIconColor(icon: String) -> Color {
