@@ -135,6 +135,28 @@ final class OverlayKeyboardRouter {
             return nil
         }
 
+        // ⌘C 复制选中（不关闭面板）
+        if event.keyCode == 8, event.modifierFlags.contains(.command),
+           event.modifierFlags.intersection([.shift, .option, .control]).isEmpty {
+            NotificationCenter.default.post(name: .overlayCopySelected, object: nil)
+            return nil
+        }
+
+        // ⌘P 切换收藏
+        if event.keyCode == 35, event.modifierFlags.contains(.command),
+           event.modifierFlags.intersection([.shift, .option, .control]).isEmpty {
+            NotificationCenter.default.post(name: .overlayToggleFavorite, object: nil)
+            return nil
+        }
+
+        // Space 预览光标项（不进搜索；搜索框拥有键盘时已在上方放行）
+        if event.keyCode == 49,
+           event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
+            if isSearchActive() { return event }
+            NotificationCenter.default.post(name: .overlayPreviewCursor, object: nil)
+            return nil
+        }
+
         // Delete / Forward Delete — 若焦点在文本输入框则放行
         if event.keyCode == 51 || event.keyCode == 117 {
             if Self.isTextInputFocused() { return event }

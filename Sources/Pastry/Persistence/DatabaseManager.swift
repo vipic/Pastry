@@ -336,12 +336,19 @@ final class DatabaseManager {
 
     enum InsertResult: Equatable {
         case inserted
-        case replaced(oldID: String)
+        /// 去重置顶：旧 id + 从旧记录继承的收藏字段（新复制项本身通常未收藏）
+        case replaced(
+            oldID: String,
+            isPinned: Bool,
+            favoriteNote: String?,
+            favoriteNoteUpdatedAt: Date?
+        )
         case skippedDuplicate
         case skipped
     }
 
-    /// 插入新项（去重）。重复内容会删除旧记录并置顶（新时间戳 + 新来源）。
+    /// 插入新项（去重）。重复内容会删除旧记录并置顶（新时间戳 + 新来源），
+    /// 但保留旧记录的收藏标记与备注。
     @discardableResult
     func insert(_ item: ClipboardItem) -> InsertResult {
         lock.lock()
@@ -349,14 +356,36 @@ final class DatabaseManager {
         let key = item.dedupKey
         let now = Date()
 
-        // 跨历史去重：查找相同 dedupKey 的旧记录
+        // 跨历史去重：查找相同 dedupKey 的旧记录（含收藏字段）
         var oldID: String?
-        let findSQL = "SELECT id FROM clips WHERE dedup_key = ? LIMIT 1;"
+        var preservedPinned = item.isPinned
+        var preservedNote = item.favoriteNote
+        var preservedNoteUpdatedAt = item.favoriteNoteUpdatedAt
+        let findSQL = """
+        SELECT id, is_favorite, favorite_note, favorite_note_updated_at
+        FROM clips WHERE dedup_key = ? LIMIT 1;
+        """
         var findStmt: OpaquePointer?
         if sqlite3_prepare_v2(db, findSQL, -1, &findStmt, nil) == SQLITE_OK {
             sqlite3_bind_text(findStmt, 1, (key as NSString).utf8String, -1, nil)
             if sqlite3_step(findStmt) == SQLITE_ROW {
                 oldID = String(cString: sqlite3_column_text(findStmt, 0))
+                // 旧记录已收藏则保留；新项若本身带收藏（极少）也 OR 保留
+                if sqlite3_column_int(findStmt, 1) != 0 {
+                    preservedPinned = true
+                }
+                if let notePtr = sqlite3_column_text(findStmt, 2) {
+                    let oldNote = String(cString: notePtr)
+                    if preservedNote == nil || preservedNote?.isEmpty == true {
+                        preservedNote = oldNote
+                    }
+                }
+                if sqlite3_column_type(findStmt, 3) != SQLITE_NULL {
+                    let oldUpdated = Date(timeIntervalSince1970: sqlite3_column_double(findStmt, 3))
+                    if preservedNoteUpdatedAt == nil {
+                        preservedNoteUpdatedAt = oldUpdated
+                    }
+                }
             }
             sqlite3_finalize(findStmt)
         }
@@ -389,7 +418,7 @@ final class DatabaseManager {
         let imageURLsJSON = item.imageURLs.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) }
         sqlite3_bind_text(stmt, 7, (imageURLsJSON as NSString?)?.utf8String ?? nil, -1, nil)
         sqlite3_bind_text(stmt, 8, (item.segmentsJSON as NSString?)?.utf8String ?? nil, -1, nil)
-        sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0)
+        sqlite3_bind_int(stmt, 9, preservedPinned ? 1 : 0)
         sqlite3_bind_int(stmt, 10, Int32(item.displayCount))
         sqlite3_bind_int(stmt, 11, item.isHandoff ? 1 : 0)
         if let rawData = item.rawFormatData {
@@ -411,12 +440,12 @@ final class DatabaseManager {
         } else {
             sqlite3_bind_null(stmt, 16)
         }
-        if let note = item.favoriteNote {
+        if let note = preservedNote {
             sqlite3_bind_text(stmt, 17, (note as NSString).utf8String, -1, nil)
         } else {
             sqlite3_bind_null(stmt, 17)
         }
-        if let updatedAt = item.favoriteNoteUpdatedAt {
+        if let updatedAt = preservedNoteUpdatedAt {
             sqlite3_bind_double(stmt, 18, updatedAt.timeIntervalSince1970)
         } else {
             sqlite3_bind_null(stmt, 18)
@@ -437,7 +466,14 @@ final class DatabaseManager {
         lastKey = key
         lastKeyTime = now
 
-        if let oldID { return .replaced(oldID: oldID) }
+        if let oldID {
+            return .replaced(
+                oldID: oldID,
+                isPinned: preservedPinned,
+                favoriteNote: preservedNote,
+                favoriteNoteUpdatedAt: preservedNoteUpdatedAt
+            )
+        }
         return .inserted
     }
 

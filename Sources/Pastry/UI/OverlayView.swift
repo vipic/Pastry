@@ -28,6 +28,12 @@ extension Notification.Name {
     static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
     static let overlaySearchEnterPaste = Notification.Name("overlaySearchEnterPaste")
     static let overlayCancelFavoriteNoteEditing = Notification.Name("overlayCancelFavoriteNoteEditing")
+    /// Space：预览光标项（userInfo["id"]: UUID）
+    static let overlayPreviewCursor = Notification.Name("overlayPreviewCursor")
+    /// ⌘C：复制当前选中（不关闭面板）
+    static let overlayCopySelected = Notification.Name("overlayCopySelected")
+    /// ⌘P：切换选中条目收藏
+    static let overlayToggleFavorite = Notification.Name("overlayToggleFavorite")
     /// 粘贴因缺少辅助功能权限被中止 — 刷新托盘 banner
     static let overlayAccessibilityDenied = Notification.Name("overlayAccessibilityDenied")
     /// userInfo["delta"]: CGFloat — 横向卡带滚动量（已按侧滚轮/竖滚轮统一）
@@ -206,6 +212,15 @@ struct OverlayView: View {
             .onReceive(NotificationCenter.default.publisher(for: .overlaySearchEnterPaste)) { _ in
                 handleSearchEnterPaste()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayPreviewCursor)) { _ in
+                handlePreviewCursor()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayCopySelected)) { _ in
+                handleCopySelected()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayToggleFavorite)) { _ in
+                handleToggleFavorite()
+            }
             .onChange(of: showSearch) { onShowSearchChanged() }
             .onChange(of: showFilterPopover) { _, isPresented in
                 OverlayPanelManager.shared.isFilterPopoverActive = isPresented
@@ -269,27 +284,70 @@ struct OverlayView: View {
         requestDelete(ids: selection.selectedIds)
     }
 
-    /// 多选复制：拼接选中条目文本写回系统剪贴板，不关闭面板、不触发粘贴。
+    /// 复制选中：写回系统剪贴板，不关闭面板、不触发粘贴。
     private func handleCopySelected() {
         guard !showDeleteConfirm else { return }
-        let ids = selection.selectedIds
-        guard ids.count > 1 else {
-            SoundFeedback.invalidAction()
-            return
-        }
-        let targets = store.items.filter { ids.contains($0.id) }
+        let targets = OverlayInteractionModel.copyTargets(
+            allItems: store.items,
+            selectedIds: selection.selectedIds
+        )
         guard !targets.isEmpty else {
             SoundFeedback.invalidAction()
             return
         }
-        let lines = targets.map { target in
-            if target.sourceFormat == .fileURL || target.sourceFormat == .image {
-                return target.content
-            }
-            return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
+        ClipboardCardView.writeCopyTargets(targets)
+    }
+
+    /// ⌘P：切换选中条目收藏（多选时整批设为与光标/首项相反状态）。
+    private func handleToggleFavorite() {
+        guard !showDeleteConfirm else { return }
+        let ids = selection.selectedIds
+        guard !ids.isEmpty else {
+            SoundFeedback.invalidAction()
+            return
         }
-        PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
-        DeveloperDiagnostics.record(DiagnosticsEvent.copy)
+        let selected = OverlayInteractionModel.selectedItems(
+            visibleItems: visibleItems,
+            selectedIds: ids
+        )
+        guard let reference = OverlayInteractionModel.cursorPreviewItem(
+            visibleItems: visibleItems,
+            selectedIds: ids,
+            cursorIndex: selection.cursorIndex
+        ) ?? selected.first else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        if ids.count > 1 {
+            store.setPinForSelected(ids, pinned: !reference.isPinned)
+        } else {
+            store.togglePin(reference)
+        }
+    }
+
+    /// Space：预览光标项（多选时仍只预览光标那一张）。
+    private func handlePreviewCursor() {
+        guard !showDeleteConfirm else { return }
+        guard let item = OverlayInteractionModel.cursorPreviewItem(
+            visibleItems: visibleItems,
+            selectedIds: selection.selectedIds,
+            cursorIndex: selection.cursorIndex
+        ) else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        guard let metadata = ClipboardItemPreviewBuilder.makeMetadata(for: item) else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        let anchor = CardPreviewAnchorRegistry.view(for: item.id)
+            ?? OverlayPanelManager.shared.previewAnchorView()
+        guard let anchor else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        QLPreviewHelper.shared.showPreview(metadata: metadata, from: anchor)
+        DeveloperDiagnostics.record(DiagnosticsEvent.preview)
     }
 
     private func handleCommandPaste(_ note: Notification) {
@@ -830,19 +888,28 @@ struct OverlayView: View {
             let isHover = hoverTab == tab
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: showSearch ? UIConstants.TypeSize.callout : UIConstants.TypeSize.label))
+                    .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
+                    .frame(
+                        width: showSearch
+                            ? UIConstants.Overlay.toolbarButtonSize
+                            : UIConstants.TypeSize.body + 2,
+                        alignment: .center
+                    )
                 if !showSearch {
                     Text(label)
                         .font(.system(size: UIConstants.TypeSize.label))
+                        .lineLimit(1)
                 }
             }
-            .padding(.horizontal, showSearch ? 6 : 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, showSearch ? 0 : 10)
+            .padding(.vertical, showSearch ? 0 : 4)
             .frame(height: UIConstants.Overlay.toolbarButtonSize)
             .foregroundColor(toolbarForeground(isActive: isSelected, isHovered: isHover))
             .background(toolbarButtonBackground(isActive: isSelected, isHovered: isHover))
         }
         .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
         .scaleEffect(toolbarHoverScale(isHovered: hoverTab == tab))
         .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverTab)
         .accessibilityIdentifier(tab == .all ? AccessibilityIdentifiers.Overlay.allTab : AccessibilityIdentifiers.Overlay.pinnedTab)

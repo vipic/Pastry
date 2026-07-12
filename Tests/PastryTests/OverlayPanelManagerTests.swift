@@ -670,4 +670,57 @@ final class OverlayPanelManagerTests: XCTestCase {
             .cancel
         )
     }
+
+    func testOverlayPanelConsumesSpaceForPreviewWhenSearchInactive() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 49,
+                chars: " ",
+                isSearchActive: false
+            ),
+            .consume
+        )
+    }
+
+    func testOverlayPanelDoesNotConsumeSpaceWhenSearchActive() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 49,
+                chars: " ",
+                isSearchActive: true
+            ),
+            .system
+        )
+    }
+
+    func testOverlayPanelConsumesCommandCAndCommandPWhenNavigating() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 8,
+                isSearchActive: false,
+                modifierFlags: .command
+            ),
+            .consume
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 35,
+                isSearchActive: false,
+                modifierFlags: .command
+            ),
+            .consume
+        )
+    }
+
+    func testOverlayPanelLetsSearchFieldHandleCommandC() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 8,
+                isSearchActive: true,
+                modifierFlags: .command,
+                keyboardOwner: .searchField
+            ),
+            .system
+        )
+    }
 }

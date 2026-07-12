@@ -174,9 +174,17 @@ final class ClipboardOverlayPanel: NSPanel {
             return .selectAll
         }
 
+        // ⌘C / ⌘P：导航态消费；搜索框拥有键盘时 ⌘C 已在上方放行给 TextField
+        if modifierFlags.contains(.command),
+           modifierFlags.intersection([.shift, .option, .control]).isEmpty,
+           keyCode == 8 || keyCode == 35 {
+            return .consume
+        }
+
         guard !isSearchActive else { return .system }
 
-        if keyCode == 36 || keyCode == 51 || keyCode == 117 {
+        // Space / Enter / Delete / 方向键 / ⌘数字
+        if keyCode == 49 || keyCode == 36 || keyCode == 51 || keyCode == 117 {
             return .consume
         }
         if modifierFlags.contains(.command), OverlayKeyboardRouter.cmdNumberIndex(keyCode: keyCode) != nil {
@@ -310,6 +318,11 @@ final class OverlayPanelManager: @unchecked Sendable {
         NotificationCenter.default.post(name: .overlayDidHide, object: nil)
         DeveloperDiagnostics.record(DiagnosticsEvent.overlayDismiss)
         log.info("覆盖层已关闭")
+    }
+
+    /// Quick Look popover 的兜底锚点（卡片未渲染时用面板 contentView）。
+    func previewAnchorView() -> NSView? {
+        panel?.contentView
     }
 
     @MainActor

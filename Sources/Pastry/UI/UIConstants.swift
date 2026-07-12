@@ -14,6 +14,13 @@ enum UIConstants {
         static let selectedBorderWidth: CGFloat = Stroke.emphasis
         static let animationDuration = Motion.fast
         static let pasteScale: CGFloat = 0.95
+        /// Hover 轻操作：与 footer `caption2` 字阶协调
+        static let hoverActionIconSize = TypeSize.caption2
+        static let hoverActionSize: CGFloat = 18
+        static let hoverActionSpacing: CGFloat = 2
+        static let hoverActionCornerRadius = Radius.xs
+        /// footer 右侧预留：3×size + 2×spacing + 余量
+        static let hoverActionReserveWidth: CGFloat = 62
     }
 
     enum Overlay {

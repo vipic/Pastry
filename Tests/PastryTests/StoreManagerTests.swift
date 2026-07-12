@@ -247,6 +247,30 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertTrue(store.hasActiveFilters)
     }
 
+    /// 无结果搜索清空后，应立刻恢复列表，不能等防抖（否则会闪「无历史」空状态）。
+    func testClearingSearchQueryRestoresItemsImmediately() async throws {
+        store = makeStoreWithItems([
+            ("hello", .text, nil, false, 0),
+            ("world", .text, nil, false, 0),
+        ])
+        store.searchQuery = "nomatch-zzzz"
+        try await Task.sleep(nanoseconds: 350_000_000)
+        XCTAssertTrue(store.filteredItems.isEmpty, "无匹配时应为空")
+
+        store.searchQuery = ""
+        XCTAssertEqual(store.filteredItems.count, 2, "清空搜索应同步恢复，不应仍为空")
+        XCTAssertFalse(
+            OverlayInteractionModel.hasActiveFilters(
+                searchQuery: store.searchQuery,
+                typeFilter: store.typeFilter,
+                appFilter: store.appFilter,
+                timeFilter: store.timeFilter,
+                urlFilter: store.urlFilter,
+                handoffFilter: store.handoffFilter
+            )
+        )
+    }
+
     func testHasActiveFiltersWhenTypeSet() {
         store = makeStoreWithItems([("A", .text, nil, false, 0)])
         store.typeFilter = .image

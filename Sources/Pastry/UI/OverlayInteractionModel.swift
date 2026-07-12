@@ -71,6 +71,27 @@ enum OverlayInteractionModel {
         visibleItems.filter { selectedIds.contains($0.id) }
     }
 
+    /// Space 预览目标：光标项；无光标时回退到可见选中的第一项。
+    static func cursorPreviewItem(
+        visibleItems: [ClipboardItem],
+        selectedIds: Set<UUID>,
+        cursorIndex: Int?
+    ) -> ClipboardItem? {
+        if let cursorIndex, cursorIndex >= 0, cursorIndex < visibleItems.count {
+            return visibleItems[cursorIndex]
+        }
+        return selectedItems(visibleItems: visibleItems, selectedIds: selectedIds).first
+    }
+
+    /// ⌘C / 工具栏复制的目标列表（保持可见顺序）。
+    static func copyTargets(
+        allItems: [ClipboardItem],
+        selectedIds: Set<UUID>
+    ) -> [ClipboardItem] {
+        guard !selectedIds.isEmpty else { return [] }
+        return allItems.filter { selectedIds.contains($0.id) }
+    }
+
     /// 可见列表 ID 序列变化时（删除 / 搜索 / 筛选 / 新条目），应重新默认选中第一张。
     static func shouldReselectFirstAfterVisibleIdsChange(
         oldIds: [UUID],

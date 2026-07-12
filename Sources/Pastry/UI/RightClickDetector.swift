@@ -10,18 +10,24 @@ final class _MenuHandler: NSObject {
 
 // MARK: - 右键检测器（hitTest 拦截 → NSMenu.popUp）
 struct RightClickDetector: NSViewRepresentable {
+    var onViewReady: ((NSView) -> Void)? = nil
     let onRightClick: (NSView, NSEvent) -> Void
 
     func makeNSView(context: Context) -> _DetectorView {
         let v = _DetectorView()
         v.onRightClick = onRightClick
         context.coordinator.view = v
+        DispatchQueue.main.async { [weak v] in
+            guard let v else { return }
+            onViewReady?(v)
+        }
         return v
     }
 
     func updateNSView(_ nsView: _DetectorView, context: Context) {
         nsView.onRightClick = onRightClick
         context.coordinator.view = nsView
+        onViewReady?(nsView)
     }
 
     func makeCoordinator() -> Coordinator {

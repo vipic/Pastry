@@ -62,15 +62,23 @@ extension ClipboardCardView {
     }
 
     /// 复制到系统剪贴板（不隐藏面板、不触发粘贴）。
-    /// 多选且右键落在选中集合内 → 复制全部选中；否则只复制本卡。
-    private func copyItem() {
+    /// 多选且右键/轻操作落在选中集合内 → 复制全部选中；否则只复制本卡。
+    func copyItem() {
         let targets: [ClipboardItem]
         if selectedIds.count > 1, selectedIds.contains(item.id) {
-            targets = StoreManager.shared.items.filter { selectedIds.contains($0.id) }
+            targets = OverlayInteractionModel.copyTargets(
+                allItems: StoreManager.shared.items,
+                selectedIds: selectedIds
+            )
         } else {
             targets = [item]
         }
+        Self.writeCopyTargets(targets)
+    }
 
+    /// 将条目写回系统剪贴板（单条保留原格式，多条拼纯文本）。
+    static func writeCopyTargets(_ targets: [ClipboardItem]) {
+        guard !targets.isEmpty else { return }
         if targets.count == 1 {
             Task {
                 _ = await PasteboardWriter.write(targets[0], options: .storeSingle)
@@ -246,84 +254,8 @@ extension ClipboardCardView {
     }
 
     /// Quick Look 预览（popover 浮动预览，三角指向卡片，面板保持可见）
-    private func previewItem(from sourceView: NSView) {
-        let metadata: QLPreviewHelper.PreviewMetadata
-
-        if let url = openableURL {
-            switch item.sourceFormat {
-            case .fileURL:
-                let fileName = (item.content as NSString).lastPathComponent
-                let ext = (fileName as NSString).pathExtension.uppercased()
-                metadata = QLPreviewHelper.PreviewMetadata(
-                    url: url, displayName: fileName,
-                    fileType: ext.isEmpty ? L10n["filetype.file"] : ext,
-                    infoText: fileName, isLocalFile: true
-                )
-            case .image:
-                let fileName = url.lastPathComponent
-                let ext = (fileName as NSString).pathExtension.uppercased()
-                // 旧缓存 .orig 无可识别扩展名，Quick Look 需要转成临时 PNG。
-                let previewURL: URL = {
-                    guard url.pathExtension == "orig" else { return url }
-                    guard let origPath = ImageCacheManager.shared.originalPath(forThumbnail: item.content),
-                          let origData = try? Data(contentsOf: URL(fileURLWithPath: origPath)),
-                          let origImage = NSImage(data: origData),
-                          let tiff = origImage.tiffRepresentation,
-                          let bitmap = NSBitmapImageRep(data: tiff),
-                          let png = bitmap.representation(using: .png, properties: [:])
-                    else { return url }
-                    let tmp = FileManager.default.temporaryDirectory
-                        .appendingPathComponent("pastry_preview_\(UUID().uuidString.prefix(8)).png")
-                    try? png.write(to: tmp)
-                    return tmp
-                }()
-                metadata = QLPreviewHelper.PreviewMetadata(
-                    url: previewURL, displayName: fileName,
-                    fileType: ext.isEmpty ? L10n["filetype.image"] : ext,
-                    infoText: fileName, isLocalFile: true
-                )
-            case .text, .rtf, .html:
-                let host = url.host ?? ""
-                metadata = QLPreviewHelper.PreviewMetadata(
-                    url: url, displayName: host,
-                    fileType: L10n["filetype.link"],
-                    infoText: url.absoluteString, isLocalFile: false
-                )
-            }
-        } else if isTextType {
-            // 纯文本 / RTF / HTML：写临时文件供 QLPreviewView 预览
-            let ext: String
-            let typeLabel: String
-            switch item.sourceFormat {
-            case .rtf:  ext = "rtf";  typeLabel = "RTF"
-            case .html: ext = "html"; typeLabel = "HTML"
-            default:    ext = "txt";  typeLabel = L10n["filetype.text"]
-            }
-            let tmpDir = FileManager.default.temporaryDirectory
-            let tmpFile = tmpDir.appendingPathComponent("pastry_preview_\(UUID().uuidString.prefix(8)).\(ext)")
-            let fullContent = DatabaseManager.shared.loadFullContent(id: item.id) ?? item.content
-
-            // RTF: 写原始二进制数据，不是纯文本
-            if item.sourceFormat == .rtf, let rawData = item.rawFormatData {
-                try? rawData.write(to: tmpFile)
-            } else {
-                try? fullContent.write(to: tmpFile, atomically: true, encoding: .utf8)
-            }
-
-            let charCount = fullContent.count
-            let wordCount = fullContent.split { $0.isWhitespace || $0.isNewline }.count
-            let lineCount = fullContent.split(separator: "\n", omittingEmptySubsequences: false).count
-
-            metadata = QLPreviewHelper.PreviewMetadata(
-                url: tmpFile, displayName: String(format: L10n["preview.title"], typeLabel),
-                fileType: typeLabel,
-                infoText: String(format: L10n["preview.info"], charCount, wordCount, lineCount),
-                isLocalFile: true
-            )
-        } else {
-            return
-        }
-
+    func previewItem(from sourceView: NSView) {
+        guard let metadata = ClipboardItemPreviewBuilder.makeMetadata(for: item) else { return }
         QLPreviewHelper.shared.showPreview(metadata: metadata, from: sourceView)
         DeveloperDiagnostics.record(DiagnosticsEvent.preview)
     }

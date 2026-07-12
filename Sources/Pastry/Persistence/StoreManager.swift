@@ -35,7 +35,12 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
                !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 DeveloperDiagnostics.record(DiagnosticsEvent.searchQuery)
             }
-            performSearch()
+            // 清空搜索必须立刻恢复列表，否则会短暂出现「无历史」空状态（query 已空但 filteredItems 仍空）。
+            if searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                performSearchImmediate()
+            } else {
+                performSearch()
+            }
         }
     }
 
@@ -397,14 +402,20 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     private func handleNewItem(_ item: ClipboardItem) {
         let result = DatabaseManager.shared.insert(item)
+        var isPinned = item.isPinned
+        var favoriteNote = item.favoriteNote
+        var favoriteNoteUpdatedAt = item.favoriteNoteUpdatedAt
         switch result {
         case .skippedDuplicate, .skipped:
             return
-        case .replaced(let oldID):
-            // 去重置顶：删内存中的旧条目
+        case .replaced(let oldID, let preservedPinned, let preservedNote, let preservedNoteAt):
+            // 去重置顶：删内存中的旧条目，并沿用旧记录的收藏状态
             if let oldUUID = UUID(uuidString: oldID) {
                 items.removeAll { $0.id == oldUUID }
             }
+            isPinned = preservedPinned
+            favoriteNote = preservedNote
+            favoriteNoteUpdatedAt = preservedNoteAt
         case .inserted:
             break
         }
@@ -419,9 +430,9 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
             linkTitle: item.linkTitle,
             segmentsJSON: item.segmentsJSON,
             rawFormatData: item.rawFormatData, rawFormatType: item.rawFormatType,
-            displayCount: item.displayCount, isPinned: item.isPinned,
-            favoriteNote: item.favoriteNote,
-            favoriteNoteUpdatedAt: item.favoriteNoteUpdatedAt
+            displayCount: item.displayCount, isPinned: isPinned,
+            favoriteNote: favoriteNote,
+            favoriteNoteUpdatedAt: favoriteNoteUpdatedAt
         )
         items.insert(listItem, at: 0)
 

@@ -3010,6 +3010,57 @@
         }
       }
     },
+    "help.shortcut.preview_cursor": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预览光标所在条目"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview item under cursor"
+          }
+        }
+      }
+    },
+    "help.shortcut.copy_selected": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制选中的条目"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy selected items"
+          }
+        }
+      }
+    },
+    "help.shortcut.toggle_favorite": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收藏 / 取消收藏"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle favorite"
+          }
+        }
+      }
+    },
     "help.shortcut.delete_selected": {
       "extractionState": "manual",
       "localizations": {

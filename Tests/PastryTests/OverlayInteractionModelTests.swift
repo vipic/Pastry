@@ -191,6 +191,36 @@ final class OverlayInteractionModelTests: XCTestCase {
         XCTAssertEqual(selected.map(\.id), [items[1].id, items[3].id])
     }
 
+    func testCursorPreviewItemPrefersCursorIndex() {
+        let items = makeItems(4)
+        let selected = Set([items[0].id, items[1].id, items[2].id])
+        let preview = OverlayInteractionModel.cursorPreviewItem(
+            visibleItems: items,
+            selectedIds: selected,
+            cursorIndex: 2
+        )
+        XCTAssertEqual(preview?.id, items[2].id)
+    }
+
+    func testCursorPreviewItemFallsBackToFirstSelected() {
+        let items = makeItems(3)
+        let preview = OverlayInteractionModel.cursorPreviewItem(
+            visibleItems: items,
+            selectedIds: [items[2].id, items[0].id],
+            cursorIndex: nil
+        )
+        XCTAssertEqual(preview?.id, items[0].id)
+    }
+
+    func testCopyTargetsPreservesStoreOrder() {
+        let items = makeItems(4)
+        let targets = OverlayInteractionModel.copyTargets(
+            allItems: items,
+            selectedIds: [items[3].id, items[1].id]
+        )
+        XCTAssertEqual(targets.map(\.id), [items[1].id, items[3].id])
+    }
+
     func testSearchCountWidthReserveKeepsStableDigitSlots() {
         // 10→9 时两侧仍按最大位数预留，避免徽标变窄
         XCTAssertEqual(

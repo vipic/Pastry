@@ -20,7 +20,14 @@ struct ClipboardCardView: View {
     @State private var themeColor: Color = .accentColor
     @State private var didPaste = false
     @State private var isHovered = false
+    @State private var hoverAction: CardHoverAction? = nil
     @State private var isEditingFavoriteNote = false
+
+    private enum CardHoverAction {
+        case favorite
+        case copy
+        case delete
+    }
     @State private var favoriteNoteDraft = ""
     @State private var isFavoriteNoteHovered = false
     @State private var isFavoriteNoteCommitHovered = false
@@ -51,22 +58,37 @@ struct ClipboardCardView: View {
 
     var body: some View {
         cardBase
+            .overlay(alignment: .bottomTrailing) {
+                if showHoverActions {
+                    hoverActionBar
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: UIConstants.Motion.instant), value: showHoverActions)
             .onHover { isHovered = $0 }
             .onTapGesture {
                 handlePrimaryClick()
             }
             .overlay(
-                RightClickDetector { view, event in
-                    _ = language
-                    showContextMenu(with: event, for: view)
-                }
+                RightClickDetector(
+                    onViewReady: { CardPreviewAnchorRegistry.register(item.id, view: $0) },
+                    onRightClick: { view, event in
+                        _ = language
+                        showContextMenu(with: event, for: view)
+                    }
+                )
             )
             .onAppear { loadAppInfo() }
+            .onDisappear { CardPreviewAnchorRegistry.unregister(item.id) }
             .task(id: item.id) { await fetchLinkPreviewIfNeeded() }
             .onChange(of: item.content) { old, _ in
                 Self.imageCache.removeObject(forKey: old as NSString)
             }
             .task(id: filePreviewTaskID) { await loadFilePreviewsIfNeeded() }
+    }
+
+    private var showHoverActions: Bool {
+        isHovered && !isEditingFavoriteNote
     }
 
     /// 卡片基础渲染（样式 + 内容，不含手势和生命周期）
@@ -592,7 +614,74 @@ struct ClipboardCardView: View {
                 Text("·").font(.caption2).foregroundColor(.secondary)
                 Text(app).font(.system(size: UIConstants.TypeSize.caption2)).foregroundColor(.secondary).lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: showHoverActions ? UIConstants.Card.hoverActionReserveWidth : 0)
+        }
+    }
+
+    // MARK: - Hover 轻操作
+
+    private var hoverActionBar: some View {
+        HStack(spacing: UIConstants.Card.hoverActionSpacing) {
+            hoverActionButton(
+                action: .favorite,
+                icon: item.isPinned ? "pin.fill" : "pin",
+                label: item.isPinned ? L10n["context.unpin"] : L10n["context.pin"],
+                tint: item.isPinned ? themeColor : .secondary
+            ) {
+                onPin(item, selectedIds)
+            }
+            hoverActionButton(
+                action: .copy,
+                icon: AppIcons.copy,
+                label: L10n["context.copy"],
+                tint: .secondary
+            ) {
+                copyItem()
+            }
+            hoverActionButton(
+                action: .delete,
+                icon: AppIcons.delete,
+                label: L10n["context.delete"],
+                tint: PastryPalette.dangerStrong
+            ) {
+                onDelete(item)
+            }
+        }
+        .padding(.trailing, UIConstants.Card.contentHorizontalPadding)
+        .padding(.bottom, UIConstants.Card.footerBottomPadding)
+    }
+
+    private func hoverActionButton(
+        action: CardHoverAction,
+        icon: String,
+        label: String,
+        tint: Color,
+        perform: @escaping () -> Void
+    ) -> some View {
+        let isActionHovered = hoverAction == action
+        return Button(action: perform) {
+            Image(systemName: icon)
+                .font(.system(size: UIConstants.Card.hoverActionIconSize, weight: .semibold))
+                .foregroundColor(tint)
+                .frame(width: UIConstants.Card.hoverActionSize, height: UIConstants.Card.hoverActionSize)
+                .background(
+                    RoundedRectangle(cornerRadius: UIConstants.Card.hoverActionCornerRadius, style: .continuous)
+                        .fill(Color.primary.opacity(isActionHovered ? UIConstants.OnDark.fillHover : UIConstants.OnDark.fillSubtle))
+                )
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
+        .scaleEffect(isActionHovered ? 1.06 : 1.0)
+        .animation(.easeOut(duration: UIConstants.Motion.instant), value: isActionHovered)
+        .onHover { hovering in
+            if hovering {
+                hoverAction = action
+                NSCursor.arrow.push()
+            } else {
+                if hoverAction == action { hoverAction = nil }
+                NSCursor.pop()
+            }
         }
     }
 

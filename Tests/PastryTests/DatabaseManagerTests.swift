@@ -251,11 +251,45 @@ final class DatabaseManagerTests: XCTestCase {
         let result = db.insert(a2)
 
         switch result {
-        case .replaced(let oldID):
+        case .replaced(let oldID, _, _, _):
             XCTAssertEqual(oldID, a1.id.uuidString, "应返回被替换的旧条目 id")
         default:
             XCTFail("Expected .replaced, got \(result)")
         }
+    }
+
+    /// 收藏后再复制相同内容置顶时，应保留收藏标记与备注
+    func testDedupReplacePreservesFavoriteAndNote() {
+        let original = makeItem(
+            content: "收藏后再复制",
+            pinned: true,
+            timestamp: Date(timeIntervalSince1970: 1),
+            favoriteNote: "重要参考"
+        )
+        assertInserted(original)
+
+        // 模拟剪贴板监控产生的新条目：未收藏、无备注
+        let recopied = makeItem(
+            content: "收藏后再复制",
+            pinned: false,
+            timestamp: Date(timeIntervalSince1970: 2),
+            favoriteNote: nil
+        )
+        let result = db.insert(recopied)
+        switch result {
+        case .replaced(_, let isPinned, let note, _):
+            XCTAssertTrue(isPinned, "替换结果应带回收藏状态")
+            XCTAssertEqual(note, "重要参考")
+        default:
+            XCTFail("Expected .replaced, got \(result)")
+        }
+
+        let items = db.recent()
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].content, "收藏后再复制")
+        XCTAssertTrue(items[0].isPinned, "置顶后收藏标记不能丢")
+        XCTAssertEqual(items[0].favoriteNote, "重要参考", "置顶后收藏备注不能丢")
+        XCTAssertEqual(db.favorites().count, 1)
     }
 
     /// 去重置顶不影响其他无关条目
