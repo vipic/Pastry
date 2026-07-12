@@ -36,6 +36,41 @@ final class MenuBarMenuFactoryTests: XCTestCase {
         XCTAssertFalse(MenuBarManager.shouldOpenMenu(for: nil))
     }
 
+    func testMenuHasTwoSeparatorsAndFourActions() {
+        let menu = makeMenu().menu
+        let separators = menu.items.filter(\.isSeparatorItem)
+        let actions = menu.items.filter { !$0.isSeparatorItem }
+        XCTAssertEqual(separators.count, 2)
+        XCTAssertEqual(actions.count, 4)
+        XCTAssertEqual(menu.items.count, 6)
+    }
+
+    func testMenuItemsHaveTargetsAndSymbols() {
+        let result = makeMenu()
+        let target = DummyMenuTarget()
+        // rebuild with known target instance
+        let menu = MenuBarMenuFactory.build(
+            target: target,
+            actions: MenuBarMenuActions(
+                openOverlay: #selector(DummyMenuTarget.openOverlay),
+                checkUpdates: #selector(DummyMenuTarget.checkUpdates),
+                openSettings: #selector(DummyMenuTarget.openSettings),
+                quit: #selector(DummyMenuTarget.quit)
+            )
+        ).menu
+
+        for item in menu.items where !item.isSeparatorItem {
+            XCTAssertTrue(item.target === target)
+            XCTAssertNotNil(item.action)
+            XCTAssertNotNil(item.image, "菜单项应有 SF Symbol 图标: \(item.title)")
+        }
+        _ = result
+    }
+
+    func testMenuAutoenablesItemsIsDisabled() {
+        XCTAssertFalse(makeMenu().menu.autoenablesItems)
+    }
+
     private func makeMenu() -> MenuBarMenuBuildResult {
         MenuBarMenuFactory.build(
             target: DummyMenuTarget(),

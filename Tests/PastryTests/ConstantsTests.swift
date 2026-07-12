@@ -63,8 +63,41 @@ final class ConstantsTests: XCTestCase {
     func testHistoryRetentionPolicySanitizesValues() {
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(500), 500)
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(-1), HistoryRetentionPolicy.defaultMaxItems)
+        XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(0), HistoryRetentionPolicy.defaultMaxItems)
+        XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(9999), HistoryRetentionPolicy.defaultMaxItems)
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxAgeDays(30), 30)
         XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxAgeDays(13), HistoryRetentionPolicy.defaultMaxAgeDays)
+        XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxAgeDays(0), 0)
+        for option in HistoryRetentionPolicy.maxItemsOptions {
+            XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxItems(option), option)
+        }
+        for option in HistoryRetentionPolicy.maxAgeDayOptions {
+            XCTAssertEqual(HistoryRetentionPolicy.sanitizedMaxAgeDays(option), option)
+        }
+    }
+
+    func testAppIconsAreNonEmptySFSymbolNames() {
+        let names = [
+            AppIcons.app, AppIcons.text, AppIcons.image, AppIcons.file,
+            AppIcons.rtf, AppIcons.html, AppIcons.search, AppIcons.star,
+            AppIcons.paste, AppIcons.delete, AppIcons.pin, AppIcons.settings,
+            AppIcons.clear, AppIcons.quit
+        ]
+        for name in names {
+            XCTAssertFalse(name.isEmpty)
+            XCTAssertNotNil(
+                NSImage(systemSymbolName: name, accessibilityDescription: nil),
+                "SF Symbol 应存在: \(name)"
+            )
+        }
+    }
+
+    func testUIConstantsCardMetricsArePositive() {
+        XCTAssertGreaterThan(UIConstants.Card.size, 0)
+        XCTAssertGreaterThan(UIConstants.Card.cornerRadius, 0)
+        XCTAssertGreaterThan(UIConstants.Overlay.cardSpacing, 0)
+        XCTAssertGreaterThan(UIConstants.Overlay.horizontalPadding, 0)
+        XCTAssertEqual(UIConstants.Card.selectedBorderWidth, 1.5, accuracy: 0.001)
     }
 
     func testHistoryRetentionMetricLabelOmitsActionPrefix() {
