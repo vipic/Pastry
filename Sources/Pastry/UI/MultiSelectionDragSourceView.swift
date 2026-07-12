@@ -133,7 +133,7 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
         NSColor.windowBackgroundColor.withAlphaComponent(0.72).setFill()
         path.fill()
         NSColor.separatorColor.withAlphaComponent(0.45).setStroke()
-        path.lineWidth = 1
+        path.lineWidth = 0.5
         path.stroke()
 
         NSColor.quaternaryLabelColor.withAlphaComponent(0.55).setFill()

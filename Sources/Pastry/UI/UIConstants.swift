@@ -11,7 +11,7 @@ enum UIConstants {
         static let footerBottomPadding: CGFloat = 8
         static let idleBorderOpacity: CGFloat = 0.08
         static let hoverBorderOpacity: CGFloat = 0.15
-        static let selectedBorderWidth: CGFloat = 2.5
+        static let selectedBorderWidth: CGFloat = 1.5
         static let animationDuration = 0.12
         static let pasteScale: CGFloat = 0.95
     }

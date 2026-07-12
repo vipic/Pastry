@@ -110,12 +110,12 @@ struct HelpView: View {
 
     private var tipsContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            tipRow("💡", L10n["help.tip.drag_save"])
-            tipRow("💡", L10n["help.tip.batch_pin"])
-            tipRow("💡", L10n["help.tip.handoff"])
-            tipRow("💡", L10n["help.tip.link_preview"])
-            tipRow("💡", L10n["help.tip.language"])
-            tipRow("💡", L10n["help.tip.quicklook"])
+            tipRow(L10n["help.tip.drag_save"])
+            tipRow(L10n["help.tip.batch_pin"])
+            tipRow(L10n["help.tip.handoff"])
+            tipRow(L10n["help.tip.link_preview"])
+            tipRow(L10n["help.tip.language"])
+            tipRow(L10n["help.tip.quicklook"])
         }
     }
 
@@ -145,10 +145,12 @@ struct HelpView: View {
         }
     }
 
-    private func tipRow(_ icon: String, _ text: String) -> some View {
+    private func tipRow(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Text(icon)
-                .font(.system(size: 14))
+            Image(systemName: "lightbulb")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+                .frame(width: 16)
             Text(text)
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
