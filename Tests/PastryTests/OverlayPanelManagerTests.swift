@@ -187,6 +187,30 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
+    /// overlayCloseFilter 通知名称存在（Esc 优先关闭筛选气泡）
+    func testOverlayCloseFilterNotificationExists() {
+        XCTAssertEqual(
+            Notification.Name.overlayCloseFilter.rawValue,
+            "overlayCloseFilter"
+        )
+    }
+
+    /// 筛选气泡状态默认关闭，可读写供 Esc 分层收起使用
+    func testFilterPopoverActiveFlagDefaultsAndTracks() {
+        let manager = OverlayPanelManager.shared
+        let previous = manager.isFilterPopoverActive
+        defer { manager.isFilterPopoverActive = previous }
+
+        manager.isFilterPopoverActive = false
+        XCTAssertFalse(manager.isFilterPopoverActive)
+
+        manager.isFilterPopoverActive = true
+        XCTAssertTrue(manager.isFilterPopoverActive)
+
+        manager.isFilterPopoverActive = false
+        XCTAssertFalse(manager.isFilterPopoverActive)
+    }
+
     /// overlayOpenSearchImmediate 通知名称存在
     func testOverlayOpenSearchImmediateNotificationExists() {
         XCTAssertEqual(

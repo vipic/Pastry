@@ -231,6 +231,8 @@ final class ClipboardOverlayPanel: NSPanel {
     private func routeCancelKey() {
         if OverlayPanelManager.shared.isAlertActive {
             NotificationCenter.default.post(name: .overlayAlertCancel, object: nil)
+        } else if OverlayPanelManager.shared.isFilterPopoverActive {
+            NotificationCenter.default.post(name: .overlayCloseFilter, object: nil)
         } else if QLPreviewHelper.shared.isShowing {
             QLPreviewHelper.shared.dismiss()
         } else if OverlayPanelManager.shared.isSearchActive {
@@ -482,6 +484,9 @@ final class OverlayPanelManager: @unchecked Sendable {
     /// 搜索栏是否展开 — ESC 优先级判断
     var isSearchActive = false
 
+    /// 筛选气泡是否展开 — ESC 优先关闭气泡，不关托盘
+    var isFilterPopoverActive = false
+
     /// 托盘是否为横向卡片布局（侧滚轮 → 横向卡带）
     /// ⚠️ 仅主线程读写。
     var isHorizontalCardLayout = true
@@ -599,6 +604,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         panel = nil
         previousFrontApp = nil
         isSearchActive = false
+        isFilterPopoverActive = false
         keyboardOwner = .overlayNavigation
     }
 

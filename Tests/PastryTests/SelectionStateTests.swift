@@ -221,6 +221,48 @@ final class SelectionStateTests: XCTestCase {
         XCTAssertNil(s.lastClickId)
     }
 
+    // MARK: - 默认选中首项（打开面板）
+
+    func testSelectFirstSelectsLeadingCard() {
+        var s = SelectionState()
+        let items = makeItems(5)
+
+        s.selectFirst(visibleItems: items)
+
+        XCTAssertEqual(s.selectedIds, [items[0].id])
+        XCTAssertEqual(s.cursorIndex, 0)
+        XCTAssertEqual(s.lastClickId, items[0].id)
+        XCTAssertNil(s.shiftAnchorIdx)
+    }
+
+    func testSelectFirstOnEmptyListClearsSelection() {
+        var s = SelectionState()
+        let items = makeItems(3)
+        s.handleTap(item: items[1], cmdDown: false, shiftDown: false, visibleItems: items)
+
+        s.selectFirst(visibleItems: [])
+
+        XCTAssertTrue(s.selectedIds.isEmpty)
+        XCTAssertNil(s.cursorIndex)
+        XCTAssertNil(s.lastClickId)
+        XCTAssertNil(s.shiftAnchorIdx)
+    }
+
+    func testSelectFirstReplacesPriorMultiSelection() {
+        var s = SelectionState()
+        let items = makeItems(5)
+        s.moveCursor(delta: 1, extend: false, visibleItems: items)
+        s.moveCursor(delta: 1, extend: true, visibleItems: items)
+        s.moveCursor(delta: 1, extend: true, visibleItems: items)
+        XCTAssertGreaterThan(s.selectedIds.count, 1)
+
+        s.selectFirst(visibleItems: items)
+
+        XCTAssertEqual(s.selectedIds, [items[0].id])
+        XCTAssertEqual(s.cursorIndex, 0)
+        XCTAssertNil(s.shiftAnchorIdx)
+    }
+
     // MARK: - 重置后导航从首位开始
 
     func testResetThenArrowStartsFromBeginning() {
