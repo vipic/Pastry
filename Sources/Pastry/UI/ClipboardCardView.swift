@@ -99,27 +99,13 @@ struct ClipboardCardView: View {
         .background(Color(nsColor: NSColor.windowBackgroundColor))
         .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
+        // One border only: idle / hover / selected / paste share a single stroke layer.
         .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
-                .stroke(cardIdleBorderColor, lineWidth: 0.5)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
-                .stroke(cardSelectedGlowColor, lineWidth: 5)
-                .blur(radius: 1.6)
-                .opacity(isSelected ? 1 : 0)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius - 2, style: .continuous)
-                .stroke(.white.opacity(isSelected ? 0.42 : 0), lineWidth: 0.5)
-                .padding(3)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
-                .stroke(lineWidth: UIConstants.Card.selectedBorderWidth)
-                .foregroundStyle(cardBorderColor)
+                .stroke(cardChromeBorderColor, lineWidth: cardChromeBorderWidth)
                 .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
                 .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
+                .animation(.easeOut(duration: 0.5), value: didPaste)
         )
         .overlay(alignment: .bottomTrailing) {
             if let idx = cmdBadgeIndex {
@@ -131,11 +117,6 @@ struct ClipboardCardView: View {
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
         .scaleEffect(didPaste ? UIConstants.Card.pasteScale : 1.0)
         .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
-        .overlay(
-            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
-                .stroke(didPaste ? Color.green : Color.clear, lineWidth: UIConstants.Card.selectedBorderWidth)
-        )
-        .animation(.easeOut(duration: 0.5), value: didPaste)
         .animation(.easeInOut(duration: 0.16), value: item.isPinned)
         .animation(.easeInOut(duration: 0.16), value: isEditingFavoriteNote)
         .contentShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius))
@@ -186,60 +167,36 @@ struct ClipboardCardView: View {
         }
     }
 
-    /// 卡片状态边框颜色
-    private var cardBorderColor: Color {
-        if isSelected { return cardAccentColor.opacity(0.88) }
-        if isHovered { return .white.opacity(0.30) }
-        return .clear
-    }
-
-    private var cardIdleBorderColor: Color {
-        .white.opacity(0.42)
-    }
-
-    private var cardSelectedGlowColor: Color {
-        cardAccentColor.opacity(0.28)
-    }
-
     private var cardAccentColor: Color {
         Color(red: 0.85, green: 0.62, blue: 0.26)
     }
 
-    private var cardAccentStrongColor: Color {
-        Color(red: 0.72, green: 0.45, blue: 0.15)
+    /// Single chrome stroke for all card states (no glow / dual-ring stack).
+    private var cardChromeBorderColor: Color {
+        if didPaste { return Color.green }
+        if isSelected { return cardAccentColor.opacity(0.88) }
+        if isHovered { return .white.opacity(0.30) }
+        return .white.opacity(0.22)
+    }
+
+    private var cardChromeBorderWidth: CGFloat {
+        if didPaste || isSelected {
+            return UIConstants.Card.selectedBorderWidth
+        }
+        return 0.5
     }
 
     /// ⌘+数字角标 — 按住 ⌘ 时在卡片右下角显示序号
     private func cmdBadge(_ idx: Int) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.89, green: 0.70, blue: 0.39),
-                            Color(red: 0.76, green: 0.48, blue: 0.19)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay(
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(cardAccentStrongColor.opacity(0.52), lineWidth: 0.5)
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(.white.opacity(0.34), lineWidth: 0.5)
-                            .padding(1)
-                    }
-                )
-            Text("\(idx)")
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
-                .foregroundColor(Color(red: 0.23, green: 0.15, blue: 0.06))
-        }
-        .frame(width: 24, height: 24)
-        .shadow(color: Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.28), radius: 7, x: 0, y: 4)
-        .shadow(color: .white.opacity(0.22), radius: 0, x: 0, y: 1)
-        .padding(7)
+        Text("\(idx)")
+            .font(.system(size: 12, weight: .heavy, design: .rounded))
+            .foregroundColor(Color(red: 0.23, green: 0.15, blue: 0.06))
+            .frame(width: 24, height: 24)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.pastryWarmAccent)
+            )
+            .padding(7)
     }
 
     // MARK: - 顶部栏（始终使用主题色背景）

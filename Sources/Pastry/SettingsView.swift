@@ -1150,12 +1150,27 @@ struct SettingsSceneView: View {
             .padding(.horizontal, segment.count > 1 ? 8 : 0)
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.white)
+                    // Physical keycap: top-lit face + raised edge, not flat chip chrome.
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .white,
+                                Color(red: 0.925, green: 0.906, blue: 0.855)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
                             .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.14), lineWidth: 0.5)
                     )
-                    .shadow(color: Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), radius: 0, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(.white.opacity(0.70), lineWidth: 0.5)
+                            .padding(1)
+                    )
+                    .shadow(color: Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.12), radius: 0, x: 0, y: 2)
             )
     }
 
