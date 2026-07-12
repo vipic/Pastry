@@ -34,14 +34,25 @@ swift test --filter SelectionStateTests
 swift test --filter OverlayInteractionModelTests
 ```
 
-### 面板多选交互（防回归）
+### 交互与载荷防回归（建议改相关代码时跑）
 
-鼠标 ⌘ 多选 / ⇧ 区间选的**纯逻辑**在：
+```bash
+swift test --filter SelectionStateTests
+swift test --filter OverlayInteractionModelTests
+swift test --filter DragPayloadBuilderTests
+swift test --filter UpdateInstallScriptBuilderTests
+swift test --filter AppIconProviderTests
+```
 
-- `SelectionStateTests`：`handleTap` 与键盘 extend 的状态机
-- `OverlayInteractionModelTests`：修饰键合并、点击管线、**空白 clear 不得与卡片击 simultaneous**
+| 测试类 | 覆盖场景 |
+|--------|----------|
+| `SelectionStateTests` | 键盘/鼠标选择、⌘ toggle、⇧ 区间、边界 |
+| `OverlayInteractionModelTests` | 修饰键合并、空白 clear 约定、**竖滚不映射横向**、⌘ 角标 |
+| `DragPayloadBuilderTests` | 多选文本/链接/文件载荷、http→https、混选链接规则 |
+| `UpdateInstallScriptBuilderTests` | 更新脚本 shell 引用与非法版本号 |
+| `AppIconProviderTests` | 含 `cachedIcon` 首帧缓存命中 |
 
-改托盘 `onTapGesture` / `simultaneousGesture` 或卡片点击时务必跑这两组。SwiftUI 手势组合本身很难单测，因此把约定抽到 `OverlayInteractionModel.shouldClearSelectionOnTrayBackgroundTap` 用单测锁住。
+SwiftUI 手势叠层 / NSPanel 真事件仍依赖 smoke；纯逻辑尽量进上表。
 
 ## 脚本语法检查
 

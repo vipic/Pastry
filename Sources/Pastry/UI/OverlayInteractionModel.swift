@@ -79,4 +79,17 @@ enum OverlayInteractionModel {
     ) -> Bool {
         !cardClickHandledThisEvent
     }
+
+    // MARK: - 横向卡带滚轮
+
+    /// 从候选轴位移中选出卡带可用 delta。
+    /// **只使用水平轴**；竖滚轮不得映射为横向（避免方向迷惑）。
+    static func preferredCardStripDelta(
+        horizontalCandidates: [CGFloat],
+        verticalCandidates: [CGFloat] = []
+    ) -> CGFloat? {
+        _ = verticalCandidates // 显式忽略，防止以后误用
+        let bestX = horizontalCandidates.max(by: { abs($0) < abs($1) }) ?? 0
+        return abs(bestX) > 0.01 ? bestX : nil
+    }
 }
