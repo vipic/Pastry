@@ -65,4 +65,25 @@ final class DatabaseKeyManagerTests: XCTestCase {
         ).getOrCreateKey()
         XCTAssertNotEqual(a, b, "不同库路径应有独立 DEK")
     }
+
+    /// 损坏的 `.key` 无法解密时，应生成新 DEK 并覆盖写回
+    func testCorruptKeyFileTriggersNewKeyGeneration() throws {
+        let first = manager().getOrCreateKey()
+        let keyPath = dbPath + ".key"
+        // 写入无法解密的垃圾字节
+        try Data([0x00, 0x01, 0x02, 0xFF]).write(to: URL(fileURLWithPath: keyPath), options: .atomic)
+        chmod(keyPath, 0o600)
+
+        let second = manager().getOrCreateKey()
+        XCTAssertEqual(second.count, 32)
+        XCTAssertNotEqual(first, second, "损坏密钥文件后应重新生成 DEK")
+
+        // 新密钥应可稳定读回
+        let third = manager().getOrCreateKey()
+        XCTAssertEqual(second, third)
+    }
+
+    func testPrefersFileKeyStorageFlag() {
+        XCTAssertTrue(DatabaseKeyManager.prefersFileKeyStorage)
+    }
 }

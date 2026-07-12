@@ -514,10 +514,7 @@ final class DatabaseManager {
         }
 
         // FTS 查询字符串：双引号包裹防操作符注入 + 前缀匹配
-        let ftsQuery = query
-            .split(separator: " ")
-            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"*" }
-            .joined(separator: " AND ")
+        let ftsQuery = Self.ftsMatchQuery(from: query)
 
         sqlite3_bind_text(stmt, 1, (ftsQuery as NSString).utf8String, -1, nil)
         sqlite3_bind_int(stmt, 2, Int32(limit))
@@ -527,6 +524,15 @@ final class DatabaseManager {
 
         if !results.isEmpty { return results }
         return fallbackSearch(query: query, limit: limit)
+    }
+
+    /// 将用户输入转为 FTS5 MATCH 表达式：逐词双引号转义 + 前缀 `*`，多词以 AND 连接。
+    /// 纯字符串变换，可单测，避免操作符注入。
+    static func ftsMatchQuery(from query: String) -> String {
+        query
+            .split(separator: " ")
+            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"*" }
+            .joined(separator: " AND ")
     }
 
     /// LIKE 降级搜索

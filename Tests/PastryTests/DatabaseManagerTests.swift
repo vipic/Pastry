@@ -519,6 +519,35 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(results[0].favoriteNote, "clientAlpha reference")
     }
 
+    func testSearchFindsLinkTitle() {
+        let withTitle = ClipboardItem(
+            content: "https://example.com/release",
+            sourceFormat: .text,
+            tags: ContentTags(isURL: true),
+            linkTitle: "Pastry Changelog UniqueTitle99"
+        )
+        let other = ClipboardItem(
+            content: "https://example.com/other",
+            sourceFormat: .text,
+            tags: ContentTags(isURL: true),
+            linkTitle: "Unrelated Page"
+        )
+        assertInserted(withTitle)
+        assertInserted(other)
+
+        let results = db.search(query: "UniqueTitle99")
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].linkTitle, "Pastry Changelog UniqueTitle99")
+    }
+
+    func testFTSMatchQueryEscapesQuotesAndJoinsTokens() {
+        XCTAssertEqual(DatabaseManager.ftsMatchQuery(from: "a b"), "\"a\"* AND \"b\"*")
+        XCTAssertEqual(
+            DatabaseManager.ftsMatchQuery(from: "x\"y"),
+            "\"x\"\"y\"*"
+        )
+    }
+
     func testSearchNoMatch() {
         db.insert(makeItem(content: "Hello"))
         let results = db.search(query: "XYZ不存在")

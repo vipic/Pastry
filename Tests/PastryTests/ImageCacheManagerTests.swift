@@ -117,6 +117,34 @@ final class ImageCacheManagerTests: XCTestCase {
         XCTAssertEqual(manager.counterpartURL(for: orig), thumb)
     }
 
+    // MARK: - suggestedFilename
+
+    /// 非缓存路径：沿用原始文件名
+    func testSuggestedFilenameUsesOriginalNameForNonCachePath() {
+        let name = manager.suggestedFilename(forImagePath: "/tmp/screenshot.png")
+        XCTAssertEqual(name, "screenshot.png")
+    }
+
+    /// 缓存缩略图路径：统一为 Pastry Image.<ext>
+    func testSuggestedFilenameForCachedThumbnail() throws {
+        let originalData = generateTestPNGData(width: 80, height: 60)
+        let image = NSImage(data: originalData)!
+        let thumbPath = try XCTUnwrap(manager.save(image: image, data: originalData))
+        let name = manager.suggestedFilename(forImagePath: thumbPath)
+        XCTAssertEqual(name, "Pastry Image.png")
+    }
+
+    /// 缓存原始文件（.original.png）也映射为 Pastry Image.png
+    func testSuggestedFilenameForCachedOriginal() throws {
+        let originalData = generateTestPNGData(width: 80, height: 60)
+        let image = NSImage(data: originalData)!
+        let thumbPath = try XCTUnwrap(manager.save(image: image, data: originalData))
+        let origPath = try XCTUnwrap(manager.originalPath(forThumbnail: thumbPath))
+        let name = manager.suggestedFilename(forImagePath: origPath)
+        XCTAssertTrue(name.hasPrefix("Pastry Image."), name)
+        XCTAssertTrue(name.hasSuffix(".png"), name)
+    }
+
     // MARK: - 预览用高清 PNG 生成（orig → TIFF → PNG）
 
     /// 验证 .orig 数据可转换为 PNG 格式供 Quick Look 预览

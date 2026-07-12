@@ -103,4 +103,75 @@ final class NetworkAccessPolicyTests: XCTestCase {
         XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "file:///etc/passwd")!))
         XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "data:text/plain,hi")!))
     }
+
+    // MARK: - 短格式 / 十进制 IPv4 / .local（SSRF 字面量）
+
+    func testRejectsShortFormLoopbackIPv4() {
+        // inet_aton 风格：127.1 → 127.0.0.1
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://127.1/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://10.1/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://192.168.1/a")!))
+    }
+
+    func testRejectsDecimalIntegerLoopback() {
+        // 2130706433 == 127.0.0.1
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://2130706433/a")!))
+        // 0 == 0.0.0.0
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://0/a")!))
+    }
+
+    func testRejectsMulticastAndReservedHighOctets() {
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://224.0.0.1/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://255.255.255.255/a")!))
+    }
+
+    func testRejectsLinkLocalAndTestNet() {
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://169.254.10.20/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://192.0.2.1/a")!)) // 192.0.0.0/24 via b==0
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://198.18.0.1/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://198.19.1.1/a")!))
+    }
+
+    func testRejectsMdnsLocalSuffix() {
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://printer.local/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://foo.bar.local/")!))
+    }
+
+    func testRejectsIPv6MappedPrivate() {
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://[::ffff:127.0.0.1]/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://[::ffff:192.168.0.1]/a")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://[::192.168.1.1]/a")!))
+    }
+
+    func testRejectsExpandedIPv6Loopback() {
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://[0:0:0:0:0:0:0:1]/a")!))
+    }
+
+    func testAllowsPublicIPv4Literal() {
+        XCTAssertTrue(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://1.1.1.1/cdn-cgi")!))
+        XCTAssertTrue(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://8.8.4.4/")!))
+    }
+
+    func testRejectsEmptyHostAndMissingScheme() {
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https:///path")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "ftp://example.com/")!))
+    }
+
+    func testResponseWithinLimitRejectsNonSuccessStatus() {
+        let response = HTTPURLResponse(
+            url: URL(string: "https://8.8.8.8/ok")!,
+            statusCode: 404,
+            httpVersion: nil,
+            headerFields: ["Content-Length": "10"]
+        )
+        XCTAssertFalse(NetworkAccessPolicy.responseWithinLimit(response, maxBytes: 1_000))
+    }
+
+    func testResponseWithinLimitRejectsNilResponse() {
+        XCTAssertFalse(NetworkAccessPolicy.responseWithinLimit(nil, maxBytes: 1_000))
+    }
+
+    func testMaxImageBytesConstant() {
+        XCTAssertEqual(NetworkAccessPolicy.maxImageBytes, 5_000_000)
+    }
 }

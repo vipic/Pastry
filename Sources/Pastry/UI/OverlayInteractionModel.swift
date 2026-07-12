@@ -92,4 +92,54 @@ enum OverlayInteractionModel {
         let bestX = horizontalCandidates.max(by: { abs($0) < abs($1) }) ?? 0
         return abs(bestX) > 0.01 ? bestX : nil
     }
+
+    /// 累计滚轮位移 → 卡片步进数（与 AppKit 符号一致：正 delta 往索引更小方向）。
+    /// - Returns: 本帧应应用的步数（可正可负）；accumulator 原地更新余量。
+    static func consumeStripScrollSteps(
+        accumulator: inout CGFloat,
+        delta: CGFloat,
+        threshold: CGFloat = 4
+    ) -> Int {
+        guard threshold > 0 else { return 0 }
+        accumulator += delta
+        var steps = 0
+        while accumulator <= -threshold {
+            accumulator += threshold
+            steps += 1
+        }
+        while accumulator >= threshold {
+            accumulator -= threshold
+            steps -= 1
+        }
+        return steps
+    }
+
+    /// 卡带视口索引步进。
+    /// **只用 strip 自身索引**，不得回落到 `selection.cursorIndex`——
+    /// 否则选中某卡后侧滚每次都从选中位起算，最多只能离开一步。
+    static func advanceStripScrollIndex(
+        current: Int,
+        steps: Int,
+        itemCount: Int
+    ) -> (index: Int, hitEdge: Bool) {
+        guard itemCount > 0 else { return (0, false) }
+        let base = min(max(0, current), itemCount - 1)
+        let unconstrained = base + steps
+        let index = min(max(0, unconstrained), itemCount - 1)
+        return (index, unconstrained != index)
+    }
+
+    /// 键盘已在边界再按同向时，光晕朝向是否为「索引增大侧」（trailing）。
+    /// `delta > 0` → trailing；`delta < 0` → leading；`0` → 无方向。
+    static func stripEdgeTowardHigherIndex(forKeyboardDelta delta: Int) -> Bool? {
+        if delta > 0 { return true }
+        if delta < 0 { return false }
+        return nil
+    }
+
+    /// Home / End 等绝对跳转撞边时：目标落在末位 → trailing，否则 leading。
+    static func stripEdgeTowardHigherIndex(forAbsoluteTarget targetIndex: Int, itemCount: Int) -> Bool? {
+        guard itemCount > 0 else { return nil }
+        return targetIndex >= itemCount - 1
+    }
 }

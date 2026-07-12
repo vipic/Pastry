@@ -169,4 +169,57 @@ final class ClipboardItemTests: XCTestCase {
         )
         XCTAssertEqual(item.imageURLs, ["https://cdn/a.png", "https://cdn/b.png"])
     }
+
+    // MARK: - Codable / dedupKey
+
+    func testClipboardItemCodableRoundTripPreservesTagsAndNotes() throws {
+        var tags = ContentTags.empty
+        tags.isURL = true
+        tags.hasSegments = true
+        let original = ClipboardItem(
+            content: "https://example.com",
+            sourceFormat: .html,
+            tags: tags,
+            appName: "Safari",
+            isHandoff: true,
+            linkTitle: "Example Domain",
+            segments: [.text("body"), .image(url: "https://cdn/x.png")],
+            displayCount: 3,
+            isPinned: true,
+            favoriteNote: "keep me"
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ClipboardItem.self, from: data)
+        XCTAssertEqual(decoded.id, original.id)
+        XCTAssertEqual(decoded.content, original.content)
+        XCTAssertEqual(decoded.sourceFormat, .html)
+        XCTAssertEqual(decoded.tags, tags)
+        XCTAssertEqual(decoded.appName, "Safari")
+        XCTAssertTrue(decoded.isHandoff)
+        XCTAssertEqual(decoded.linkTitle, "Example Domain")
+        XCTAssertEqual(decoded.favoriteNote, "keep me")
+        XCTAssertEqual(decoded.displayCount, 3)
+        XCTAssertTrue(decoded.isPinned)
+        XCTAssertEqual(decoded.segments?.count, 2)
+    }
+
+    func testDedupKeyUnifiesTextRTFHTMLPrefix() {
+        let text = ClipboardItem(content: "same", sourceFormat: .text)
+        let rtf = ClipboardItem(content: "same", sourceFormat: .rtf)
+        let html = ClipboardItem(content: "same", sourceFormat: .html)
+        XCTAssertTrue(text.dedupKey.hasPrefix("text:"))
+        XCTAssertTrue(rtf.dedupKey.hasPrefix("text:"))
+        XCTAssertTrue(html.dedupKey.hasPrefix("text:"))
+        // 相同 content / 无 annotation / 无 segments → 前缀统一后 key 相同
+        XCTAssertEqual(text.dedupKey, rtf.dedupKey)
+        XCTAssertEqual(text.dedupKey, html.dedupKey)
+    }
+
+    func testDedupKeyKeepsImageAndFileURLSeparate() {
+        let image = ClipboardItem(content: "/tmp/a.png", sourceFormat: .image)
+        let file = ClipboardItem(content: "/tmp/a.png", sourceFormat: .fileURL)
+        XCTAssertNotEqual(image.dedupKey, file.dedupKey)
+        XCTAssertTrue(image.dedupKey.hasPrefix("image:"))
+        XCTAssertTrue(file.dedupKey.hasPrefix("fileURL:"))
+    }
 }

@@ -143,28 +143,9 @@ struct ClipboardCardView: View {
 
     // MARK: - DisplayMode（统一切换展示类型）
 
-    /// 从来源格式和语义标记派生展示模式
+    /// 从来源格式和语义标记派生展示模式（逻辑见 `DisplayMode.resolve`）
     var displayMode: DisplayMode {
-        switch item.sourceFormat {
-        case .image:
-            return (!missingFileURLs.isEmpty || item.tags.isMissing) ? .missing : .image
-        case .fileURL:
-            if item.tags.isMultiFile { return .multiFile }
-            return item.tags.isMissing ? .missing : .singleFile
-        case .html:
-            if item.tags.hasSegments { return .mixedMedia }
-            if isMultiURL { return .multiLink(detectedLinks) }
-            if item.tags.isURL, let url = detectedLink { return .link(url) }
-            return .richText
-        case .rtf:
-            if isMultiURL { return .multiLink(detectedLinks) }
-            if item.tags.isURL, let url = detectedLink { return .link(url) }
-            return .richText
-        case .text:
-            if isMultiURL { return .multiLink(detectedLinks) }
-            if item.tags.isURL, let url = detectedLink { return .link(url) }
-            return .plainText
-        }
+        DisplayMode.resolve(item: item, hasMissingFiles: !missingFileURLs.isEmpty)
     }
 
     private var cardAccentColor: Color {
@@ -713,10 +694,7 @@ struct ClipboardCardView: View {
 
     /// NSDataDetector 返回 http:// 裸域名时升级为 https://，避免重定向和不必要的 HTTP 请求
     private func upgradeToHTTPS(_ url: URL) -> URL {
-        guard url.scheme?.lowercased() == "http" else { return url }
-        var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        c?.scheme = "https"
-        return c?.url ?? url
+        DisplayMode.upgradeToHTTPS(url)
     }
 
     /// 链接预览：缓存优先，body 求值时同步读取，零帧延迟
@@ -786,14 +764,7 @@ struct ClipboardCardView: View {
 
     /// 内容中的全部 http/https URL
     var detectedLinks: [URL] {
-        guard item.tags.isURL else { return [] }
-        let lines = item.content.components(separatedBy: "\n")
-        return lines.compactMap { line -> URL? in
-            guard let url = URL(string: line.trimmingCharacters(in: .whitespaces)),
-                  let s = url.scheme,
-                  s == "http" || s == "https" else { return nil }
-            return upgradeToHTTPS(url)
-        }
+        DisplayMode.detectedLinks(from: item)
     }
 
     /// 是否为多链接条目
@@ -902,10 +873,7 @@ struct ClipboardCardView: View {
 
     /// 测试专用：http → https 升级
     private static func upgradeToHTTPSTesting(_ url: URL) -> URL {
-        guard url.scheme?.lowercased() == "http" else { return url }
-        var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        c?.scheme = "https"
-        return c?.url ?? url
+        DisplayMode.upgradeToHTTPS(url)
     }
 
 }
