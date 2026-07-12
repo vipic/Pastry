@@ -81,9 +81,7 @@ extension SettingsSceneView {
 
                         settingsRow(
                             title: L10n["settings.card_click_mode"],
-                            help: speedClickEnabled
-                                ? L10n["settings.card_click_mode.help_on"]
-                                : L10n["settings.card_click_mode.help_off"]
+                            help: L10n["settings.card_click_mode.help"]
                         ) {
                             Toggle("", isOn: speedClickEnabledBinding)
                                 .labelsHidden()
@@ -95,9 +93,7 @@ extension SettingsSceneView {
 
                         settingsRow(
                             title: L10n["settings.delete_requires_confirmation"],
-                            help: deleteRequiresConfirmation
-                                ? L10n["settings.delete_requires_confirmation.help_on"]
-                                : L10n["settings.delete_requires_confirmation.help_off"]
+                            help: L10n["settings.delete_requires_confirmation.help"]
                         ) {
                             Toggle("", isOn: $deleteRequiresConfirmation)
                                 .labelsHidden()

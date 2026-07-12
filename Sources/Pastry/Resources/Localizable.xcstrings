@@ -273,36 +273,19 @@
         }
       }
     },
-    "settings.card_click_mode.help_off": {
+    "settings.card_click_mode.help": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "单击选中，再点已选卡片粘贴"
+            "value": "开启后单击粘贴；关闭后单击选中，再点已选卡片粘贴。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Click to select, click again on the selected card to paste"
-          }
-        }
-      }
-    },
-    "settings.card_click_mode.help_on": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "单击粘贴"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Click to paste"
+            "value": "When on, click pastes; when off, click selects and click again pastes."
           }
         }
       }
@@ -324,36 +307,19 @@
         }
       }
     },
-    "settings.delete_requires_confirmation.help_on": {
+    "settings.delete_requires_confirmation.help": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "键盘、工具栏与右键删除前会弹出确认"
+            "value": "开启后键盘、工具栏与右键删除前会弹出确认。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask before deleting from keyboard, toolbar, or context menu"
-          }
-        }
-      }
-    },
-    "settings.delete_requires_confirmation.help_off": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除立即生效，不再弹出确认"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete immediately without a confirmation dialog"
+            "value": "When on, ask before deleting from keyboard, toolbar, or context menu."
           }
         }
       }

@@ -49,14 +49,14 @@ extension SettingsSceneView {
     }
 
     var versionBadge: some View {
-        Text(versionBadgeText)
-            .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
-            .foregroundStyle(.white.opacity(UIConstants.OnDark.textPrimary))
-            .frame(width: UIConstants.Badge.statusSize, height: UIConstants.Badge.statusSize)
-            .background(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
-                    .fill(versionBadgeFill)
-            )
+        ZStack {
+            RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
+                .fill(versionBadgeFill)
+            Image(systemName: versionBadgeSymbol)
+                .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
+                .foregroundStyle(.white)
+        }
+        .frame(width: UIConstants.Badge.statusSize, height: UIConstants.Badge.statusSize)
     }
 
     @ViewBuilder
@@ -232,14 +232,14 @@ extension SettingsSceneView {
         return body.isEmpty ? L10n["settings.version.no_release_notes"] : body
     }
 
-    var versionBadgeText: String {
+    var versionBadgeSymbol: String {
         switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            return "!"
+            return "arrow.down"
         case .error:
-            return "!"
+            return "exclamationmark"
         default:
-            return "v"
+            return "checkmark"
         }
     }
 
@@ -261,7 +261,7 @@ extension SettingsSceneView {
         case .error:
             return PastryPalette.dangerBadge
         default:
-            return PastryPalette.warmAccent
+            return PastryPalette.successDeep
         }
     }
 
