@@ -289,28 +289,13 @@ final class OverlayPanelManager: @unchecked Sendable {
     /// showPanel() 读取后清零
     nonisolated(unsafe) static var hotkeyFiredAt: CFAbsoluteTime?
 
-    private static let perfLogQueue = DispatchQueue(label: "com.nekutai.pastry.perflog", qos: .utility)
-
     private static var isPerformanceLoggingEnabled: Bool {
-        UserDefaults.standard.bool(forKey: UserDefaultsKeys.performanceLoggingEnabled)
-            || ProcessInfo.processInfo.environment["PASTRY_PERF_LOG"] == "1"
+        DeveloperDiagnostics.isEnabled
     }
 
     /// 性能日志写入（~/Library/Logs/Pastry/perf.log），异步不阻塞热路径
     private static func writePerfLog(_ line: String) {
-        perfLogQueue.async {
-            guard let logDirBase = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else { return }
-            let logDir = logDirBase.appendingPathComponent("Logs/Pastry")
-            try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
-            let logFile = logDir.appendingPathComponent("perf.log")
-            if let handle = try? FileHandle(forWritingTo: logFile) {
-                handle.seekToEndOfFile()
-                handle.write(Data((line + "\n").utf8))
-                try? handle.close()
-            } else {
-                try? (line + "\n").write(to: logFile, atomically: true, encoding: .utf8)
-            }
-        }
+        DeveloperDiagnostics.writePerfLine(line)
     }
 
     @MainActor
@@ -323,6 +308,7 @@ final class OverlayPanelManager: @unchecked Sendable {
     func hide() {
         cleanup()
         NotificationCenter.default.post(name: .overlayDidHide, object: nil)
+        DeveloperDiagnostics.record(DiagnosticsEvent.overlayDismiss)
         log.info("覆盖层已关闭")
     }
 
@@ -382,6 +368,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         ClipboardMonitor.shared.resume()
         StoreManager.shared.refresh()
         isPasting = false
+        DeveloperDiagnostics.record(DiagnosticsEvent.pasteSingle)
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
@@ -441,6 +428,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         ClipboardMonitor.shared.resume()
         StoreManager.shared.refresh()
         isPasting = false
+        DeveloperDiagnostics.record(DiagnosticsEvent.pasteMulti)
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
@@ -592,6 +580,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         }
 
         self.panel = newPanel
+        DeveloperDiagnostics.record(DiagnosticsEvent.overlayOpen)
         installKeyboardMonitor()
 
         log.info("覆盖层已显示")
@@ -659,6 +648,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         Logger(subsystem: "com.nekutai.pastry", category: "paste")
             .warning("粘贴中止：缺少辅助功能权限（已触发系统授权请求）")
         NotificationCenter.default.post(name: .overlayAccessibilityDenied, object: nil)
+        DeveloperDiagnostics.record(DiagnosticsEvent.accessibilityDenied)
         return false
     }
 
@@ -674,6 +664,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         guard let source = CGEventSource(stateID: .privateState) else {
             Logger(subsystem: "com.nekutai.pastry", category: "paste").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
             NotificationCenter.default.post(name: .overlayAccessibilityDenied, object: nil)
+            DeveloperDiagnostics.record(DiagnosticsEvent.accessibilityDenied)
             return false
         }
 

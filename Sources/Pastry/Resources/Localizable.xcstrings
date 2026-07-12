@@ -834,6 +834,40 @@
         }
       }
     },
+    "settings.developer_diagnostics": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开发诊断记录"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Developer Diagnostics"
+          }
+        }
+      }
+    },
+    "settings.developer_diagnostics_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本地写入性能计时与功能使用次数（~/Library/Logs/Pastry/），用于后续优化，不上报。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write local timing and feature-usage counts to ~/Library/Logs/Pastry/ for product insights. Nothing is uploaded."
+          }
+        }
+      }
+    },
     "settings.history.section": {
       "extractionState": "manual",
       "localizations": {

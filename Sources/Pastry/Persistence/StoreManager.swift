@@ -18,37 +18,75 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     /// 当前 pin tab
     @Published var pinTab: PinTab = .all {
-        didSet { performSearchImmediate() }
+        didSet {
+            guard pinTab != oldValue else { return }
+            if !suppressFilterDiagnostics {
+                DeveloperDiagnostics.record(pinTab == .pinned ? DiagnosticsEvent.tabFavorites : DiagnosticsEvent.tabAll)
+            }
+            performSearchImmediate()
+        }
     }
 
     /// 关键词搜索
     @Published var searchQuery = "" {
-        didSet { performSearch() }
+        didSet {
+            if !suppressFilterDiagnostics,
+               searchQuery != oldValue,
+               !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                DeveloperDiagnostics.record(DiagnosticsEvent.searchQuery)
+            }
+            performSearch()
+        }
     }
 
     /// 类型筛选（nil = 全部，按来源格式过滤）
     @Published var typeFilter: SourceFormat? = nil {
-        didSet { performSearchImmediate() }
+        didSet {
+            if !suppressFilterDiagnostics, typeFilter != oldValue, let typeFilter {
+                DeveloperDiagnostics.record(DiagnosticsEvent.filterType(typeFilter))
+            }
+            performSearchImmediate()
+        }
     }
 
     /// URL 筛选（独立于类型，匹配 isURL 标签）
     @Published var urlFilter: Bool = false {
-        didSet { performSearchImmediate() }
+        didSet {
+            if !suppressFilterDiagnostics, urlFilter != oldValue, urlFilter {
+                DeveloperDiagnostics.record(DiagnosticsEvent.filterURL)
+            }
+            performSearchImmediate()
+        }
     }
 
     /// 来源 App 筛选（nil = 全部）
     @Published var appFilter: String? = nil {
-        didSet { performSearchImmediate() }
+        didSet {
+            if !suppressFilterDiagnostics, appFilter != oldValue, appFilter != nil {
+                DeveloperDiagnostics.record(DiagnosticsEvent.filterApp)
+            }
+            performSearchImmediate()
+        }
     }
 
     /// 来自其他设备的 Handoff 筛选
     @Published var handoffFilter: Bool = false {
-        didSet { performSearchImmediate() }
+        didSet {
+            if !suppressFilterDiagnostics, handoffFilter != oldValue, handoffFilter {
+                DeveloperDiagnostics.record(DiagnosticsEvent.filterHandoff)
+            }
+            performSearchImmediate()
+        }
     }
 
     /// 时间筛选
     @Published var timeFilter: TimeFilter = .any {
-        didSet { performSearchImmediate() }
+        didSet {
+            if !suppressFilterDiagnostics, timeFilter != oldValue, timeFilter != .any {
+                DeveloperDiagnostics.record(DiagnosticsEvent.filterTime(timeFilter))
+            }
+            performSearchImmediate()
+        }
     }
 
     /// 从当前数据中提取的去重 App 名称列表（供筛选 popover 使用）
@@ -56,6 +94,9 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     @Published private(set) var stats = ClipboardStats(totalItems: 0, todayItems: 0,
                                                          favoriteCount: 0, storageSizeKB: 0)
+
+    /// clearFilters 批量重置时抑制逐项筛选埋点
+    private var suppressFilterDiagnostics = false
 
     // MARK: 枚举
 
@@ -211,6 +252,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
         DatabaseManager.shared.togglePin(id: item.id.uuidString)
         items[idx].isPinned.toggle()
+        DeveloperDiagnostics.record(items[idx].isPinned ? DiagnosticsEvent.favoritePin : DiagnosticsEvent.favoriteUnpin)
         performSearchImmediate()
     }
 
@@ -246,11 +288,16 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     /// 批量设置选中项的 pin 状态
     func setPinForSelected(_ ids: Set<UUID>, pinned: Bool) {
+        var changed = false
         for id in ids {
             guard let idx = items.firstIndex(where: { $0.id == id }),
                   items[idx].isPinned != pinned else { continue }
             DatabaseManager.shared.setPin(id: id.uuidString, pinned: pinned)
             items[idx].isPinned = pinned
+            changed = true
+        }
+        if changed {
+            DeveloperDiagnostics.record(pinned ? DiagnosticsEvent.favoritePin : DiagnosticsEvent.favoriteUnpin)
         }
         performSearchImmediate()
     }
@@ -262,10 +309,12 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         clearSystemClipboardWhenEmpty: Bool = true
     ) -> Set<UUID> {
         var deletedIds = Set<UUID>()
+        var deletedFavorite = false
 
         ClipboardMonitor.shared.suspend()
         for id in ids {
-            guard items.contains(where: { $0.id == id }) else { continue }
+            guard let item = items.first(where: { $0.id == id }) else { continue }
+            if item.isPinned { deletedFavorite = true }
             DatabaseManager.shared.delete(id: id.uuidString)
             items.removeAll { $0.id == id }
             deletedIds.insert(id)
@@ -279,6 +328,13 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         performSearchImmediate()
         refreshAvailableApps()
 
+        if !deletedIds.isEmpty {
+            DeveloperDiagnostics.record(DiagnosticsEvent.delete)
+            if deletedFavorite {
+                DeveloperDiagnostics.record(DiagnosticsEvent.deleteIncludingFavorite)
+            }
+        }
+
         return deletedIds
     }
 
@@ -291,6 +347,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         refreshStats()
         PasteboardWriter.clearSystemClipboard()
         ClipboardMonitor.shared.resume()
+        DeveloperDiagnostics.record(DiagnosticsEvent.clearAll)
     }
 
     /// 是否有活跃的筛选条件
@@ -305,7 +362,10 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     }
 
     /// 清除所有筛选条件
-    func clearFilters() {
+    func clearFilters(recordDiagnostics: Bool = true) {
+        suppressFilterDiagnostics = true
+        defer { suppressFilterDiagnostics = false }
+        let hadFilters = hasActiveFilters || !searchQuery.isEmpty
         searchQuery = ""
         typeFilter = nil
         appFilter = nil
@@ -313,6 +373,9 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         pinTab = .all
         urlFilter = false
         handoffFilter = false
+        if recordDiagnostics, hadFilters {
+            DeveloperDiagnostics.record(DiagnosticsEvent.filterClear)
+        }
     }
 
     func refresh() {

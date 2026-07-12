@@ -9,6 +9,7 @@ extension ClipboardCardView {
             guard !urls.isEmpty else { return }
             OverlayPanelManager.shared.hide()
             for url in urls { NSWorkspace.shared.open(url) }
+            DeveloperDiagnostics.record(DiagnosticsEvent.open)
             return
         }
         if isMultiURL {
@@ -16,11 +17,13 @@ extension ClipboardCardView {
             guard !urls.isEmpty else { return }
             OverlayPanelManager.shared.hide()
             for url in urls { NSWorkspace.shared.open(url) }
+            DeveloperDiagnostics.record(DiagnosticsEvent.open)
             return
         }
         guard let url = openableURL else { return }
         OverlayPanelManager.shared.hide()
         NSWorkspace.shared.open(url)
+        DeveloperDiagnostics.record(DiagnosticsEvent.open)
     }
 
     /// 用指定应用打开
@@ -55,6 +58,7 @@ extension ClipboardCardView {
         guard let url = openableURL else { return }
         OverlayPanelManager.shared.hide()
         NSWorkspace.shared.activateFileViewerSelecting([url])
+        DeveloperDiagnostics.record(DiagnosticsEvent.showInFinder)
     }
 
     /// 复制到系统剪贴板（不隐藏面板、不触发粘贴）。
@@ -71,16 +75,16 @@ extension ClipboardCardView {
             Task {
                 _ = await PasteboardWriter.write(targets[0], options: .storeSingle)
             }
-            return
-        }
-
-        let lines = targets.map { target in
-            if target.sourceFormat == .fileURL || target.sourceFormat == .image {
-                return target.content
+        } else {
+            let lines = targets.map { target in
+                if target.sourceFormat == .fileURL || target.sourceFormat == .image {
+                    return target.content
+                }
+                return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
             }
-            return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
+            PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
         }
-        PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
+        DeveloperDiagnostics.record(DiagnosticsEvent.copy)
     }
 
     /// 构建系统的"打开方式"子菜单
@@ -321,6 +325,7 @@ extension ClipboardCardView {
         }
 
         QLPreviewHelper.shared.showPreview(metadata: metadata, from: sourceView)
+        DeveloperDiagnostics.record(DiagnosticsEvent.preview)
     }
 
     /// 系统分享面板
@@ -339,5 +344,6 @@ extension ClipboardCardView {
         }
         let picker = NSSharingServicePicker(items: items)
         picker.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+        DeveloperDiagnostics.record(DiagnosticsEvent.share)
     }
 }

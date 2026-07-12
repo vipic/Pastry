@@ -24,6 +24,18 @@ enum AppDirectories {
         return fallback
     }
 
+    /// `~/Library/Logs/Pastry`（DEBUG 为 Pastry Dev）
+    static func logsDirectory() -> URL {
+        if let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {
+            return library
+                .appendingPathComponent("Logs", isDirectory: true)
+                .appendingPathComponent(Constants.appName, isDirectory: true)
+        }
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent(Constants.appName)
+            .appendingPathComponent("LogsFallback")
+    }
+
     @discardableResult
     static func ensureDirectory(_ url: URL, logCategory: String) -> Bool {
         do {

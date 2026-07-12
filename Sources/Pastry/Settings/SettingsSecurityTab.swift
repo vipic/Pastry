@@ -31,8 +31,8 @@ extension SettingsSceneView {
                         settingsDivider
 
                         settingsRow(
-                            title: L10n["settings.performance_logging"],
-                            help: L10n["settings.performance_logging_hint"]
+                            title: L10n["settings.developer_diagnostics"],
+                            help: L10n["settings.developer_diagnostics_hint"]
                         ) {
                             Toggle("", isOn: $performanceLoggingEnabled)
                                 .labelsHidden()

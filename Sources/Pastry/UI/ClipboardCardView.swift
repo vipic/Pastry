@@ -797,6 +797,7 @@ struct ClipboardCardView: View {
 
     private func pasteItem() {
         didPaste = true
+        DeveloperDiagnostics.record(DiagnosticsEvent.cardClickPaste)
         Task { await OverlayPanelManager.shared.hideAndPaste(item) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
             didPaste = false

@@ -145,9 +145,11 @@ struct OverlayView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
                 withAnimation(searchExpansionAnimation) { showSearch = true }
+                DeveloperDiagnostics.record(DiagnosticsEvent.searchOpen)
             }
             .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearchImmediate)) { _ in
                 withAnimation(searchExpansionAnimation) { showSearch = true }
+                DeveloperDiagnostics.record(DiagnosticsEvent.searchOpen)
             }
             .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
                 let ids = Set(visibleItems.map { $0.id })
@@ -287,6 +289,7 @@ struct OverlayView: View {
             return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
         }
         PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
+        DeveloperDiagnostics.record(DiagnosticsEvent.copy)
     }
 
     private func handleCommandPaste(_ note: Notification) {
@@ -298,6 +301,7 @@ struct OverlayView: View {
             return
         }
         let item = visibleItems[idx - 1]
+        DeveloperDiagnostics.record(DiagnosticsEvent.pasteCmdNumber)
         Task { await OverlayPanelManager.shared.hideAndPaste(item) }
     }
 
@@ -319,7 +323,7 @@ struct OverlayView: View {
         OverlayPanelManager.shared.isSearchActive = false
         OverlayPanelManager.shared.isFilterPopoverActive = false
         OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
-        store.clearFilters()
+        store.clearFilters(recordDiagnostics: false)
         // 打开面板默认选中第一张卡片，便于立刻 Enter / 方向键 / Delete
         selectFirstVisibleCard()
         renderedIds = []
@@ -365,7 +369,7 @@ struct OverlayView: View {
 
     private func openSettingsFromOverlay() {
         OverlayPanelManager.shared.hide()
-        store.clearFilters()
+        store.clearFilters(recordDiagnostics: false)
         DispatchQueue.main.async {
             AppDelegate.shared?.openSettingsWindow()
         }
@@ -536,6 +540,7 @@ struct OverlayView: View {
         .onTapGesture {
             guard !showSearch else { return }
             withAnimation(searchExpansionAnimation) { showSearch = true }
+            DeveloperDiagnostics.record(DiagnosticsEvent.searchOpen)
         }
         .onHover { hovering in
             hoverSearch = hovering
@@ -1118,11 +1123,13 @@ struct OverlayView: View {
         .onDrag {
             if isInMultiSelection {
                 let selected = visibleItems.filter { selection.selectedIds.contains($0.id) }
+                DeveloperDiagnostics.record(DiagnosticsEvent.dragMulti)
                 return DragPayloadBuilder.providerForSelection(selected) { item in
                     DatabaseManager.shared.loadFullContent(id: item.id)
                 }
             } else {
                 OverlayPanelManager.shared.beginDragThrough()
+                DeveloperDiagnostics.record(DiagnosticsEvent.dragSingle)
                 return DragPayloadBuilder.provider(for: item) { item in
                     DatabaseManager.shared.loadFullContent(id: item.id)
                 }

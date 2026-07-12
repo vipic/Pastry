@@ -195,9 +195,16 @@ dist/smoke/<timestamp>/
 ./bench.sh --report
 ```
 
-`--report` 依赖 `~/Library/Logs/Pastry/perf.log`。性能日志默认关闭，可在设置页 Security -> Diagnostics 打开“Record Performance Logs”，或在手动启动二进制时使用：
+`--report` 依赖 `~/Library/Logs/Pastry/perf.log`（DEBUG 为 `Pastry Dev`）。开发诊断默认关闭，可在设置 → Security → Privacy 打开「开发诊断记录」，同时写入：
+
+- `perf.log`：面板打开 / 粘贴计时
+- `usage.json`：功能使用次数累加（收藏、删除、预览、筛选等）
+
+或在手动启动二进制时使用：
 
 ```bash
+PASTRY_DIAGNOSTICS=1 .build/release/Pastry
+# 兼容旧环境变量
 PASTRY_PERF_LOG=1 .build/release/Pastry
 ```
 

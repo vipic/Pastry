@@ -52,6 +52,7 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
 
         Task { @MainActor in
             OverlayPanelManager.shared.beginDragThrough()
+            DeveloperDiagnostics.record(DiagnosticsEvent.dragMulti)
         }
     }
 

@@ -324,6 +324,15 @@ scripts/check_coverage.sh
 
 收藏只豁免自动清理，不豁免用户删除。删除确认开启且选中含收藏时，文案会提示收藏条数。
 
+### 开发诊断记录
+
+设置 → Security → Privacy「开发诊断记录」开关（UserDefaults `performance_logging_enabled`）同时控制：
+
+- `~/Library/Logs/Pastry/perf.log`：面板 / 粘贴计时（`bench.sh --report` 可读）
+- `~/Library/Logs/Pastry/usage.json`：功能使用次数累加（收藏、删除、预览、筛选、粘贴路径等）
+
+仅本地文件，不上报。环境变量 `PASTRY_DIAGNOSTICS=1` 或 `PASTRY_PERF_LOG=1` 也可强制开启。
+
 ### 多选拖拽策略
 
 多选拖拽使用 `MultiSelectionDragSourceView` 的单个 `NSDraggingItem`，避免 macOS 对多个 dragging item 自动叠加系统数量角标。自定义拖拽图固定显示两张重叠卡片和 Pastry 自绘数量角标。
