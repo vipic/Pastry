@@ -43,6 +43,9 @@ extension Notification.Name {
 // MARK: - 覆盖层主视图
 struct OverlayView: View {
 
+    /// 启动预热时为 true：只建视图树做首帧布局，不装监听、不播入场动画。
+    var isPipelineWarmup: Bool = false
+
     @EnvironmentObject private var store: StoreManager
 
     @State private var cardVisible = false
@@ -124,6 +127,11 @@ struct OverlayView: View {
     private func attachCoreLifecycle<Content: View>(_ content: Content) -> some View {
         content
             .onAppear {
+                guard !isPipelineWarmup else {
+                    // 预热：直接落到可见态，强制 LazyHStack / 玻璃材质走完首帧布局
+                    cardVisible = true
+                    return
+                }
                 resetAllState()
                 refreshAccessibilityPermission()
                 OverlayPanelManager.shared.isHorizontalCardLayout = isHorizontalLayout
@@ -1068,7 +1076,7 @@ struct OverlayView: View {
                 color: PastryPalette.warmAccent.opacity(visible ? 0.35 : 0),
                 radius: visible ? 4 : 0
             )
-            .padding(side == .leading ? .leading : .trailing, 2)
+            .padding(side == .leading ? .leading : .trailing, 8)
             .frame(maxHeight: .infinity, alignment: .center)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -1345,14 +1353,15 @@ struct OverlayView: View {
             iconPrefetchTask = Task.detached(priority: .userInitiated) {
                 for app in apps.prefix(32) {
                     guard !Task.isCancelled else { return }
-                    _ = AppIconProvider.shared.icon(for: app)
+                    // themeColor 内部会暖 icon + color，供卡片首帧 cached* 命中
+                    _ = AppIconProvider.shared.themeColor(for: app)
                 }
             }
         } else {
-            // 已有预取在跑时，并行补一轮高优先级剩余（icon 有缓存则很快）
+            // 已有预取在跑时，并行补一轮高优先级剩余（有缓存则很快）
             Task.detached(priority: .userInitiated) {
                 for app in apps.prefix(32) {
-                    _ = AppIconProvider.shared.icon(for: app)
+                    _ = AppIconProvider.shared.themeColor(for: app)
                 }
             }
         }

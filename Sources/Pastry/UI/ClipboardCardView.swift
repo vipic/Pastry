@@ -78,13 +78,24 @@ struct ClipboardCardView: View {
                     }
                 )
             )
-            .onAppear { loadAppInfo() }
+            .onAppear {
+                // 禁用隐式动画：否则会吃到托盘入场 spring，主题色/图标/缩略图像「从简陋长出来」。
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) {
+                    loadAppInfo()
+                    applyCachedFilePreviewIfAvailable()
+                }
+            }
             .onDisappear { CardPreviewAnchorRegistry.unregister(item.id) }
             .task(id: item.id) { await fetchLinkPreviewIfNeeded() }
             .onChange(of: item.content) { old, _ in
                 Self.imageCache.removeObject(forKey: old as NSString)
             }
-            .task(id: filePreviewTaskID) { await loadFilePreviewsIfNeeded() }
+            .task(id: filePreviewTaskID) {
+                guard item.sourceFormat == .image || item.sourceFormat == .fileURL else { return }
+                await loadFilePreviewsIfNeeded()
+            }
     }
 
     private var showHoverActions: Bool {
@@ -110,10 +121,11 @@ struct ClipboardCardView: View {
         .background(Color(nsColor: NSColor.windowBackgroundColor))
         .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
-        // One border only: idle / hover / selected / paste share a single stroke layer.
+        // Inset stroke only: centered `.stroke` bleeds outside the card and gets clipped
+        // by the horizontal strip ScrollView (edge cards sit flush with no side padding).
         .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
-                .stroke(cardChromeBorderColor, lineWidth: cardChromeBorderWidth)
+                .strokeBorder(cardChromeBorderColor, lineWidth: cardChromeBorderWidth)
                 .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
                 .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
                 .animation(.easeOut(duration: 0.5), value: didPaste)
@@ -316,11 +328,6 @@ struct ClipboardCardView: View {
 
     /// 异步加载文件预览 — 避免主线程同步 I/O 触发 TCC 权限弹窗死锁
     private func loadFilePreviewsIfNeeded() async {
-        asyncFilePreview = nil
-        asyncFileIcons = [:]
-        asyncFileSizes = [:]
-        missingFileURLs = []
-
         guard item.sourceFormat == .image || item.sourceFormat == .fileURL else { return }
 
         // 图片类型 — 异步加载 NSImage
@@ -355,7 +362,11 @@ struct ClipboardCardView: View {
             guard !Task.isCancelled else { return }
             if let img = img {
                 Self.imageCache.setObject(img, forKey: key)
-                asyncFilePreview = img
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) {
+                    asyncFilePreview = img
+                }
             }
             return
         }
@@ -415,11 +426,15 @@ struct ClipboardCardView: View {
             }
 
             guard !Task.isCancelled else { return }
-            missingFileURLs = result.missing
-            asyncFileSizes = result.sizes
-            for (url, icon, isThumbnail) in result.icons {
-                if isThumbnail { asyncFilePreview = icon }
-                else { asyncFileIcons[url] = icon }
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) {
+                missingFileURLs = result.missing
+                asyncFileSizes = result.sizes
+                for (url, icon, isThumbnail) in result.icons {
+                    if isThumbnail { asyncFilePreview = icon }
+                    else { asyncFileIcons[url] = icon }
+                }
             }
         }
     }
@@ -856,18 +871,72 @@ struct ClipboardCardView: View {
     private func loadAppInfo() {
         let provider = AppIconProvider.shared
         let name: String? = item.isHandoff ? "📱 Handoff" : item.appName
-        self.themeColor = Color(nsColor: provider.themeColor(for: name))
-        if item.isHandoff {
-            // Handoff 来源：用 SF Symbol
-            self.appIcon = nil  // 强制用 SF Symbol
-            return
+        let isHandoff = item.isHandoff
+
+        // 命中缓存则同步贴上，首帧就与正式版一样完整；未命中再后台补，避免扫盘卡入场。
+        if let cached = provider.cachedThemeColor(for: name) {
+            themeColor = Color(nsColor: cached)
         }
+        if isHandoff {
+            appIcon = nil
+        } else if let cached = provider.cachedIcon(for: name) {
+            appIcon = cached
+        }
+
+        let needsColor = provider.cachedThemeColor(for: name) == nil
+        let needsIcon = !isHandoff && provider.cachedIcon(for: name) == nil
+        guard needsColor || needsIcon else { return }
+
         Task {
-            let icon = await Task.detached(priority: .userInitiated) {
-                provider.icon(for: name)
+            let (color, icon) = await Task.detached(priority: .userInitiated) {
+                let color = provider.themeColor(for: name)
+                let icon: NSImage? = isHandoff ? nil : provider.icon(for: name)
+                return (color, icon)
             }.value
             guard !Task.isCancelled else { return }
-            self.appIcon = icon
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) {
+                themeColor = Color(nsColor: color)
+                if let icon {
+                    appIcon = icon
+                }
+            }
+        }
+    }
+
+    /// 打开托盘时先同步贴上已缓存的文件/图片预览，避免先空白再「长出来」。
+    private func applyCachedFilePreviewIfAvailable() {
+        switch item.sourceFormat {
+        case .image:
+            let key = item.content as NSString
+            if let cached = Self.imageCache.object(forKey: key) {
+                asyncFilePreview = cached
+            }
+        case .fileURL:
+            var icons: [URL: NSImage] = [:]
+            var thumbnail: NSImage?
+            for url in fileURLs {
+                let style = Self.filePreviewStyle(for: url)
+                let cacheKey: NSString
+                switch style {
+                case .thumbnail:
+                    cacheKey = url.path as NSString
+                case .systemIcon:
+                    cacheKey = "icon:\(url.path)" as NSString
+                }
+                guard let cached = Self.imageCache.object(forKey: cacheKey) else { continue }
+                switch style {
+                case .thumbnail:
+                    thumbnail = cached
+                case .systemIcon:
+                    icons[url] = cached
+                }
+            }
+            if !icons.isEmpty { asyncFileIcons = icons }
+            if let thumbnail { asyncFilePreview = thumbnail }
+        case .text, .rtf, .html:
+            break
         }
     }
 

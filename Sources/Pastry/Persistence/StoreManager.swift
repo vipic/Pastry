@@ -41,8 +41,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     /// 关键词搜索
     @Published var searchQuery = "" {
         didSet {
+            guard searchQuery != oldValue else { return }
             if !suppressFilterDiagnostics,
-               searchQuery != oldValue,
                !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 DeveloperDiagnostics.record(DiagnosticsEvent.searchQuery)
             }
@@ -58,7 +58,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     /// 类型筛选（nil = 全部，按来源格式过滤）
     @Published var typeFilter: SourceFormat? = nil {
         didSet {
-            if !suppressFilterDiagnostics, typeFilter != oldValue, let typeFilter {
+            guard typeFilter != oldValue else { return }
+            if !suppressFilterDiagnostics, let typeFilter {
                 DeveloperDiagnostics.record(DiagnosticsEvent.filterType(typeFilter))
             }
             performSearchImmediate()
@@ -68,7 +69,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     /// URL 筛选（独立于类型，匹配 isURL 标签）
     @Published var urlFilter: Bool = false {
         didSet {
-            if !suppressFilterDiagnostics, urlFilter != oldValue, urlFilter {
+            guard urlFilter != oldValue else { return }
+            if !suppressFilterDiagnostics, urlFilter {
                 DeveloperDiagnostics.record(DiagnosticsEvent.filterURL)
             }
             performSearchImmediate()
@@ -78,7 +80,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     /// 来源 App 筛选（nil = 全部）
     @Published var appFilter: String? = nil {
         didSet {
-            if !suppressFilterDiagnostics, appFilter != oldValue, appFilter != nil {
+            guard appFilter != oldValue else { return }
+            if !suppressFilterDiagnostics, appFilter != nil {
                 DeveloperDiagnostics.record(DiagnosticsEvent.filterApp)
             }
             performSearchImmediate()
@@ -88,7 +91,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     /// 来自其他设备的 Handoff 筛选
     @Published var handoffFilter: Bool = false {
         didSet {
-            if !suppressFilterDiagnostics, handoffFilter != oldValue, handoffFilter {
+            guard handoffFilter != oldValue else { return }
+            if !suppressFilterDiagnostics, handoffFilter {
                 DeveloperDiagnostics.record(DiagnosticsEvent.filterHandoff)
             }
             performSearchImmediate()
@@ -98,7 +102,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     /// 时间筛选
     @Published var timeFilter: TimeFilter = .any {
         didSet {
-            if !suppressFilterDiagnostics, timeFilter != oldValue, timeFilter != .any {
+            guard timeFilter != oldValue else { return }
+            if !suppressFilterDiagnostics, timeFilter != .any {
                 DeveloperDiagnostics.record(DiagnosticsEvent.filterTime(timeFilter))
             }
             performSearchImmediate()
@@ -379,9 +384,11 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     /// 清除所有筛选条件
     func clearFilters(recordDiagnostics: Bool = true) {
+        let hadFilters = hasActiveFilters || !searchQuery.isEmpty
+        // 已是默认态时不再写 @Published，避免打开面板时连打多次 executeSearch 卡入场动画
+        guard hadFilters else { return }
         suppressFilterDiagnostics = true
         defer { suppressFilterDiagnostics = false }
-        let hadFilters = hasActiveFilters || !searchQuery.isEmpty
         searchQuery = ""
         typeFilter = nil
         appFilter = nil
@@ -389,7 +396,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         pinTab = .all
         urlFilter = false
         handoffFilter = false
-        if recordDiagnostics, hadFilters {
+        if recordDiagnostics {
             DeveloperDiagnostics.record(DiagnosticsEvent.filterClear)
         }
     }

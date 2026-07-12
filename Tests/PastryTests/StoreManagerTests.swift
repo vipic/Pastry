@@ -331,6 +331,15 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertFalse(store.hasActiveFilters)
     }
 
+    func testClearFiltersNoOpWhenAlreadyClearDoesNotReselect() {
+        store = makeStoreWithItems([("A", .text, "Safari", false, 0)])
+        let before = store.filteredItems.map(\.id)
+        store.clearFilters()
+        XCTAssertEqual(store.filteredItems.map(\.id), before)
+        store.clearFilters()
+        XCTAssertEqual(store.filteredItems.map(\.id), before)
+    }
+
     // MARK: - History Retention
 
     func testApplyHistoryRetentionSettingsInvokesCleanup() {

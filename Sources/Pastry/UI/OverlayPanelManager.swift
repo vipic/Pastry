@@ -305,6 +305,9 @@ final class OverlayPanelManager: @unchecked Sendable {
     /// showPanel() 读取后清零
     nonisolated(unsafe) static var hotkeyFiredAt: CFAbsoluteTime?
 
+    /// 进程内只预热一次（玻璃材质 / Hosting / 卡片首帧）
+    private static var didWarmupPipeline = false
+
     private static var isPerformanceLoggingEnabled: Bool {
         DeveloperDiagnostics.isEnabled
     }
@@ -318,6 +321,58 @@ final class OverlayPanelManager: @unchecked Sendable {
     func show() {
         guard panel == nil else { return }
         showPanel()
+    }
+
+    /// 启动后预热 NSHostingView + 玻璃材质 + 卡片首帧布局，避免用户第一次打开时卡在入场动画中途。
+    @MainActor
+    func warmupPipelineIfNeeded() {
+        guard !Self.didWarmupPipeline else { return }
+        Self.didWarmupPipeline = true
+        guard panel == nil else { return }
+
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let mouseLocation = NSEvent.mouseLocation
+        guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
+                ?? NSScreen.main
+                ?? NSScreen.screens.first
+        else { return }
+
+        let screenFrame = screen.visibleFrame
+        let warmPanel = ClipboardOverlayPanel(
+            contentRect: screenFrame,
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        warmPanel.isOpaque = false
+        warmPanel.backgroundColor = .clear
+        warmPanel.hasShadow = false
+        warmPanel.level = .popUpMenu
+        warmPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        warmPanel.isReleasedWhenClosed = false
+        warmPanel.ignoresMouseEvents = true
+        warmPanel.alphaValue = 0.01
+        warmPanel.animationBehavior = .none
+
+        let hostingView = NSHostingView(
+            rootView: OverlayView(isPipelineWarmup: true)
+                .environmentObject(StoreManager.shared)
+        )
+        hostingView.frame = screenFrame
+        hostingView.autoresizingMask = [.width, .height]
+        warmPanel.contentView = hostingView
+        hostingView.layoutSubtreeIfNeeded()
+        warmPanel.orderFrontRegardless()
+        warmPanel.displayIfNeeded()
+        hostingView.layoutSubtreeIfNeeded()
+        warmPanel.orderOut(nil)
+        warmPanel.contentView = nil
+
+        if Self.isPerformanceLoggingEnabled {
+            let ms = Int(((CFAbsoluteTimeGetCurrent() - t0) * 1000).rounded())
+            Self.writePerfLog("\(Date()) | type: warmup | total: \(ms)ms | items: \(StoreManager.shared.items.count)")
+        }
+        log.info("覆盖层管线预热完成")
     }
 
     @MainActor

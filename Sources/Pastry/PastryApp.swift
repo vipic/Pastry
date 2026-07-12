@@ -432,8 +432,23 @@ struct PastryApp: App {
             exit(0)
         }
 
+        // 后台预热近期应用图标/主题色，避免首次打开托盘时卡片同步抽色卡动画。
+        // Finder 不在 availableApps 里（筛选列表刻意排除），但从 Finder 复制文件时首卡几乎总是它。
+        let appsToWarm = store.availableApps
+        Task.detached(priority: .utility) {
+            _ = AppIconProvider.shared.themeColor(for: "Finder")
+            for app in appsToWarm.prefix(32) {
+                _ = AppIconProvider.shared.themeColor(for: app)
+            }
+        }
+
         GlobalHotkeyManager.shared.register()
         MenuBarManager.shared.setup()
+
+        // 下一 runloop 预热面板管线（不挡启动）；用户第一次打开时应已走过 Hosting/玻璃首帧
+        DispatchQueue.main.async {
+            OverlayPanelManager.shared.warmupPipelineIfNeeded()
+        }
 
         log.info("Pastry 初始化完成")
     }

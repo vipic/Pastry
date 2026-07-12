@@ -99,6 +99,56 @@ final class AppIconProviderTests: XCTestCase {
         XCTAssertNil(provider.cachedIcon(for: ""))
     }
 
+    // MARK: - cachedThemeColor（卡片入场首帧）
+
+    func testCachedThemeColorMissReturnsNil() {
+        XCTAssertNil(
+            provider.cachedThemeColor(for: "AppThemeNeverLoaded-\(UUID().uuidString)"),
+            "未加载过的应用名不应假装命中主题色缓存"
+        )
+    }
+
+    func testCachedThemeColorHitAfterThemeColorLoad() {
+        let name = "PastryThemeCacheHit-\(UUID().uuidString)"
+        _ = provider.themeColor(for: name)
+        XCTAssertNotNil(provider.cachedThemeColor(for: name), "themeColor(for:) 之后 cachedThemeColor 应命中")
+    }
+
+    func testCachedThemeColorNilAndEmpty() {
+        XCTAssertNil(provider.cachedThemeColor(for: nil))
+        XCTAssertNil(provider.cachedThemeColor(for: ""))
+    }
+
+    /// 卡片首帧模式：只读 cached*，未命中时用 accent，且不得触发扫盘/抽色。
+    func testFirstFrameThemeColorPatternLeavesCachesCold() {
+        let name = "Safari"
+        let display = provider.cachedThemeColor(for: name) ?? NSColor.controlAccentColor
+        XCTAssertEqual(display, NSColor.controlAccentColor)
+        XCTAssertNil(provider.cachedIcon(for: name), "cachedThemeColor miss 不应副作用写入 icon 缓存")
+        XCTAssertNil(provider.cachedThemeColor(for: name), "cachedThemeColor miss 不应副作用写入 color 缓存")
+    }
+
+    /// 回归信号：多应用冷启动同步 themeColor 有可测成本（卡片不得在 appear 上同步调用）。
+    func testColdMultiAppThemeColorHasMeasurableCost() {
+        let apps = ["Safari", "Finder", "Xcode", "Mail", "Notes", "Terminal", "Preview", "TextEdit"]
+        let start = CFAbsoluteTimeGetCurrent()
+        for app in apps {
+            _ = provider.themeColor(for: app)
+        }
+        let elapsedMs = (CFAbsoluteTimeGetCurrent() - start) * 1000
+        // 机器快时也可能 <16ms，但冷路径仍应明显大于纯缓存命中。
+        let warmStart = CFAbsoluteTimeGetCurrent()
+        for app in apps {
+            _ = provider.themeColor(for: app)
+        }
+        let warmMs = (CFAbsoluteTimeGetCurrent() - warmStart) * 1000
+        XCTAssertGreaterThan(
+            elapsedMs,
+            warmMs * 2,
+            "cold \(elapsedMs)ms should be slower than warm \(warmMs)ms; cards must use cachedThemeColor on first frame"
+        )
+    }
+
     // MARK: - icon: 已知应用返回真实图标
 
     func testIconKnownAppNotDefaultIcon() {

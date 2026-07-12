@@ -48,6 +48,15 @@ final class AppIconProvider {
         return icon
     }
 
+    /// 仅读主题色缓存，未命中返回 nil（卡片入场首帧避免同步 I/O）
+    func cachedThemeColor(for appName: String?) -> NSColor? {
+        guard let name = appName, !name.isEmpty else { return nil }
+        lock.lock()
+        let color = colorCache.object(forKey: name as NSString)
+        lock.unlock()
+        return color
+    }
+
     /// 获取主题色
     func themeColor(for appName: String?) -> NSColor {
         guard let name = appName, !name.isEmpty else {
