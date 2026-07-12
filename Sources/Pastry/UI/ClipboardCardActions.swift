@@ -57,32 +57,30 @@ extension ClipboardCardView {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
-    /// 复制到系统剪贴板（不隐藏面板、不触发粘贴）
-    /// 多选时复制所有选中卡片的文本内容
+    /// 复制到系统剪贴板（不隐藏面板、不触发粘贴）。
+    /// 多选且右键落在选中集合内 → 复制全部选中；否则只复制本卡。
     private func copyItem() {
-        let isMulti = selectedIds.count > 1 && selectedIds.contains(item.id)
-        let copyTargets: [ClipboardItem]
-
-        if isMulti {
-            copyTargets = StoreManager.shared.items.filter { selectedIds.contains($0.id) }
+        let targets: [ClipboardItem]
+        if selectedIds.count > 1, selectedIds.contains(item.id) {
+            targets = StoreManager.shared.items.filter { selectedIds.contains($0.id) }
         } else {
-            copyTargets = [item]
+            targets = [item]
         }
 
-        if copyTargets.count == 1 {
+        if targets.count == 1 {
             Task {
-                _ = await PasteboardWriter.write(copyTargets[0], options: .storeSingle)
+                _ = await PasteboardWriter.write(targets[0], options: .storeSingle)
             }
-        } else {
-            // 多选：拼接所有文本内容
-            let lines = copyTargets.map { target in
-                if target.sourceFormat == .fileURL || target.sourceFormat == .image {
-                    return target.content  // 文件路径
-                }
-                return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
-            }
-            PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
+            return
         }
+
+        let lines = targets.map { target in
+            if target.sourceFormat == .fileURL || target.sourceFormat == .image {
+                return target.content
+            }
+            return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
+        }
+        PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
     }
 
     /// 构建系统的"打开方式"子菜单

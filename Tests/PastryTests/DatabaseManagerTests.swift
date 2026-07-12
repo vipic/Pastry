@@ -405,20 +405,6 @@ final class DatabaseManagerTests: XCTestCase {
 
     // MARK: - 清空
 
-    func testClearNonPinnedPreservesPinned() {
-        let pinned = makeItem(content: "钉选的", pinned: true)
-        let normal = makeItem(content: "普通的", pinned: false)
-
-        db.insert(pinned)
-        db.insert(normal)
-
-        db.clearNonPinned()
-
-        let items = db.recent()
-        XCTAssertEqual(items.count, 1)
-        XCTAssertEqual(items[0].content, "钉选的")
-    }
-
     func testClearAllRemovesEverything() {
         db.insert(makeItem(content: "A", pinned: true))
         db.insert(makeItem(content: "B", pinned: false))

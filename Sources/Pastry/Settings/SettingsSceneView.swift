@@ -20,6 +20,9 @@ struct SettingsSceneView: View {
     @AppStorage(UserDefaultsKeys.cardClickMode)
     var cardClickModeRaw = CardClickMode.default.rawValue
 
+    @AppStorage(UserDefaultsKeys.deleteRequiresConfirmation)
+    var deleteRequiresConfirmation = true
+
     @AppStorage(UserDefaultsKeys.linkPreviewNetworkEnabled)
     var linkPreviewNetworkEnabled = false
     @AppStorage(UserDefaultsKeys.performanceLoggingEnabled)

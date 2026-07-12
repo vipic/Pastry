@@ -362,21 +362,6 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertTrue(store.filteredItems.isEmpty)
     }
 
-    func testDeleteSelectedCanPreservePinned() {
-        store = makeStoreWithItems([
-            ("pinned", .text, "Safari", true, 0),
-            ("normal", .text, "Chrome", false, 0),
-        ])
-
-        let ids = Set(store.filteredItems.map { $0.id })
-        let pinnedId = store.filteredItems.first { $0.isPinned }!.id
-        let deletedIds = store.deleteSelected(ids, preservePinned: true)
-
-        XCTAssertEqual(deletedIds, ids.subtracting([pinnedId]))
-        XCTAssertEqual(store.filteredItems.count, 1)
-        XCTAssertEqual(store.filteredItems[0].content, "pinned")
-    }
-
     func testDeleteSelectedRemovesMultiple() {
         store = makeStoreWithItems([
             ("A", .text, "Safari", false, 0),

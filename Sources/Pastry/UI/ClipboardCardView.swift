@@ -156,13 +156,13 @@ struct ClipboardCardView: View {
     private func cmdBadge(_ idx: Int) -> some View {
         Text("\(idx)")
             .font(.system(size: UIConstants.TypeSize.callout, weight: .heavy, design: .rounded))
-            .foregroundColor(PastryPalette.warmInk)
-            .frame(width: 24, height: 24)
+            .foregroundColor(.white)
+            .frame(width: UIConstants.Badge.countSize, height: UIConstants.Badge.countSize)
             .background(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Badge.countCornerRadius, style: .continuous)
                     .fill(PastryPalette.warmAccent)
             )
-            .padding(7)
+            .padding(UIConstants.Badge.countPadding)
     }
 
     // MARK: - 顶部栏（始终使用主题色背景）

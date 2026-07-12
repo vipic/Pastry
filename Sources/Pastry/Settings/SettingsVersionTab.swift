@@ -51,8 +51,8 @@ extension SettingsSceneView {
     var versionBadge: some View {
         Text(versionBadgeText)
             .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
-            .foregroundStyle(.white.opacity(0.94))
-            .frame(width: 42, height: 42)
+            .foregroundStyle(.white.opacity(UIConstants.OnDark.textPrimary))
+            .frame(width: UIConstants.Badge.statusSize, height: UIConstants.Badge.statusSize)
             .background(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .fill(versionBadgeFill)

@@ -92,13 +92,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "调整日常行为：语言、启动、提示音、左键点击、历史保留和数据清理。"
+            "value": "调整日常行为：语言、启动、提示音、左键点击操作、删除确认、历史保留和数据清理。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tune the everyday behavior: language, launch, sounds, left-click, history retention, and data cleanup."
+            "value": "Tune the everyday behavior: language, launch, sounds, left-click action, delete confirmation, history retention, and data cleanup."
           }
         }
       }
@@ -262,13 +262,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "左键点击"
+            "value": "左键点击操作"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Left-click"
+            "value": "Left-click Action"
           }
         }
       }
@@ -303,6 +303,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Click to paste"
+          }
+        }
+      }
+    },
+    "settings.delete_requires_confirmation": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除需要确认"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm Before Delete"
+          }
+        }
+      }
+    },
+    "settings.delete_requires_confirmation.help_on": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "键盘、工具栏与右键删除前会弹出确认"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask before deleting from keyboard, toolbar, or context menu"
+          }
+        }
+      }
+    },
+    "settings.delete_requires_confirmation.help_off": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除立即生效，不再弹出确认"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete immediately without a confirmation dialog"
           }
         }
       }
@@ -2081,30 +2132,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除选中记录？"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete Selected Items?"
-          }
-        }
-      }
-    },
-    "delete.confirm_direct_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
             "value": "删除记录？"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Item?"
+            "value": "Delete Items?"
           }
         }
       }
@@ -2149,23 +2183,6 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "确定删除 %lld 条选中记录吗？收藏项将保留。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete %lld selected items? Favorites will be kept."
-          }
-        }
-      }
-    },
-    "delete.confirm_direct_msg": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
             "value": "确定删除 %lld 条记录吗？"
           }
         },
@@ -2173,6 +2190,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete %lld items?"
+          }
+        }
+      }
+    },
+    "delete.confirm_msg_with_favorites": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确定删除 %lld 条记录吗？其中含 %lld 条收藏。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete %lld items? Includes %lld favorite(s)."
           }
         }
       }
@@ -3271,13 +3305,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "⌘+点击多个卡片可批量收藏或删除"
+            "value": "⌘+点击多选后，工具栏或右键可对全部选中项批量操作"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⌘-click multiple cards to add them to Favorites or delete them in batches"
+            "value": "⌘-click to multi-select, then use the toolbar or context menu to act on all selected items"
           }
         }
       }

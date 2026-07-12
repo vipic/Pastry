@@ -40,6 +40,8 @@ enum UserDefaultsKeys {
     static let soundEnabled = "sound_enabled"
     /// 卡片左键：enhanced = 单击选中 / 再点已选粘贴；speed = 单击粘贴
     static let cardClickMode = "card_click_mode"
+    /// 删除历史记录前是否弹出确认（默认 true）
+    static let deleteRequiresConfirmation = "delete_requires_confirmation"
     static let hotkeyKeyCode = "hotkey_keycode"
     static let hotkeyModifiers = "hotkey_modifiers"
     static let excludedBundleIDs = "excluded_bundle_ids"
@@ -47,6 +49,16 @@ enum UserDefaultsKeys {
     static let historyMaxItems = "history_max_items"
     static let historyMaxAgeDays = "history_max_age_days"
     static let performanceLoggingEnabled = "performance_logging_enabled"
+}
+
+/// 删除确认偏好。缺省键时视为开启，避免 `bool(forKey:)` 对缺失键返回 false。
+enum DeleteConfirmationPreference {
+    static var requiresConfirmation: Bool {
+        guard UserDefaults.standard.object(forKey: UserDefaultsKeys.deleteRequiresConfirmation) != nil else {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: UserDefaultsKeys.deleteRequiresConfirmation)
+    }
 }
 
 extension Notification.Name {

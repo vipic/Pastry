@@ -255,23 +255,20 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         performSearchImmediate()
     }
 
-    /// 批量删除选中项。返回实际删除的记录 ID，键盘选择删除会保留收藏；右键明确删除可包含收藏。
+    /// 批量删除选中项。返回实际删除的记录 ID。收藏不豁免用户删除（仅自动保留策略跳过收藏）。
     @discardableResult
     func deleteSelected(
         _ ids: Set<UUID>,
-        clearSystemClipboardWhenEmpty: Bool = true,
-        preservePinned: Bool = false
+        clearSystemClipboardWhenEmpty: Bool = true
     ) -> Set<UUID> {
         var deletedIds = Set<UUID>()
 
         ClipboardMonitor.shared.suspend()
         for id in ids {
-            if let item = items.first(where: { $0.id == id }),
-               !(preservePinned && item.isPinned) {
-                DatabaseManager.shared.delete(id: id.uuidString)
-                items.removeAll { $0.id == id }
-                deletedIds.insert(id)
-            }
+            guard items.contains(where: { $0.id == id }) else { continue }
+            DatabaseManager.shared.delete(id: id.uuidString)
+            items.removeAll { $0.id == id }
+            deletedIds.insert(id)
         }
 
         if clearSystemClipboardWhenEmpty, items.isEmpty {
@@ -283,14 +280,6 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         refreshAvailableApps()
 
         return deletedIds
-    }
-
-    /// 清空除 pinned 外的所有记录
-    func clearNonPinned() {
-        ClipboardMonitor.shared.suspend()
-        clearNonPinnedWithClipboard()
-        loadRecent()
-        ClipboardMonitor.shared.resume()
     }
 
     /// 清空全部（含 pinned）
@@ -507,16 +496,6 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         }
 
         return base
-    }
-
-    private func clearNonPinnedWithClipboard() {
-        DatabaseManager.shared.clearNonPinned()
-        items = items.filter { $0.isPinned }
-        if items.isEmpty {
-            PasteboardWriter.clearSystemClipboard()
-        }
-        performSearchImmediate()
-        refreshStats()
     }
 
     private func refreshAvailableApps() {

@@ -105,15 +105,33 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.alignment = .center
         let badgeAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: UIConstants.TypeSize.callout, weight: .semibold),
             .foregroundColor: NSColor.white,
             .paragraphStyle: paragraphStyle,
         ]
         PastryPalette.warmAccentNS.setFill()
-        let badgeRect = NSRect(x: size.width - 30, y: size.height - 30, width: 24, height: 24)
-        NSBezierPath(ovalIn: badgeRect).fill()
+        let badgeSize = UIConstants.Badge.countSize
+        let badgeInset = UIConstants.Badge.countPadding
+        let badgeRect = NSRect(
+            x: size.width - badgeSize - badgeInset,
+            y: size.height - badgeSize - badgeInset,
+            width: badgeSize,
+            height: badgeSize
+        )
+        let badgePath = NSBezierPath(
+            roundedRect: badgeRect,
+            xRadius: UIConstants.Badge.countCornerRadius,
+            yRadius: UIConstants.Badge.countCornerRadius
+        )
+        badgePath.fill()
+        let textHeight = UIConstants.TypeSize.subhead
         badge.draw(
-            in: NSRect(x: badgeRect.minX, y: badgeRect.minY + 5, width: badgeRect.width, height: 14),
+            in: NSRect(
+                x: badgeRect.minX,
+                y: badgeRect.midY - textHeight / 2,
+                width: badgeRect.width,
+                height: textHeight
+            ),
             withAttributes: badgeAttributes
         )
 

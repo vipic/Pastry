@@ -90,6 +90,20 @@ extension SettingsSceneView {
                                 .toggleStyle(SettingsSwitchStyle())
                                 .accessibilityIdentifier(AccessibilityIdentifiers.Settings.cardClickModeToggle)
                         }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.delete_requires_confirmation"],
+                            help: deleteRequiresConfirmation
+                                ? L10n["settings.delete_requires_confirmation.help_on"]
+                                : L10n["settings.delete_requires_confirmation.help_off"]
+                        ) {
+                            Toggle("", isOn: $deleteRequiresConfirmation)
+                                .labelsHidden()
+                                .toggleStyle(SettingsSwitchStyle())
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.deleteRequiresConfirmationToggle)
+                        }
                     }
                     .frame(maxWidth: .infinity, minHeight: generalSectionHeight, alignment: .top)
 

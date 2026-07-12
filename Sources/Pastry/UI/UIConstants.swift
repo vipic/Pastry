@@ -34,6 +34,22 @@ enum UIConstants {
         static let cornerRadius: CGFloat = Radius.control
     }
 
+    /// Count / status badge geometry. Colors stay on `PastryPalette` + `OnDark`.
+    enum Badge {
+        /// ⌘+数字、拖拽数量
+        static let countSize: CGFloat = 24
+        static let countPadding: CGFloat = 7
+        static let countCornerRadius: CGFloat = Radius.button
+        /// 工具栏角落微角标（筛选数量）
+        static let microSize: CGFloat = 14
+        static let microOffset: CGFloat = 4
+        /// 搜索结果 n/m 胶囊
+        static let capsuleHeight: CGFloat = 18
+        static let capsuleHorizontalPadding: CGFloat = 6
+        /// 设置页状态方块（版本 / 辅助功能）
+        static let statusSize: CGFloat = 42
+    }
+
     enum ContextMenu {
         static let cardMinimumWidth: CGFloat = 190
     }

@@ -761,14 +761,6 @@ final class DatabaseManager {
         return rc == SQLITE_DONE && changed > 0
     }
 
-    /// 清空所有（保留 pinned）
-    func clearNonPinned() {
-        lock.lock()
-        defer { lock.unlock() }
-        execute("DELETE FROM clips WHERE is_favorite = 0;")
-        lastKey = nil
-    }
-
     /// 清空全部
     func clearAll() {
         lock.lock()

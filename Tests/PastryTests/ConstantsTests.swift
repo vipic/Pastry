@@ -25,6 +25,28 @@ final class ConstantsTests: XCTestCase {
     func testSoundEnabledKey() {
         XCTAssertEqual(UserDefaultsKeys.soundEnabled, "sound_enabled")
         XCTAssertEqual(UserDefaultsKeys.cardClickMode, "card_click_mode")
+        XCTAssertEqual(UserDefaultsKeys.deleteRequiresConfirmation, "delete_requires_confirmation")
+    }
+
+    func testDeleteRequiresConfirmationDefaultsToTrueWhenUnset() {
+        let key = UserDefaultsKeys.deleteRequiresConfirmation
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let saved {
+                UserDefaults.standard.set(saved, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+
+        UserDefaults.standard.removeObject(forKey: key)
+        XCTAssertTrue(DeleteConfirmationPreference.requiresConfirmation)
+
+        UserDefaults.standard.set(false, forKey: key)
+        XCTAssertFalse(DeleteConfirmationPreference.requiresConfirmation)
+
+        UserDefaults.standard.set(true, forKey: key)
+        XCTAssertTrue(DeleteConfirmationPreference.requiresConfirmation)
     }
 
     func testSoundFeedbackEnabledReflectsUserPreference() {

@@ -89,7 +89,7 @@ extension SettingsSceneView {
                     .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
                     .foregroundStyle(.white)
             }
-            .frame(width: 42, height: 42)
+            .frame(width: UIConstants.Badge.statusSize, height: UIConstants.Badge.statusSize)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.title)
