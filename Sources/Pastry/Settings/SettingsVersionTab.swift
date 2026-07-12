@@ -1,0 +1,374 @@
+import SwiftUI
+import AppKit
+
+// MARK: - Version Tab
+
+extension SettingsSceneView {
+    // MARK: - 更新 Tab
+
+    var versionTab: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            settingsPaneHeader(
+                title: L10n["settings.tab.version"],
+                subtitle: L10n["settings.version.subtitle"]
+            )
+
+            versionStatusCard
+
+            versionReleaseNotesCard
+
+            Spacer()
+        }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { autoCheckVersionIfNeeded() }
+    }
+
+    var versionStatusCard: some View {
+        HStack(alignment: .center, spacing: 14) {
+            versionBadge
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(versionStatusTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(SettingsPalette.ink)
+                Text(versionStatusSubtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(SettingsPalette.muted)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            versionPrimaryAction
+        }
+        .padding(14)
+        .frame(maxWidth: 600, minHeight: 72, alignment: .leading)
+        .settingsCardChrome(cornerRadius: 14, fill: versionStatusTint)
+    }
+
+    var versionBadge: some View {
+        Text(versionBadgeText)
+            .font(.system(size: 18, weight: .heavy))
+            .foregroundStyle(.white.opacity(0.94))
+            .frame(width: 42, height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(versionBadgeFill)
+            )
+    }
+
+    @ViewBuilder
+    var versionPrimaryAction: some View {
+        switch versionUpdateState {
+        case .checking:
+            Button {
+            } label: {
+                ProgressView()
+                    .tint(.white)
+                    .controlSize(.small)
+                    .scaleEffect(0.72)
+            }
+            .buttonStyle(SettingsPillButtonStyle(kind: .primary))
+            .disabled(true)
+            .opacity(0.78)
+            .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        case .downloading(let progress):
+            VStack(alignment: .trailing, spacing: 6) {
+                progressBar(progress)
+                    .frame(width: 118)
+                Text("\(Int(min(max(progress, 0), 1) * 100))%")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(SettingsPalette.muted)
+                    .monospacedDigit()
+            }
+        case .installing:
+            ProgressView()
+                .tint(.pastryWarmAccent)
+                .controlSize(.small)
+        case .updateAvailable(let result):
+            Button(L10n["update.update_btn"]) {
+                Task { await installVersionUpdate(result) }
+            }
+            .buttonStyle(SettingsPillButtonStyle(kind: .primary))
+        default:
+            Button(L10n["settings.version.check_again"]) {
+                Task { await checkVersionFromSettings(force: true, allowDevBuild: true, minimumCheckingDuration: 0.45) }
+            }
+            .buttonStyle(SettingsPillButtonStyle(kind: .primary))
+            .disabled(isVersionCheckInFlight)
+            .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        }
+    }
+
+    var versionReleaseNotesCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(releaseNotesTitle)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(SettingsPalette.ink)
+
+            if releaseNotesItems.isEmpty {
+                Text(L10n["settings.version.no_release_notes"])
+                    .font(.system(size: 12))
+                    .foregroundStyle(SettingsPalette.muted)
+                    .lineSpacing(3)
+                    .textSelection(.enabled)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(releaseNotesItems.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 {
+                            settingsDivider
+                                .padding(.horizontal, -14)
+                        }
+                        releaseNoteRow(item, isLatest: index == 0)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: 600, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.white.opacity(0.34))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(SettingsPalette.ink.opacity(0.08), lineWidth: 0.5)
+                )
+        )
+    }
+
+    var versionStatusTitle: String {
+        switch versionUpdateState {
+        case .checking:
+            return L10n["update.checking"]
+        case .updateAvailable:
+            return L10n["update.update_available"]
+        case .downloading:
+            return L10n["update.downloading"]
+        case .installing:
+            return L10n["update.installing_msg"]
+        case .error:
+            return L10n["update.check_failed"]
+        case .upToDate:
+            return L10n["settings.version.up_to_date"]
+        }
+    }
+
+    func releaseNoteRow(_ note: UpdateChecker.ReleaseNote, isLatest: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("v\(note.version)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SettingsPalette.ink)
+                if isLatest, case .updateAvailable = versionUpdateState {
+                    Text(L10n["settings.version.available_badge"])
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.pastryWarmAccent)
+                        )
+                }
+                Spacer()
+            }
+
+            Text(releaseNoteBody(note))
+                .font(.system(size: 12))
+                .foregroundStyle(SettingsPalette.muted)
+                .lineSpacing(3)
+                .textSelection(.enabled)
+        }
+    }
+
+    var versionStatusSubtitle: String {
+        switch versionUpdateState {
+        case .updateAvailable(let result):
+            return "\(L10n["update.current"]) v\(UpdateChecker.displayVersion(result.currentVersion)) -> \(L10n["update.latest"]) v\(UpdateChecker.displayVersion(result.latestVersion))"
+        case .downloading, .installing:
+            if let current = versionCurrentVersion, let latest = versionLatestVersion {
+                return "\(L10n["update.current"]) v\(UpdateChecker.displayVersion(current)) -> \(L10n["update.latest"]) v\(UpdateChecker.displayVersion(latest))"
+            }
+            return String(format: L10n["settings.version.current_build"], "v\(AppVersion.displayCurrent)", AppVersion.displayBuild)
+        case .error(let message):
+            return message
+        default:
+            return String(format: L10n["settings.version.current_build"], "v\(AppVersion.displayCurrent)", AppVersion.displayBuild)
+        }
+    }
+
+    var releaseNotesTitle: String {
+        if case .updateAvailable = versionUpdateState {
+            return L10n["update.whats_new"]
+        }
+        return L10n["settings.version.recent_changes"]
+    }
+
+    var releaseNotesItems: [UpdateChecker.ReleaseNote] {
+        let history = versionReleaseHistory.filter {
+            !$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        if !history.isEmpty {
+            return Array(history.prefix(3))
+        }
+
+        let notes = versionReleaseNotes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !notes.isEmpty else { return [] }
+        let version = versionLatestVersion ?? AppVersion.displayCurrent
+        return [
+            UpdateChecker.ReleaseNote(
+                version: UpdateChecker.displayVersion(version),
+                body: notes,
+                publishedAt: "",
+                htmlURL: ""
+            )
+        ]
+    }
+
+    func releaseNoteBody(_ note: UpdateChecker.ReleaseNote) -> String {
+        let body = note.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        return body.isEmpty ? L10n["settings.version.no_release_notes"] : body
+    }
+
+    var versionBadgeText: String {
+        switch versionUpdateState {
+        case .updateAvailable, .downloading, .installing:
+            return "!"
+        case .error:
+            return "!"
+        default:
+            return "v"
+        }
+    }
+
+    var versionStatusTint: Color {
+        switch versionUpdateState {
+        case .updateAvailable, .downloading, .installing:
+            return Color.pastryWarmAccent.opacity(0.10)
+        case .error:
+            return Color.red.opacity(0.06)
+        default:
+            return .white.opacity(0.72)
+        }
+    }
+
+    var versionBadgeFill: Color {
+        switch versionUpdateState {
+        case .updateAvailable, .downloading, .installing:
+            return Color.pastryWarmAccent
+        case .error:
+            return Color(red: 0.74, green: 0.24, blue: 0.22)
+        default:
+            return Color.pastryWarmAccent
+        }
+    }
+
+    func progressBar(_ progress: Double) -> some View {
+        let clamped = min(max(progress, 0), 1)
+        let visible = max(clamped, 0.02)
+        return GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(SettingsPalette.ink.opacity(0.10))
+                    .frame(height: 6)
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.pastryWarmAccent)
+                    .frame(width: geo.size.width * CGFloat(visible), height: 6)
+            }
+        }
+        .frame(height: 6)
+    }
+
+    func loadVersionCache() {
+        guard versionReleaseNotes == nil else { return }
+        versionReleaseHistory = UpdateChecker.shared.cachedReleaseHistory()
+        versionReleaseNotes = versionReleaseHistory.first?.body ?? UpdateChecker.shared.cachedReleaseNotes()
+        let lastCheck = UserDefaults.standard.object(forKey: "PastryLastUpdateCheck") as? Date
+        versionUpdateState = .upToDate(
+            version: AppVersion.displayCurrent,
+            build: AppVersion.displayBuild,
+            lastCheckDate: lastCheck,
+            lastReleaseNotes: versionReleaseNotes
+        )
+    }
+
+    func autoCheckVersionIfNeeded() {
+        loadVersionCache()
+        guard !didAutoCheckVersionInCurrentWindow else { return }
+        didAutoCheckVersionInCurrentWindow = true
+        Task { await checkVersionFromSettings(force: false, allowDevBuild: false, minimumCheckingDuration: 0) }
+    }
+
+    @MainActor
+    func checkVersionFromSettings(
+        force: Bool = true,
+        allowDevBuild: Bool = true,
+        minimumCheckingDuration: TimeInterval = 0.45
+    ) async {
+        guard !isVersionCheckInFlight else { return }
+        isVersionCheckInFlight = true
+        let startedAt = Date()
+        withAnimation(.easeOut(duration: 0.16)) {
+            versionUpdateState = .checking
+        }
+        if let result = await UpdateChecker.shared.checkForUpdate(force: force, allowDevBuild: allowDevBuild) {
+            await waitForMinimumCheckingDuration(startedAt: startedAt, minimumDuration: minimumCheckingDuration)
+            versionReleaseNotes = result.releaseNotes
+            versionReleaseHistory = result.releaseHistory
+            versionCurrentVersion = result.currentVersion
+            versionLatestVersion = result.latestVersion
+            withAnimation(.easeOut(duration: 0.16)) {
+                versionUpdateState = .updateAvailable(result: result)
+            }
+        } else {
+            await waitForMinimumCheckingDuration(startedAt: startedAt, minimumDuration: minimumCheckingDuration)
+            let cachedHistory = UpdateChecker.shared.cachedReleaseHistory()
+            let cachedNotes = cachedHistory.first?.body ?? UpdateChecker.shared.cachedReleaseNotes()
+            versionReleaseHistory = cachedHistory
+            versionReleaseNotes = cachedNotes
+            versionCurrentVersion = nil
+            versionLatestVersion = nil
+            let lastCheck = UserDefaults.standard.object(forKey: "PastryLastUpdateCheck") as? Date
+            versionUpdateState = .upToDate(
+                version: AppVersion.displayCurrent,
+                build: AppVersion.displayBuild,
+                lastCheckDate: lastCheck,
+                lastReleaseNotes: cachedNotes
+            )
+        }
+        isVersionCheckInFlight = false
+    }
+
+    func waitForMinimumCheckingDuration(startedAt: Date, minimumDuration: TimeInterval) async {
+        let remaining = minimumDuration - Date().timeIntervalSince(startedAt)
+        guard remaining > 0 else { return }
+        try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+    }
+
+    @MainActor
+    func installVersionUpdate(_ result: UpdateChecker.UpdateResult) async {
+        versionReleaseNotes = result.releaseNotes
+        versionReleaseHistory = result.releaseHistory
+        versionCurrentVersion = result.currentVersion
+        versionLatestVersion = result.latestVersion
+        versionUpdateState = .downloading(progress: 0)
+
+        do {
+            let tempURL = try await UpdateChecker.shared.downloadBinary(
+                from: result.downloadURL,
+                expectedSize: result.downloadSize,
+                onProgress: { progress in
+                    Task { @MainActor in
+                        versionUpdateState = .downloading(progress: progress)
+                    }
+                }
+            )
+            versionUpdateState = .installing
+            try UpdateChecker.shared.applyUpdate(dmgAt: tempURL, expectedVersion: result.latestVersion)
+        } catch {
+            versionUpdateState = .error(error.localizedDescription)
+        }
+    }
+}

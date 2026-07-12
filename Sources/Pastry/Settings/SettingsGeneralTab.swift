@@ -1,0 +1,175 @@
+import SwiftUI
+import AppKit
+import OSLog
+
+// MARK: - General Tab
+
+extension SettingsSceneView {
+    // MARK: - 通用 Tab
+
+    var generalTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                settingsPaneHeader(
+                    title: L10n["settings.tab.general"],
+                    subtitle: L10n["settings.general.subtitle"]
+                )
+
+                HStack(spacing: 10) {
+                    metricCard(
+                        value: formattedHistoryMaxItems,
+                        label: L10n["settings.general.metric_max_items"]
+                    )
+                    metricCard(
+                        value: HistoryRetentionPolicy.maxAgeMetricLabel(HistoryRetentionPolicy.sanitizedMaxAgeDays(historyMaxAgeDays)),
+                        label: L10n["settings.general.metric_retention_window"]
+                    )
+                    metricCard(
+                        value: "v\(AppVersion.displayCurrent)",
+                        label: L10n["settings.general.metric_current_version"]
+                    )
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    settingsSection(title: L10n["settings.general.section_application"]) {
+                        settingsRow(
+                            title: L10n["lang.label"],
+                            help: L10n["settings.general.language_help"]
+                        ) {
+                            Picker("", selection: languageBinding) {
+                                ForEach(Language.allCases) { Text($0.label).tag($0) }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 124)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.Settings.languagePicker)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.launch_at_login"],
+                            help: L10n["settings.general.launch_help"]
+                        ) {
+                            Toggle("", isOn: $launchAtLogin)
+                                .labelsHidden()
+                                .toggleStyle(SettingsSwitchStyle())
+                                .onChange(of: launchAtLogin) { _, enabled in
+                                    do {
+                                        try LaunchAtLoginManager.shared.setEnabled(enabled)
+                                    } catch {
+                                        Logger(subsystem: "com.nekutai.pastry", category: "settings")
+                                            .error("开机启动切换失败: \(error.localizedDescription)")
+                                    }
+                                }
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.launchAtLoginToggle)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.sound_enabled"],
+                            help: L10n["settings.general.sound_help"]
+                        ) {
+                            Toggle("", isOn: $soundEnabled)
+                                .labelsHidden()
+                                .toggleStyle(SettingsSwitchStyle())
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.soundToggle)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: generalSectionHeight, alignment: .top)
+
+                    settingsSection(title: L10n["settings.history.section"]) {
+                        settingsRow(
+                            title: L10n["settings.general.maximum_history"],
+                            help: L10n["settings.general.max_items_help"]
+                        ) {
+                            Picker("", selection: maxItemsBinding) {
+                                ForEach(HistoryRetentionPolicy.maxItemsOptions, id: \.self) { value in
+                                    Text(HistoryRetentionPolicy.maxItemsLabel(value)).tag(value)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 112)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.general.keep_records_for"],
+                            help: L10n["settings.general.keep_records_help"]
+                        ) {
+                            Picker("", selection: maxAgeBinding) {
+                                ForEach(HistoryRetentionPolicy.maxAgeDayOptions, id: \.self) { value in
+                                    Text(HistoryRetentionPolicy.maxAgeLabel(value)).tag(value)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(width: 112)
+                        }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.clear_all"],
+                            help: L10n["settings.general.clear_all_help"],
+                            danger: true
+                        ) {
+                            Button(L10n["settings.clear_btn"]) { showingClearConfirm = true }
+                                .buttonStyle(SettingsPillButtonStyle(kind: .danger))
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.clearAllButton)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: generalSectionHeight, alignment: .top)
+                }
+            }
+            .padding(.vertical, 24)
+            .padding(.horizontal, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    var formattedHistoryMaxItems: String {
+        let value = HistoryRetentionPolicy.sanitizedMaxItems(historyMaxItems)
+        return value.formatted(.number.grouping(.automatic))
+    }
+
+    var languageBinding: Binding<Language> {
+        Binding<Language>(
+            get: { selectedLanguage },
+            set: { lang in
+                selectedLanguage = lang
+                switch lang {
+                case .system: UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.language)
+                default:      UserDefaults.standard.set(lang.rawValue, forKey: UserDefaultsKeys.language)
+                }
+                NotificationCenter.default.post(name: .pastryLanguageDidChange, object: lang.rawValue)
+            }
+        )
+    }
+
+    var maxItemsBinding: Binding<Int> {
+        Binding(
+            get: { HistoryRetentionPolicy.sanitizedMaxItems(historyMaxItems) },
+            set: { value in
+                historyMaxItems = value
+                StoreManager.shared.applyHistoryRetentionSettings()
+            }
+        )
+    }
+
+    var maxAgeBinding: Binding<Int> {
+        Binding(
+            get: { HistoryRetentionPolicy.sanitizedMaxAgeDays(historyMaxAgeDays) },
+            set: { value in
+                historyMaxAgeDays = value
+                StoreManager.shared.applyHistoryRetentionSettings()
+            }
+        )
+    }
+
+    var generalSectionHeight: CGFloat { 244 }
+}

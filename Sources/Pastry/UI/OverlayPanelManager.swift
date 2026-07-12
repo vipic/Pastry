@@ -22,7 +22,25 @@ final class ClipboardOverlayPanel: NSPanel {
             routeOpenSearchKey()
             return
         }
+        // 部分鼠标侧滚轮事件会先到 panel 而不是 local monitor；与 KeyboardEventHandler 共用解析。
+        if event.type == .scrollWheel,
+           OverlayPanelManager.shared.isHorizontalCardLayout,
+           !OverlayPanelManager.shared.isAlertActive,
+           KeyboardEventHandler.cardStripDelta(from: event) != nil {
+            _ = KeyboardEventHandler.handleScrollWheel(event)
+            return
+        }
         super.sendEvent(event)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        if OverlayPanelManager.shared.isHorizontalCardLayout,
+           !OverlayPanelManager.shared.isAlertActive,
+           KeyboardEventHandler.cardStripDelta(from: event) != nil {
+            _ = KeyboardEventHandler.handleScrollWheel(event)
+            return
+        }
+        super.scrollWheel(with: event)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -463,6 +481,10 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     /// 搜索栏是否展开 — ESC 优先级判断
     var isSearchActive = false
+
+    /// 托盘是否为横向卡片布局（侧滚轮 → 横向卡带）
+    /// ⚠️ 仅主线程读写。
+    var isHorizontalCardLayout = true
 
     /// 当前键盘事件归属。只有 overlayNavigation 会执行卡片级快捷键。
     /// ⚠️ 必须只在主线程读写（无锁/actor 保护，放任何非主线程访问即 data race）。

@@ -144,12 +144,12 @@ struct FilterPopoverContent: View {
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .foregroundColor(chipForeground(isSelected: isSelected))
+            .foregroundColor(FilterChipChrome.foreground(isSelected: isSelected))
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
-            .background(chipBackground(isSelected: isSelected))
+            .background(FilterChipChrome.background(isSelected: isSelected))
         }
         .buttonStyle(.plain)
     }
@@ -162,27 +162,6 @@ struct FilterPopoverContent: View {
     private var filterClearButtonBackground: some View {
         RoundedRectangle(cornerRadius: 7, style: .continuous)
             .fill(Color.white.opacity(0.08))
-    }
-
-    private func chipForeground(isSelected: Bool) -> Color {
-        isSelected ? Color(red: 0.23, green: 0.15, blue: 0.06) : .white.opacity(0.72)
-    }
-
-    private func chipBackground(isSelected: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(chipFill(isSelected: isSelected))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(chipBorder(isSelected: isSelected), lineWidth: 0.5)
-            )
-    }
-
-    private func chipFill(isSelected: Bool) -> Color {
-        isSelected ? Color.pastryWarmAccent : Color.white.opacity(0.08)
-    }
-
-    private func chipBorder(isSelected: Bool) -> Color {
-        isSelected ? Color.pastryWarmAccent.opacity(0.35) : Color.clear
     }
 
     /// 带应用图标的筛选标签
@@ -202,12 +181,12 @@ struct FilterPopoverContent: View {
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .foregroundColor(isSelected ? Color(red: 0.23, green: 0.15, blue: 0.06) : .white.opacity(0.72))
+                .foregroundColor(FilterChipChrome.foreground(isSelected: isSelected))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-                .background(AppFilterChipBackground(isSelected: isSelected))
+                .background(FilterChipChrome.background(isSelected: isSelected))
             }
             .buttonStyle(.plain)
             .task(id: app) {
@@ -249,10 +228,13 @@ struct FilterPopoverContent: View {
     }
 }
 
-private struct AppFilterChipBackground: View {
-    let isSelected: Bool
+/// Shared chip fill/border/foreground for text chips and app chips.
+enum FilterChipChrome {
+    static func foreground(isSelected: Bool) -> Color {
+        isSelected ? Color(red: 0.23, green: 0.15, blue: 0.06) : .white.opacity(0.72)
+    }
 
-    var body: some View {
+    static func background(isSelected: Bool) -> some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(isSelected ? Color.pastryWarmAccent : Color.white.opacity(0.08))
             .overlay(
