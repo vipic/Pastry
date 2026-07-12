@@ -74,4 +74,33 @@ final class NetworkAccessPolicyTests: XCTestCase {
 
         XCTAssertFalse(NetworkAccessPolicy.responseWithinLimit(response, maxBytes: NetworkAccessPolicy.maxHTMLBytes))
     }
+
+    func testResponseWithinLimitAllowsPublicURLWithSmallBody() {
+        let response = HTTPURLResponse(
+            url: URL(string: "https://8.8.8.8/ok")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Length": "128"]
+        )
+        XCTAssertTrue(NetworkAccessPolicy.responseWithinLimit(response, maxBytes: 1_000))
+    }
+
+    func testResponseWithinLimitAllowsMissingContentLength() {
+        let response = HTTPURLResponse(
+            url: URL(string: "https://8.8.8.8/ok")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        XCTAssertTrue(NetworkAccessPolicy.responseWithinLimit(response, maxBytes: 1_000))
+    }
+
+    func testShouldFollowRedirectAllowsPublicHTTPS() {
+        XCTAssertTrue(NetworkAccessPolicy.shouldFollowRedirect(to: URL(string: "https://8.8.8.8/next")!))
+    }
+
+    func testRejectsFileAndDataSchemes() {
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "file:///etc/passwd")!))
+        XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "data:text/plain,hi")!))
+    }
 }

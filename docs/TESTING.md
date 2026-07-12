@@ -50,9 +50,15 @@ swift test --filter AppIconProviderTests
 | `OverlayInteractionModelTests` | 修饰键合并、空白 clear 约定、**竖滚不映射横向**、⌘ 角标 |
 | `DragPayloadBuilderTests` | 多选文本/链接/文件载荷、http→https、混选链接规则 |
 | `UpdateInstallScriptBuilderTests` | 更新脚本 shell 引用与非法版本号 |
+| `DatabaseKeyManagerTests` | DEK 生成/持久化/0600 权限/路径隔离 |
+| `AccessibilityIdentifiersTests` | a11y id 稳定与唯一 |
+| `ClipboardItemTests` | SourceFormat 迁移、segments、身份 |
 | `AppIconProviderTests` | 含 `cachedIcon` 首帧缓存命中 |
+| `NetworkAccessPolicyTests` | 远程 URL / 重定向 / Content-Length |
+| `PasteboardWriterTests` | 独立 pasteboard 写回（非 general） |
+| `MenuBarMenuFactoryTests` | 菜单结构与快捷键 |
 
-SwiftUI 手势叠层 / NSPanel 真事件仍依赖 smoke；纯逻辑尽量进上表。
+**不适合单测（靠 smoke / 人工）**：SwiftUI 视图手势树、NSPanel 层级、真系统剪贴板、真辅助功能弹窗、Live 网络抓取。
 
 ## 脚本语法检查
 

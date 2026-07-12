@@ -85,4 +85,34 @@ final class PasteboardWriterTests: XCTestCase {
         XCTAssertTrue(pasteboard.types?.contains(.string) == true)
         XCTAssertEqual(pasteboard.string(forType: .string), "")
     }
+
+    func testHTMLWritesStringAndRawHTML() async {
+        let raw = Data("<p>Hi</p>".utf8)
+        let item = ClipboardItem(
+            content: "Hi",
+            sourceFormat: .html,
+            rawFormatData: raw,
+            rawFormatType: NSPasteboard.PasteboardType.html.rawValue
+        )
+
+        let result = await PasteboardWriter.write(item, to: pasteboard, options: .storeSingle)
+
+        XCTAssertEqual(result, .written)
+        XCTAssertEqual(pasteboard.string(forType: .string), "Hi")
+        XCTAssertEqual(pasteboard.data(forType: .html), raw)
+    }
+
+    func testStoreSingleKeepsMissingFileURLEntriesAsObjects() async {
+        // storeSingle 不过滤缺失路径（与 overlaySingle 不同）
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("gone.txt")
+        let item = ClipboardItem(content: missing.path, sourceFormat: .fileURL)
+
+        let result = await PasteboardWriter.write(item, to: pasteboard, options: .storeSingle)
+
+        XCTAssertEqual(result, .written)
+        let objects = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL]
+        XCTAssertEqual(objects?.map(\.path), [missing.path])
+    }
 }

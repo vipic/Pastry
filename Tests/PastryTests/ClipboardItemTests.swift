@@ -104,4 +104,69 @@ final class ClipboardItemTests: XCTestCase {
         )
         XCTAssertNil(item.segments)
     }
+
+    // MARK: - SourceFormat.storageKey / 迁移
+
+    func testStorageKeyRoundTripsForAllCases() {
+        for format in SourceFormat.allCases {
+            XCTAssertEqual(SourceFormat(storageKey: format.storageKey), format)
+        }
+    }
+
+    func testLegacyUrlStorageKeyMapsToText() {
+        XCTAssertEqual(SourceFormat(storageKey: "url"), .text, "存量 url 类型应映射为 text")
+    }
+
+    func testUnknownStorageKeyDefaultsToText() {
+        XCTAssertEqual(SourceFormat(storageKey: "unknown-type"), .text)
+        XCTAssertEqual(SourceFormat(storageKey: ""), .text)
+    }
+
+    // MARK: - ContentSegment / ContentTags
+
+    func testContentSegmentTextAndImageAccessors() {
+        let t = ContentSegment.text("hi")
+        let i = ContentSegment.image(url: "https://x/y.png")
+        XCTAssertEqual(t.textValue, "hi")
+        XCTAssertNil(t.imageURL)
+        XCTAssertEqual(i.imageURL, "https://x/y.png")
+        XCTAssertNil(i.textValue)
+    }
+
+    func testContentSegmentCodableRoundTrip() throws {
+        let segs: [ContentSegment] = [.text("a"), .image(url: "u")]
+        let data = try JSONEncoder().encode(segs)
+        let decoded = try JSONDecoder().decode([ContentSegment].self, from: data)
+        XCTAssertEqual(decoded, segs)
+    }
+
+    func testContentTagsEmptyDefaults() {
+        let tags = ContentTags.empty
+        XCTAssertFalse(tags.isURL)
+        XCTAssertFalse(tags.hasSegments)
+        XCTAssertFalse(tags.isMultiFile)
+        XCTAssertFalse(tags.isMissing)
+    }
+
+    // MARK: - ClipboardItem 身份
+
+    func testEqualityAndHashUseIdOnly() {
+        let id = UUID()
+        let a = ClipboardItem(id: id, content: "a", sourceFormat: .text)
+        let b = ClipboardItem(id: id, content: "b", sourceFormat: .image)
+        XCTAssertEqual(a, b)
+        XCTAssertEqual(a.hashValue, b.hashValue)
+
+        let c = ClipboardItem(content: "a", sourceFormat: .text)
+        XCTAssertNotEqual(a, c)
+    }
+
+    func testImageURLsExtractedFromSegments() {
+        let item = ClipboardItem(
+            content: "html",
+            sourceFormat: .html,
+            segments: [.text("t"), .image(url: "https://cdn/a.png"), .image(url: "https://cdn/b.png")]
+        )
+        XCTAssertEqual(item.imageURLs, ["https://cdn/a.png", "https://cdn/b.png"])
+    }
 }
