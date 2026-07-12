@@ -61,7 +61,7 @@ extension SettingsSceneView {
             }
             .padding(.vertical, 24)
             .padding(.horizontal, 28)
-            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }

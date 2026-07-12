@@ -70,7 +70,7 @@ extension SettingsSceneView {
                     .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
                 }
             }
-            .frame(maxWidth: 600, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
 
             Spacer()
         }
@@ -100,7 +100,7 @@ extension SettingsSceneView {
             )
             Spacer()
         }
-        .frame(maxWidth: 600, minHeight: 142)
+        .frame(maxWidth: .infinity, minHeight: 142)
         .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: SettingsPalette.cardFillSoft)
     }
 

@@ -66,7 +66,7 @@ extension SettingsSceneView {
             }
             .padding(.vertical, 24)
             .padding(.horizontal, 28)
-            .frame(maxWidth: 820, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -109,7 +109,7 @@ extension SettingsSceneView {
             .accessibilityIdentifier(AccessibilityIdentifiers.Settings.accessibilityGrantButton)
         }
         .padding(16)
-        .frame(maxWidth: 600, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .settingsCardChrome()
     }
 

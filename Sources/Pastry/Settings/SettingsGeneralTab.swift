@@ -142,8 +142,7 @@ extension SettingsSceneView {
 
                         settingsRow(
                             title: L10n["settings.clear_all"],
-                            help: L10n["settings.general.clear_all_help"],
-                            danger: true
+                            help: L10n["settings.general.clear_all_help"]
                         ) {
                             Button(L10n["settings.clear_btn"]) { showingClearConfirm = true }
                                 .buttonStyle(SettingsPillButtonStyle(kind: .danger))
@@ -155,7 +154,7 @@ extension SettingsSceneView {
             }
             .padding(.vertical, 24)
             .padding(.horizontal, 28)
-            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -211,5 +210,5 @@ extension SettingsSceneView {
         )
     }
 
-    var generalSectionHeight: CGFloat { 300 }
+    var generalSectionHeight: CGFloat { 330 }
 }

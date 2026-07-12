@@ -44,7 +44,7 @@ extension SettingsSceneView {
             versionPrimaryAction
         }
         .padding(14)
-        .frame(maxWidth: 600, minHeight: 72, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: versionStatusTint)
     }
 
@@ -127,7 +127,7 @@ extension SettingsSceneView {
             }
         }
         .padding(16)
-        .frame(maxWidth: 600, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: UIConstants.Radius.cardLarge, style: .continuous)
                 .fill(.white.opacity(0.34))
