@@ -28,6 +28,8 @@ extension Notification.Name {
     static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
     static let overlaySearchEnterPaste = Notification.Name("overlaySearchEnterPaste")
     static let overlayCancelFavoriteNoteEditing = Notification.Name("overlayCancelFavoriteNoteEditing")
+    /// 粘贴因缺少辅助功能权限被中止 — 刷新托盘 banner
+    static let overlayAccessibilityDenied = Notification.Name("overlayAccessibilityDenied")
     /// userInfo["delta"]: CGFloat — 横向卡带滚动量（已按侧滚轮/竖滚轮统一）
     static let overlayCardStripScroll = Notification.Name("overlayCardStripScroll")
 }
@@ -63,6 +65,8 @@ struct OverlayView: View {
     @State private var stripEdgeGlow: StripEdgeSide? = nil
     @State private var stripEdgeGlowClearTask: Task<Void, Never>?
     @State private var lastStripEdgeHapticAt: CFAbsoluteTime = 0
+    /// 辅助功能权限（托盘顶部非阻断 banner）
+    @State private var accessibilityTrusted = true
 
     private enum StripEdgeSide {
         case leading
@@ -112,12 +116,19 @@ struct OverlayView: View {
         content
             .onAppear {
                 resetAllState()
+                refreshAccessibilityPermission()
                 OverlayPanelManager.shared.isHorizontalCardLayout = isHorizontalLayout
                 keyHandler.installMouseMonitor()
                 prefetchAvailableAppIcons()
                 withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
                     cardVisible = true
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                refreshAccessibilityPermission()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayAccessibilityDenied)) { _ in
+                refreshAccessibilityPermission()
             }
             .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
                 dismiss()
@@ -484,16 +495,7 @@ struct OverlayView: View {
                 }
                 .animation(.easeOut(duration: 0.10), value: hoverClearSearch)
 
-                Text(searchCountText)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.66))
-                    .monospacedDigit()
-                    .padding(.horizontal, 6)
-                    .frame(height: 18)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(.white.opacity(0.08))
-                    )
+                searchCountBadge
                     .transition(.opacity.combined(with: .scale(scale: 0.94)))
             }
         }
@@ -571,8 +573,31 @@ struct OverlayView: View {
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
     }
 
-    private var searchCountText: String {
-        "\(store.filteredItems.count)/\(store.items.count)"
+    private var searchCountBadge: some View {
+        let filtered = store.filteredItems.count
+        let total = store.items.count
+        let display = OverlayInteractionModel.searchCountDisplayText(
+            filteredCount: filtered, totalCount: total
+        )
+        let reserve = OverlayInteractionModel.searchCountWidthReserveText(
+            filteredCount: filtered, totalCount: total
+        )
+        return ZStack {
+            // 不可见占位：按两侧最大位数预留等宽宽度，避免 count 变短时整行抖动
+            Text(reserve)
+                .hidden()
+            Text(display)
+        }
+        .font(.system(size: 10, weight: .bold, design: .rounded))
+        .foregroundColor(.white.opacity(0.66))
+        .monospacedDigit()
+        .padding(.horizontal, 6)
+        .frame(height: 18)
+        .background(
+            Capsule(style: .continuous)
+                .fill(.white.opacity(0.08))
+        )
+        .accessibilityLabel(display)
     }
 
     private var activeFilterCount: Int {
@@ -685,7 +710,11 @@ struct OverlayView: View {
             .onHover { hoverGear = $0 }
         }
         .overlay(alignment: .leading) {
-            if selection.selectedIds.count > 1 {
+            // 与搜索栏同行居左：权限提示优先；否则显示多选计数
+            if !accessibilityTrusted {
+                accessibilityPermissionBanner
+                    .padding(.leading, 4)
+            } else if selection.selectedIds.count > 1 {
                 Text(L10n["toolbar.selected_count", selection.selectedIds.count])
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.68))
@@ -1136,6 +1165,46 @@ struct OverlayView: View {
         }
     }
 
+    // MARK: - 辅助功能 banner
+
+    private var accessibilityPermissionBanner: some View {
+        Button {
+            AccessibilityPermissionChecker.openSystemSettings()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.52))
+
+                Text(L10n["overlay.accessibility_banner"])
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.62))
+                    .lineLimit(1)
+
+                Text("→")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.38))
+
+                Text(L10n["overlay.accessibility_banner_action"])
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.72))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.07))
+            )
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.accessibilityBanner)
+    }
+
+    private func refreshAccessibilityPermission() {
+        accessibilityTrusted = AccessibilityPermissionChecker.shared.isTrusted()
+    }
+
     // MARK: - 空状态
 
     private var emptyState: some View {
@@ -1178,6 +1247,11 @@ struct OverlayView: View {
                     .lineSpacing(2)
                     .lineLimit(2)
                     .frame(maxWidth: 330)
+
+                if model.showsCopyTryHint {
+                    emptyHistoryCopyHint
+                        .padding(.top, 6)
+                }
             }
             .padding(.horizontal, 28)
             .padding(.vertical, 24)
@@ -1187,6 +1261,53 @@ struct OverlayView: View {
         .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, minHeight: UIConstants.Overlay.emptyStateMinHeight)
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.emptyState)
+    }
+
+    /// 空历史示意：⌘C 键帽 +「复制任意内容试试」
+    private var emptyHistoryCopyHint: some View {
+        HStack(spacing: 10) {
+            // 键帽示意
+            Text("⌘C")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.88))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.white.opacity(0.10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.5)
+                        )
+                        .shadow(color: .black.opacity(0.18), radius: 0, x: 0, y: 1)
+                )
+
+            Image(systemName: "arrow.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.white.opacity(0.36))
+
+            HStack(spacing: 6) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(L10n["empty.copy_try_hint"])
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(.white.opacity(0.78))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(
+                            Color.white.opacity(0.14),
+                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                        )
+                )
+        )
+        .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.emptyCopyHint)
     }
 
     private func emptyStateIconBackground(accent: Color) -> some View {

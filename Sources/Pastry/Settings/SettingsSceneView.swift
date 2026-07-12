@@ -17,6 +17,9 @@ struct SettingsSceneView: View {
     @AppStorage(UserDefaultsKeys.soundEnabled)
     var soundEnabled = false
 
+    @AppStorage(UserDefaultsKeys.cardClickMode)
+    var cardClickModeRaw = CardClickMode.default.rawValue
+
     @AppStorage(UserDefaultsKeys.linkPreviewNetworkEnabled)
     var linkPreviewNetworkEnabled = false
     @AppStorage(UserDefaultsKeys.performanceLoggingEnabled)

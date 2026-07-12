@@ -17,6 +17,61 @@ final class OverlayInteractionModelTests: XCTestCase {
         }
     }
 
+    // MARK: - 左键点击模式
+
+    func testCardClickModeDefaultsToEnhanced() {
+        XCTAssertEqual(CardClickMode.default, .enhanced)
+        XCTAssertEqual(CardClickMode.resolved(stored: nil), .enhanced)
+        XCTAssertEqual(CardClickMode.resolved(stored: "bogus"), .enhanced)
+        XCTAssertEqual(CardClickMode.resolved(stored: "speed"), .speed)
+    }
+
+    func testEnhancedModeClickMatrix() {
+        // 单击 → 选中；双击 → 粘贴
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .enhanced, isDoubleClick: false, commandOrShift: false
+            ),
+            .select
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .enhanced, isDoubleClick: true, commandOrShift: false
+            ),
+            .paste
+        )
+    }
+
+    func testSpeedModeClickMatrix() {
+        // 单击 → 粘贴；双击 → 忽略
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .speed, isDoubleClick: false, commandOrShift: false
+            ),
+            .paste
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .speed, isDoubleClick: true, commandOrShift: false
+            ),
+            .ignore
+        )
+    }
+
+    func testCardClickModifiersAlwaysSelectInBothModes() {
+        for mode in CardClickMode.allCases {
+            for isDouble in [false, true] {
+                XCTAssertEqual(
+                    OverlayInteractionModel.cardClickAction(
+                        mode: mode, isDoubleClick: isDouble, commandOrShift: true
+                    ),
+                    .select,
+                    "⌘/⇧ 在 \(mode) 模式双击=\(isDouble) 时应多选"
+                )
+            }
+        }
+    }
+
     // MARK: - 修饰键解析
 
     func testResolveModifiersPrefersEventFlags() {
@@ -134,6 +189,30 @@ final class OverlayInteractionModelTests: XCTestCase {
             selectedIds: [items[3].id, items[1].id]
         )
         XCTAssertEqual(selected.map(\.id), [items[1].id, items[3].id])
+    }
+
+    func testSearchCountWidthReserveKeepsStableDigitSlots() {
+        // 10→9 时两侧仍按最大位数预留，避免徽标变窄
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 10, totalCount: 10),
+            "00/00"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 9, totalCount: 10),
+            "00/00"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountDisplayText(filteredCount: 9, totalCount: 10),
+            "9/10"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 0, totalCount: 0),
+            "0/0"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 3, totalCount: 100),
+            "000/000"
+        )
     }
 
     func testShouldReselectFirstWhenVisibleIdsChange() {
