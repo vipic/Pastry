@@ -118,6 +118,66 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertEqual(store.filteredItems.count, 2)
     }
 
+    // MARK: - URL / Handoff 筛选
+
+    func testURLFilterKeepsOnlyURLTaggedItems() {
+        let items = [
+            ClipboardItem(
+                content: "https://example.com",
+                sourceFormat: .text,
+                tags: ContentTags(isURL: true),
+                appName: "Safari"
+            ),
+            ClipboardItem(content: "plain note", sourceFormat: .text, appName: "Notes"),
+            ClipboardItem(
+                content: "https://other.test",
+                sourceFormat: .html,
+                tags: ContentTags(isURL: true),
+                appName: "Chrome"
+            ),
+        ]
+        store = StoreManager(items: items)
+        store.urlFilter = true
+        XCTAssertEqual(store.filteredItems.count, 2)
+        XCTAssertTrue(store.filteredItems.allSatisfy { $0.tags.isURL })
+    }
+
+    func testURLFilterOffShowsAll() {
+        let items = [
+            ClipboardItem(
+                content: "https://example.com",
+                sourceFormat: .text,
+                tags: ContentTags(isURL: true)
+            ),
+            ClipboardItem(content: "plain", sourceFormat: .text),
+        ]
+        store = StoreManager(items: items)
+        store.urlFilter = false
+        XCTAssertEqual(store.filteredItems.count, 2)
+    }
+
+    func testHandoffFilterKeepsOnlyHandoffItems() {
+        let items = [
+            ClipboardItem(content: "from phone", sourceFormat: .text, isHandoff: true),
+            ClipboardItem(content: "local", sourceFormat: .text, isHandoff: false),
+            ClipboardItem(content: "from ipad", sourceFormat: .text, isHandoff: true),
+        ]
+        store = StoreManager(items: items)
+        store.handoffFilter = true
+        XCTAssertEqual(store.filteredItems.count, 2)
+        XCTAssertTrue(store.filteredItems.allSatisfy(\.isHandoff))
+    }
+
+    func testHandoffFilterOffShowsAll() {
+        let items = [
+            ClipboardItem(content: "from phone", sourceFormat: .text, isHandoff: true),
+            ClipboardItem(content: "local", sourceFormat: .text, isHandoff: false),
+        ]
+        store = StoreManager(items: items)
+        store.handoffFilter = false
+        XCTAssertEqual(store.filteredItems.count, 2)
+    }
+
     // MARK: - 时间筛选
 
     func testTimeFilterToday() {
@@ -211,6 +271,18 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertTrue(store.hasActiveFilters)
     }
 
+    func testHasActiveFiltersWhenURLFilterOn() {
+        store = makeStoreWithItems([("A", .text, nil, false, 0)])
+        store.urlFilter = true
+        XCTAssertTrue(store.hasActiveFilters)
+    }
+
+    func testHasActiveFiltersWhenHandoffFilterOn() {
+        store = makeStoreWithItems([("A", .text, nil, false, 0)])
+        store.handoffFilter = true
+        XCTAssertTrue(store.hasActiveFilters)
+    }
+
     // MARK: - clearFilters
 
     func testClearFiltersResetsAll() {
@@ -220,6 +292,8 @@ final class StoreManagerTests: XCTestCase {
         store.appFilter = "Safari"
         store.timeFilter = .today
         store.pinTab = .pinned
+        store.urlFilter = true
+        store.handoffFilter = true
 
         store.clearFilters()
 
@@ -228,6 +302,8 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertNil(store.appFilter)
         XCTAssertEqual(store.timeFilter, .any)
         XCTAssertEqual(store.pinTab, .all)
+        XCTAssertFalse(store.urlFilter)
+        XCTAssertFalse(store.handoffFilter)
         XCTAssertFalse(store.hasActiveFilters)
     }
 

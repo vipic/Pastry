@@ -773,49 +773,45 @@ struct OverlayView: View {
         }
     }
 
-    /// 横向卡带：侧滚轮 / 竖滚轮 → 按卡片步进滚动（全屏 NSPanel 上 SwiftUI ScrollView 常收不到侧滚轮）
+    /// 横向卡带：侧滚轮 → 按卡片步进滚动视口（不改动选中项）。
+    /// 视口位置只跟 `stripScrollIndex`；选中变化时由 `onChange(cursorIndex)` 同步索引。
+    /// 切勿用 `selection.cursorIndex` 做每帧 base——选中后侧滚会永远卡在选中±1。
     private func handleHorizontalStripScroll(
         delta: CGFloat,
         items: [ClipboardItem],
         proxy: ScrollViewProxy
     ) {
         guard !items.isEmpty else { return }
-        // 与 AppKit 一致：deltaX > 0 表示内容右移（看见更左边的卡片）→ 索引减小
-        stripScrollAccumulator += delta
-        // 拇指轮步进更碎
-        let threshold: CGFloat = 4
-        var steps = 0
-        while stripScrollAccumulator <= -threshold {
-            stripScrollAccumulator += threshold
-            steps += 1
-        }
-        while stripScrollAccumulator >= threshold {
-            stripScrollAccumulator -= threshold
-            steps -= 1
-        }
+        let steps = OverlayInteractionModel.consumeStripScrollSteps(
+            accumulator: &stripScrollAccumulator,
+            delta: delta
+        )
         guard steps != 0 else { return }
 
-        let base = min(max(0, selection.cursorIndex ?? stripScrollIndex), items.count - 1)
-        let unconstrained = base + steps
-        let newIndex = min(max(0, unconstrained), items.count - 1)
+        let previous = stripScrollIndex
+        let result = OverlayInteractionModel.advanceStripScrollIndex(
+            current: previous,
+            steps: steps,
+            itemCount: items.count
+        )
 
-        if newIndex != base {
-            stripScrollIndex = newIndex
+        if result.index != previous {
+            stripScrollIndex = result.index
             let anchor: UnitPoint
-            if newIndex == 0 {
+            if result.index == 0 {
                 anchor = .leading
-            } else if newIndex == items.count - 1 {
+            } else if result.index == items.count - 1 {
                 anchor = .trailing
             } else {
                 anchor = steps > 0 ? .trailing : .leading
             }
             withAnimation(.easeOut(duration: 0.12)) {
-                proxy.scrollTo(items[newIndex].id, anchor: anchor)
+                proxy.scrollTo(items[result.index].id, anchor: anchor)
             }
         }
 
         // 越过尽头：边缘光晕 + 限频触感（不移动卡片）
-        if unconstrained != newIndex {
+        if result.hitEdge {
             showStripEdgeGlow(towardHigherIndex: steps > 0)
             stripScrollAccumulator = 0
         }
@@ -1071,10 +1067,15 @@ struct OverlayView: View {
         }
     }
 
-    /// 方向键导航：委托给 SelectionState，触达边界时给出统一错误反馈。
+    /// 方向键导航：委托给 SelectionState；已在边界再按同向时与侧滚一样给边缘光晕。
     private func moveCursor(delta: Int, extend: Bool) {
         if selection.wouldHitBoundary(delta: delta, visibleItems: visibleItems) {
             SoundFeedback.invalidAction()
+            if isHorizontalLayout,
+               let towardHigher = OverlayInteractionModel.stripEdgeTowardHigherIndex(forKeyboardDelta: delta) {
+                showStripEdgeGlow(towardHigherIndex: towardHigher)
+            }
+            return
         }
         selection.moveCursor(delta: delta, extend: extend, visibleItems: visibleItems)
     }
@@ -1082,6 +1083,14 @@ struct OverlayView: View {
     private func moveCursor(to targetIndex: Int, extend: Bool) {
         if selection.wouldHitBoundary(targetIndex: targetIndex, visibleItems: visibleItems) {
             SoundFeedback.invalidAction()
+            if isHorizontalLayout,
+               let towardHigher = OverlayInteractionModel.stripEdgeTowardHigherIndex(
+                   forAbsoluteTarget: targetIndex,
+                   itemCount: visibleItems.count
+               ) {
+                showStripEdgeGlow(towardHigherIndex: towardHigher)
+            }
+            return
         }
         selection.moveCursor(to: targetIndex, extend: extend, visibleItems: visibleItems)
     }

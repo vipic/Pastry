@@ -290,7 +290,13 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     /// 是否有活跃的筛选条件
     var hasActiveFilters: Bool {
-        !(searchQuery.isEmpty && typeFilter == nil && appFilter == nil && timeFilter == .any && pinTab == .all && !urlFilter)
+        !(searchQuery.isEmpty
+            && typeFilter == nil
+            && appFilter == nil
+            && timeFilter == .any
+            && pinTab == .all
+            && !urlFilter
+            && !handoffFilter)
     }
 
     /// 清除所有筛选条件
@@ -301,6 +307,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         timeFilter = .any
         pinTab = .all
         urlFilter = false
+        handoffFilter = false
     }
 
     func refresh() {

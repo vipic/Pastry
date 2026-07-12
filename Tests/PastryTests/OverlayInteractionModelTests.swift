@@ -170,6 +170,82 @@ final class OverlayInteractionModelTests: XCTestCase {
         XCTAssertEqual(delta, -9)
     }
 
+    // MARK: - 卡带视口步进（与选中无关）
+
+    func testConsumeStripScrollStepsAccumulatesAcrossEvents() {
+        var acc: CGFloat = 0
+        XCTAssertEqual(
+            OverlayInteractionModel.consumeStripScrollSteps(accumulator: &acc, delta: -2),
+            0
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.consumeStripScrollSteps(accumulator: &acc, delta: -3),
+            1,
+            "累计越过 threshold 才步进"
+        )
+    }
+
+    func testAdvanceStripScrollIndexContinuesPastPreviousSelection() {
+        // 选中第 2 张后，视口已滚到 3；再滚应到 4，而不是又从 2 起算
+        let first = OverlayInteractionModel.advanceStripScrollIndex(
+            current: 2, steps: 1, itemCount: 10
+        )
+        XCTAssertEqual(first.index, 3)
+        XCTAssertFalse(first.hitEdge)
+
+        let second = OverlayInteractionModel.advanceStripScrollIndex(
+            current: first.index, steps: 1, itemCount: 10
+        )
+        XCTAssertEqual(second.index, 4, "连续侧滚必须基于 strip 索引，不能重置到选中位")
+        XCTAssertFalse(second.hitEdge)
+    }
+
+    func testAdvanceStripScrollIndexHitsEdge() {
+        let result = OverlayInteractionModel.advanceStripScrollIndex(
+            current: 9, steps: 1, itemCount: 10
+        )
+        XCTAssertEqual(result.index, 9)
+        XCTAssertTrue(result.hitEdge)
+    }
+
+    func testAdvanceStripScrollIndexEmptyList() {
+        let result = OverlayInteractionModel.advanceStripScrollIndex(
+            current: 3, steps: 1, itemCount: 0
+        )
+        XCTAssertEqual(result.index, 0)
+        XCTAssertFalse(result.hitEdge)
+    }
+
+    func testKeyboardEdgeGlowDirectionFromDelta() {
+        XCTAssertEqual(
+            OverlayInteractionModel.stripEdgeTowardHigherIndex(forKeyboardDelta: 1),
+            true,
+            "向右/向后撞边 → trailing"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.stripEdgeTowardHigherIndex(forKeyboardDelta: -1),
+            false,
+            "向左/向前撞边 → leading"
+        )
+        XCTAssertNil(OverlayInteractionModel.stripEdgeTowardHigherIndex(forKeyboardDelta: 0))
+    }
+
+    func testKeyboardEdgeGlowDirectionFromHomeEnd() {
+        XCTAssertEqual(
+            OverlayInteractionModel.stripEdgeTowardHigherIndex(forAbsoluteTarget: 0, itemCount: 10),
+            false,
+            "Home 撞边 → leading"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.stripEdgeTowardHigherIndex(forAbsoluteTarget: 9, itemCount: 10),
+            true,
+            "End 撞边 → trailing"
+        )
+        XCTAssertNil(
+            OverlayInteractionModel.stripEdgeTowardHigherIndex(forAbsoluteTarget: 0, itemCount: 0)
+        )
+    }
+
     // MARK: - ⌘/⇧ 点击管线（与 SelectionState 组合）
 
     func testApplyCardClickCommandToggleMultiSelect() {

@@ -240,4 +240,82 @@ final class ClipboardSearchTests: XCTestCase {
         let results = items.filtered(by: "<h1>")
         XCTAssertEqual(results.count, 1)
     }
+
+    // MARK: - linkTitle / favoriteNote
+
+    /// 仅 linkTitle 命中（content 不匹配）
+    func testLinkTitleMatch() {
+        let items = [
+            ClipboardItem(
+                content: "https://example.com/a",
+                sourceFormat: .text,
+                tags: ContentTags(isURL: true),
+                appName: "Safari",
+                linkTitle: "Pastry Release Notes"
+            ),
+            makeItem(content: "unrelated body"),
+        ]
+        let results = items.filtered(by: "release", includeAppName: false)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].linkTitle, "Pastry Release Notes")
+    }
+
+    /// linkTitle 大小写不敏感
+    func testLinkTitleCaseInsensitive() {
+        let items = [
+            ClipboardItem(
+                content: "https://x.test",
+                sourceFormat: .text,
+                tags: ContentTags(isURL: true),
+                linkTitle: "OpenAI Blog"
+            ),
+        ]
+        XCTAssertEqual(items.filtered(by: "openai").count, 1)
+    }
+
+    /// 仅 favoriteNote 命中
+    func testFavoriteNoteMatch() {
+        let items = [
+            ClipboardItem(
+                content: "opaque token xyz",
+                sourceFormat: .text,
+                isPinned: true,
+                favoriteNote: "客户甲合同参考"
+            ),
+            makeItem(content: "其他内容"),
+        ]
+        let results = items.filtered(by: "合同", includeAppName: false)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].favoriteNote, "客户甲合同参考")
+    }
+
+    /// favoriteNote 大小写不敏感
+    func testFavoriteNoteCaseInsensitive() {
+        let items = [
+            ClipboardItem(
+                content: "body",
+                sourceFormat: .text,
+                favoriteNote: "KeepForLater"
+            ),
+        ]
+        XCTAssertEqual(items.filtered(by: "keepforlater").count, 1)
+    }
+
+    /// nil linkTitle / favoriteNote 不崩溃且不误匹配
+    func testNilLinkTitleAndFavoriteNote() {
+        let items = [makeItem(content: "plain")]
+        XCTAssertEqual(items.filtered(by: "anything-missing").count, 0)
+    }
+
+    /// content 与 note 同时可命中时仍只返回一次
+    func testDoesNotDuplicateWhenContentAndNoteBothMatch() {
+        let items = [
+            ClipboardItem(
+                content: "contract draft",
+                sourceFormat: .text,
+                favoriteNote: "contract follow-up"
+            ),
+        ]
+        XCTAssertEqual(items.filtered(by: "contract").count, 1)
+    }
 }

@@ -54,9 +54,13 @@ swift test --filter AppIconProviderTests
 | `AccessibilityIdentifiersTests` | a11y id 稳定与唯一 |
 | `ClipboardItemTests` | SourceFormat 迁移、segments、身份 |
 | `AppIconProviderTests` | 含 `cachedIcon` 首帧缓存命中 |
-| `NetworkAccessPolicyTests` | 远程 URL / 重定向 / Content-Length |
+| `NetworkAccessPolicyTests` | 远程 URL / 短格式与十进制 IPv4 / `.local` / 重定向 / Content-Length |
+| `DisplayModeTests` | 卡片展示类型：text/link/file/missing/mixedMedia |
+| `FTSQueryBuilderTests` | FTS5 MATCH 引号转义与多词 AND |
+| `RemoteResourceRedirectDelegateTests` | 预览下载重定向 SSRF 拦截 |
 | `PasteboardWriterTests` | 独立 pasteboard 写回（非 general） |
 | `MenuBarMenuFactoryTests` | 菜单结构与快捷键 |
+| `ClipboardSearchTests` | `filtered(by:)` content / linkTitle / favoriteNote / appName |
 
 **不适合单测（靠 smoke / 人工）**：SwiftUI 视图手势树、NSPanel 层级、真系统剪贴板、真辅助功能弹窗、Live 网络抓取。
 
