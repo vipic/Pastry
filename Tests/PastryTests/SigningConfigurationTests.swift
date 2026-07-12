@@ -39,6 +39,14 @@ final class SigningConfigurationTests: XCTestCase {
         }
     }
 
+    func testInfoPlistOptsOutOfDefaultOneTimeCodeAutofill() throws {
+        let deployScript = try contents(of: "deploy.sh")
+        let releaseScript = try contents(of: "release.sh")
+
+        XCTAssertTrue(deployScript.contains("NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac"))
+        XCTAssertTrue(releaseScript.contains("NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac"))
+    }
+
     func testDocumentsDescribeReusableAuthorCertificate() throws {
         let developmentGuide = try contents(of: "docs/DEVELOPMENT.md")
         let releaseGuide = try contents(of: "RELEASE.md")

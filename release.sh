@@ -165,6 +165,8 @@ cat > "$STAGING/$APP_NAME.app/Contents/Info.plist" << PLIST
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac</key>
+    <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Pastry 需要辅助功能权限以监听全局快捷键。</string>
 </dict>

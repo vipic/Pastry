@@ -26,8 +26,6 @@ enum PastryPalette {
 
     // Overlay / filter
     static let overlaySurface = Color(red: 0.20, green: 0.23, blue: 0.24)
-    static let emptySearchAccent = Color(red: 0.30, green: 0.50, blue: 0.78)
-    static let emptyDefaultAccent = Color(red: 0.88, green: 0.67, blue: 0.35)
 
     // Semantic
     static let danger = Color(red: 0.724, green: 0.267, blue: 0.247)

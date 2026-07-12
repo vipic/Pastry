@@ -82,7 +82,6 @@ enum UIConstants {
         static let toolbar: CGFloat = 9
         static let card: CGFloat = 10
         static let panel: CGFloat = 12
-        static let emptyIcon: CGFloat = 13
         static let cardLarge: CGFloat = 14
         static let tray: CGFloat = 24
     }

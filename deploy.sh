@@ -87,6 +87,8 @@ if [ ! -f "$CONTENTS/Info.plist" ]; then
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac</key>
+    <true/>
 </dict>
 </plist>
 PLIST
@@ -96,6 +98,9 @@ else
     /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Pastry Dev'" "$CONTENTS/Info.plist" 2>/dev/null
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${DEPLOY_HASH}" "$CONTENTS/Info.plist" 2>/dev/null
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${DEV_VERSION}" "$CONTENTS/Info.plist" 2>/dev/null
+    # 已有 Info.plist：补上验证码 AutoFill 收口（不改 inode 的 Add/Set）
+    /usr/libexec/PlistBuddy -c "Add :NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac bool true" "$CONTENTS/Info.plist" 2>/dev/null \
+        || /usr/libexec/PlistBuddy -c "Set :NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac true" "$CONTENTS/Info.plist" 2>/dev/null
 fi
 echo "✅ 版本号已注入: $DEV_VERSION"
 

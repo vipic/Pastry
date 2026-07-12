@@ -550,10 +550,12 @@ struct OverlayView: View {
                     TextField("", text: $store.searchQuery)
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled(true)
+                        .writingToolsBehavior(.disabled)
                         .font(.system(size: UIConstants.TypeSize.body))
                         .foregroundColor(.white.opacity(UIConstants.OnDark.textPrimary))
                         .focused($isSearchFocused)
                         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
+                        .background(SearchFieldAutofillSuppressor())
                         .onExitCommand {
                             closeSearch(clearFilter: true)
                         }
@@ -1416,20 +1418,14 @@ struct OverlayView: View {
             hasActiveFilters: hasActiveFilters
         )
 
-        let accent = emptyStateAccent(icon: model.icon)
-
         return VStack {
             Spacer(minLength: 0)
 
             VStack(spacing: 10) {
-                ZStack {
-                    emptyStateIconBackground(accent: accent)
-                    Image(systemName: model.icon)
-                        .font(.system(size: UIConstants.TypeSize.display, weight: .semibold))
-                        .foregroundColor(emptyStateIconColor(icon: model.icon))
-                }
-                .frame(width: 48, height: 48)
-                .padding(.bottom, 4)
+                Image(systemName: model.icon)
+                    .font(.system(size: UIConstants.TypeSize.display, weight: .semibold))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
+                    .padding(.bottom, 4)
 
                 Text(model.title)
                     .font(.system(size: UIConstants.TypeSize.title, weight: .semibold))
@@ -1503,26 +1499,6 @@ struct OverlayView: View {
                 )
         )
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.emptyCopyHint)
-    }
-
-    private func emptyStateIconBackground(accent: Color) -> some View {
-        RoundedRectangle(cornerRadius: UIConstants.Radius.emptyIcon, style: .continuous)
-            .fill(accent.opacity(0.72))
-    }
-
-    private func emptyStateIconColor(icon: String) -> Color {
-        .white.opacity(icon == "magnifyingglass" ? UIConstants.OnDark.textPrimary : 0.84)
-    }
-
-    private func emptyStateAccent(icon: String) -> Color {
-        switch icon {
-        case "magnifyingglass":
-            return PastryPalette.emptySearchAccent
-        case "pin.slash":
-            return PastryPalette.cardAccent
-        default:
-            return PastryPalette.emptyDefaultAccent
-        }
     }
 }
 
