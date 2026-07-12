@@ -15,6 +15,7 @@ struct ClipboardCardView: View {
     let onDelete: (ClipboardItem) -> Void
 
     @AppStorage(UserDefaultsKeys.language) private var language = ""
+    @AppStorage(UserDefaultsKeys.cardClickMode) private var cardClickModeRaw = CardClickMode.default.rawValue
     @State private var appIcon: NSImage?
     @State private var themeColor: Color = .accentColor
     @State private var didPaste = false
@@ -44,27 +45,19 @@ struct ClipboardCardView: View {
         return f
     }()
 
+    private var cardClickMode: CardClickMode {
+        CardClickMode.resolved(stored: cardClickModeRaw)
+    }
+
     var body: some View {
         cardBase
             .onHover { isHovered = $0 }
-            .onTapGesture {
-                if isEditingFavoriteNote {
-                    commitFavoriteNote()
-                    return
-                }
-
-                let flags = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
-                let cmdDown = flags.contains(.command)
-                let shiftDown = flags.contains(.shift)
-                if cmdDown {
-                    onTap(item)
-                } else if shiftDown {
-                    onTap(item)
-                } else if isSelected {
-                    pasteItem()
-                } else {
-                    onTap(item)
-                }
+            // 双击手势须写在单击前，否则系统会先消费单击。
+            .onTapGesture(count: 2) {
+                handlePrimaryClick(isDoubleClick: true)
+            }
+            .onTapGesture(count: 1) {
+                handlePrimaryClick(isDoubleClick: false)
             }
             .overlay(
                 RightClickDetector { view, event in
@@ -787,6 +780,28 @@ struct ClipboardCardView: View {
             }.value
             guard !Task.isCancelled else { return }
             self.appIcon = icon
+        }
+    }
+
+    private func handlePrimaryClick(isDoubleClick: Bool) {
+        if isEditingFavoriteNote {
+            commitFavoriteNote()
+            return
+        }
+
+        let flags = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
+        let commandOrShift = flags.contains(.command) || flags.contains(.shift)
+        switch OverlayInteractionModel.cardClickAction(
+            mode: cardClickMode,
+            isDoubleClick: isDoubleClick,
+            commandOrShift: commandOrShift
+        ) {
+        case .select:
+            onTap(item)
+        case .paste:
+            pasteItem()
+        case .ignore:
+            break
         }
     }
 

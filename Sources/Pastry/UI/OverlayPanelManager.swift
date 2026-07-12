@@ -341,6 +341,9 @@ final class OverlayPanelManager: @unchecked Sendable {
     func hideAndPaste(_ item: ClipboardItem) async {
         guard panel != nil else { return }
 
+        // 关面板前先要权限：未授权时系统弹窗 + 托盘保持打开（⌘1–9 / Enter / 点击同路径）
+        guard Self.ensureAccessibilityForPaste() else { return }
+
         let t0 = CFAbsoluteTimeGetCurrent()
         let fmt = item.sourceFormat
 
@@ -392,6 +395,8 @@ final class OverlayPanelManager: @unchecked Sendable {
     @MainActor
     func hideAndPasteMultiple(_ items: [ClipboardItem]) {
         guard panel != nil, !items.isEmpty else { return }
+
+        guard Self.ensureAccessibilityForPaste() else { return }
 
         let t0 = CFAbsoluteTimeGetCurrent()
 
@@ -644,10 +649,31 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     // MARK: - ⌘V 模拟
 
+    /// 粘贴前权限闸门：未授权则触发系统申请弹窗，并通知托盘刷新 banner。
+    /// - Returns: 是否可继续粘贴（已授权）。
+    @discardableResult
+    static func ensureAccessibilityForPaste() -> Bool {
+        if AccessibilityPermissionChecker.shared.requestTrustedForPaste() {
+            return true
+        }
+        Logger(subsystem: "com.nekutai.pastry", category: "paste")
+            .warning("粘贴中止：缺少辅助功能权限（已触发系统授权请求）")
+        NotificationCenter.default.post(name: .overlayAccessibilityDenied, object: nil)
+        return false
+    }
+
     private static func simulatePaste() -> Bool {
+        // 二次确认（关面板后路径的兜底）；正常路径已在 hideAndPaste 前置检查。
+        guard AccessibilityPermissionChecker.shared.isTrusted(prompt: false) else {
+            Logger(subsystem: "com.nekutai.pastry", category: "paste")
+                .warning("simulatePaste 跳过：仍无辅助功能权限")
+            return false
+        }
+
         let vKey = CGKeyCode(9)
         guard let source = CGEventSource(stateID: .privateState) else {
             Logger(subsystem: "com.nekutai.pastry", category: "paste").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
+            NotificationCenter.default.post(name: .overlayAccessibilityDenied, object: nil)
             return false
         }
 

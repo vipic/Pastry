@@ -1,6 +1,51 @@
 import Foundation
 
+// MARK: - 卡片左键点击模式
+
+/// 卡片主键点击策略（设置「左键点击」）。
+enum CardClickMode: String, CaseIterable, Identifiable {
+    /// A 当前增强：单击选中，双击粘贴
+    case enhanced
+    /// B 极速：单击粘贴
+    case speed
+
+    var id: String { rawValue }
+
+    static let `default` = CardClickMode.enhanced
+
+    static func resolved(stored: String?) -> CardClickMode {
+        guard let stored, let mode = CardClickMode(rawValue: stored) else {
+            return .default
+        }
+        return mode
+    }
+
+}
+
+/// 单次主键点击（或双击）解析后的动作。
+enum CardClickAction: Equatable {
+    case select
+    case paste
+    case ignore
+}
+
 enum OverlayInteractionModel {
+    /// 根据点击模式解析卡片左键行为。⌘/⇧ 始终走选中（多选）。
+    /// Enter 粘贴不在此路径，由键盘路由处理，两种模式一致。
+    static func cardClickAction(
+        mode: CardClickMode,
+        isDoubleClick: Bool,
+        commandOrShift: Bool
+    ) -> CardClickAction {
+        if commandOrShift { return .select }
+        switch mode {
+        case .enhanced:
+            return isDoubleClick ? .paste : .select
+        case .speed:
+            return isDoubleClick ? .ignore : .paste
+        }
+    }
+
     static func hasActiveFilters(
         searchQuery: String,
         typeFilter: SourceFormat?,
@@ -30,6 +75,22 @@ enum OverlayInteractionModel {
         newIds: [UUID]
     ) -> Bool {
         oldIds != newIds
+    }
+
+    /// 搜索计数徽标的等宽占位串，避免 `10→9` 时宽度收缩导致布局抖动。
+    /// 两侧位数取 filtered / total 的较大值（至少 1）。
+    static func searchCountWidthReserveText(filteredCount: Int, totalCount: Int) -> String {
+        let digits = max(
+            String(max(0, filteredCount)).count,
+            String(max(0, totalCount)).count,
+            1
+        )
+        let zeros = String(repeating: "0", count: digits)
+        return "\(zeros)/\(zeros)"
+    }
+
+    static func searchCountDisplayText(filteredCount: Int, totalCount: Int) -> String {
+        "\(max(0, filteredCount))/\(max(0, totalCount))"
     }
 
     static func commandBadgeIndex(cmdDown: Bool, itemIndex: Int) -> Int? {
