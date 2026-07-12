@@ -109,7 +109,7 @@ final class MultiSelectionDragSourceNSView: NSView, NSDraggingSource {
             .foregroundColor: NSColor.white,
             .paragraphStyle: paragraphStyle,
         ]
-        NSColor.pastryWarmAccent.setFill()
+        PastryPalette.warmAccentNS.setFill()
         let badgeRect = NSRect(x: size.width - 30, y: size.height - 30, width: 24, height: 24)
         NSBezierPath(ovalIn: badgeRect).fill()
         badge.draw(

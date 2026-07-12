@@ -64,7 +64,7 @@ struct FilePreviewContent: View {
         VStack(spacing: 4) {
             Spacer()
             Image(systemName: "questionmark.folder")
-                .font(.system(size: 28))
+                .font(.system(size: UIConstants.TypeSize.heroIcon))
                 .foregroundColor(.secondary.opacity(0.3))
             Text(L10n["card.file_not_found"])
                 .font(.system(size: UIConstants.TypeSize.caption))
