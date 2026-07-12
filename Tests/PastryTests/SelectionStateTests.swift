@@ -348,4 +348,74 @@ final class SelectionStateTests: XCTestCase {
         XCTAssertEqual(s.selectedIds, [items[2].id])
         XCTAssertEqual(s.lastClickId, items[2].id)
     }
+
+    // MARK: - 鼠标多选边角
+
+    func testCmdAndShiftTogetherPrefersShiftRangeWhenAnchorExists() {
+        var s = SelectionState()
+        let items = makeItems(6)
+        s.handleTap(item: items[1], cmdDown: false, shiftDown: false, visibleItems: items)
+
+        // 实现里 shift 分支先于 cmd：⌘⇧ 同时按应按区间处理
+        s.handleTap(item: items[4], cmdDown: true, shiftDown: true, visibleItems: items)
+
+        XCTAssertEqual(
+            s.selectedIds,
+            Set([items[1].id, items[2].id, items[3].id, items[4].id]),
+            "⌘+⇧ 同时按下时 shift 区间优先于 cmd toggle"
+        )
+        XCTAssertEqual(s.shiftAnchorIdx, 1)
+    }
+
+    func testPlainClickAfterMultiSelectCollapsesToSingle() {
+        var s = SelectionState()
+        let items = makeItems(5)
+        s.handleTap(item: items[0], cmdDown: false, shiftDown: false, visibleItems: items)
+        s.handleTap(item: items[2], cmdDown: true, shiftDown: false, visibleItems: items)
+        s.handleTap(item: items[3], cmdDown: true, shiftDown: false, visibleItems: items)
+        XCTAssertEqual(s.selectedIds.count, 3)
+
+        s.handleTap(item: items[1], cmdDown: false, shiftDown: false, visibleItems: items)
+
+        XCTAssertEqual(s.selectedIds, [items[1].id])
+        XCTAssertNil(s.shiftAnchorIdx)
+    }
+
+    func testCmdClickFromEmptySelectionSelectsOnlyThatItem() {
+        var s = SelectionState()
+        let items = makeItems(4)
+
+        s.handleTap(item: items[2], cmdDown: true, shiftDown: false, visibleItems: items)
+
+        XCTAssertEqual(s.selectedIds, [items[2].id])
+        XCTAssertEqual(s.cursorIndex, 2)
+        XCTAssertEqual(s.lastClickId, items[2].id)
+    }
+
+    func testCmdClickDeselectsUntilEmpty() {
+        var s = SelectionState()
+        let items = makeItems(3)
+        s.handleTap(item: items[0], cmdDown: false, shiftDown: false, visibleItems: items)
+        s.handleTap(item: items[1], cmdDown: true, shiftDown: false, visibleItems: items)
+        s.handleTap(item: items[0], cmdDown: true, shiftDown: false, visibleItems: items)
+        s.handleTap(item: items[1], cmdDown: true, shiftDown: false, visibleItems: items)
+
+        XCTAssertTrue(s.selectedIds.isEmpty)
+        XCTAssertEqual(s.lastClickId, items[1].id)
+        XCTAssertEqual(s.cursorIndex, 1)
+    }
+
+    func testShiftClickBackwardRange() {
+        var s = SelectionState()
+        let items = makeItems(6)
+        s.handleTap(item: items[4], cmdDown: false, shiftDown: false, visibleItems: items)
+        s.handleTap(item: items[1], cmdDown: false, shiftDown: true, visibleItems: items)
+
+        XCTAssertEqual(s.cursorIndex, 1)
+        XCTAssertEqual(s.shiftAnchorIdx, 4)
+        XCTAssertEqual(
+            s.selectedIds,
+            Set([items[1].id, items[2].id, items[3].id, items[4].id])
+        )
+    }
 }
