@@ -160,6 +160,16 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     }
 
     func pasteItem(_ item: ClipboardItem) async {
+        // 与托盘粘贴共用权限闸门（主动弹系统授权，而非静默失败）
+        guard AccessibilityPermissionChecker.shared.requestTrustedForPaste() else {
+            Logger(subsystem: "com.nekutai.pastry", category: "store")
+                .warning("粘贴中止：缺少辅助功能权限")
+            await MainActor.run {
+                NotificationCenter.default.post(name: .overlayAccessibilityDenied, object: nil)
+            }
+            return
+        }
+
         let result = await PasteboardWriter.write(item, options: .storeSingle)
         guard result == .written else { return }
 
@@ -171,6 +181,12 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     }
 
     private static func simulatePaste() {
+        guard AccessibilityPermissionChecker.shared.isTrusted(prompt: false) else {
+            Logger(subsystem: "com.nekutai.pastry", category: "store")
+                .warning("simulatePaste 跳过：仍无辅助功能权限")
+            return
+        }
+
         let vKey = CGKeyCode(9)
         guard let source = CGEventSource(stateID: .privateState) else {
             Logger(subsystem: "com.nekutai.pastry", category: "store").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")

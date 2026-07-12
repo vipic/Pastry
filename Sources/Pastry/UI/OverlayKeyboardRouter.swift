@@ -62,6 +62,10 @@ final class OverlayKeyboardRouter {
                 NotificationCenter.default.post(name: .overlayCancelFavoriteNoteEditing, object: nil)
                 return nil
             }
+            if OverlayPanelManager.shared.isFilterPopoverActive {
+                NotificationCenter.default.post(name: .overlayCloseFilter, object: nil)
+                return nil
+            }
             if QLPreviewHelper.shared.isShowing {
                 QLPreviewHelper.shared.dismiss()
                 return nil

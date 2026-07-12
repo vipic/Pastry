@@ -106,12 +106,24 @@ struct SelectionState {
         }
     }
 
-    // MARK: - 重置
+    // MARK: - 重置 / 默认选中
 
     mutating func reset() {
         selectedIds = []
         cursorIndex = nil
         shiftAnchorIdx = nil
         lastClickId = nil
+    }
+
+    /// 选中列表第一项（打开面板等场景的默认键盘落点）。列表为空时清空选择。
+    mutating func selectFirst(visibleItems: [ClipboardItem]) {
+        guard let first = visibleItems.first else {
+            reset()
+            return
+        }
+        selectedIds = [first.id]
+        cursorIndex = 0
+        shiftAnchorIdx = nil
+        lastClickId = first.id
     }
 }
