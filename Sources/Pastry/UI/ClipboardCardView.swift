@@ -101,7 +101,7 @@ struct ClipboardCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
-                .stroke(cardIdleBorderColor, lineWidth: 0.8)
+                .stroke(cardIdleBorderColor, lineWidth: 0.5)
         )
         .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
@@ -111,7 +111,7 @@ struct ClipboardCardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius - 2, style: .continuous)
-                .stroke(.white.opacity(isSelected ? 0.42 : 0), lineWidth: 1)
+                .stroke(.white.opacity(isSelected ? 0.42 : 0), lineWidth: 0.5)
                 .padding(3)
         )
         .overlay(
@@ -226,9 +226,9 @@ struct ClipboardCardView: View {
                 .overlay(
                     ZStack {
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(cardAccentStrongColor.opacity(0.52), lineWidth: 1)
+                            .stroke(cardAccentStrongColor.opacity(0.52), lineWidth: 0.5)
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(.white.opacity(0.34), lineWidth: 1)
+                            .stroke(.white.opacity(0.34), lineWidth: 0.5)
                             .padding(1)
                     }
                 )
@@ -571,7 +571,7 @@ struct ClipboardCardView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(themeColor.opacity(0.18), lineWidth: 0.8)
+                            .stroke(themeColor.opacity(0.18), lineWidth: 0.5)
                     )
                     .onAppear {
                         OverlayPanelManager.shared.keyboardOwner = .favoriteNoteEditor
@@ -605,7 +605,7 @@ struct ClipboardCardView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: 0.8)
+                                .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: 0.5)
                         )
                     }
                     .buttonStyle(.plain)

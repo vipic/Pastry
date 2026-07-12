@@ -1,5 +1,13 @@
 import SwiftUI
 
+// MARK: - 筛选气泡共用表面色
+
+/// 气泡本体与系统 popover 三角（`presentationBackground`）必须同一实色，
+/// 否则箭头会和面板发色不一致。
+enum FilterPopoverStyle {
+    static let surface = Color(red: 0.20, green: 0.23, blue: 0.24)
+}
+
 // MARK: - 筛选气泡内容（NSPopover 内嵌 SwiftUI）
 
 struct FilterPopoverContent: View {
@@ -100,7 +108,9 @@ struct FilterPopoverContent: View {
         }
         .padding(14)
         .frame(width: 370)
-        .background(filterPanelBackground)
+        // No separate rounded fill/stroke here — that paints a card on top of the
+        // system popover shape and severs the arrow. Body + triangle both come from
+        // `.presentationBackground(FilterPopoverStyle.surface)` on the caller.
         .opacity(contentVisible ? 1 : 0)
         .scaleEffect(contentVisible ? 1 : 0.985, anchor: .top)
         .animation(.easeOut(duration: 0.12), value: contentVisible)
@@ -144,67 +154,14 @@ struct FilterPopoverContent: View {
         .buttonStyle(.plain)
     }
 
-    private var filterPanelBackground: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(.ultraThinMaterial)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.27, green: 0.30, blue: 0.31).opacity(0.76),
-                                Color(red: 0.17, green: 0.20, blue: 0.21).opacity(0.70)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.16), .white.opacity(0.04), .black.opacity(0.10)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.8
-                    )
-            )
-            .shadow(color: .black.opacity(0.20), radius: 18, x: 0, y: 10)
-    }
-
     private var filterSectionBackground: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        .white.opacity(0.055),
-                        .white.opacity(0.025)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(.white.opacity(0.065), lineWidth: 1)
-            )
+            .fill(Color.white.opacity(0.04))
     }
 
     private var filterClearButtonBackground: some View {
         RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [.white.opacity(0.10), .white.opacity(0.04)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(.white.opacity(0.11), lineWidth: 1)
-            )
+            .fill(Color.white.opacity(0.08))
     }
 
     private func chipForeground(isSelected: Bool) -> Color {
@@ -215,40 +172,17 @@ struct FilterPopoverContent: View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(chipFill(isSelected: isSelected))
             .overlay(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(chipBorder(isSelected: isSelected), lineWidth: 1)
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(.white.opacity(isSelected ? 0.30 : 0.10), lineWidth: 1)
-                        .padding(1)
-                }
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(chipBorder(isSelected: isSelected), lineWidth: 0.5)
             )
-            .shadow(color: chipShadow(isSelected: isSelected), radius: isSelected ? 3 : 1.5, x: 0, y: isSelected ? 2 : 1)
     }
 
-    private func chipFill(isSelected: Bool) -> LinearGradient {
-        let colors: [Color] = isSelected
-            ? [
-                Color(red: 0.88, green: 0.67, blue: 0.35),
-                Color(red: 0.74, green: 0.46, blue: 0.18)
-            ]
-            : [
-                .white.opacity(0.12),
-                .white.opacity(0.055)
-            ]
-        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+    private func chipFill(isSelected: Bool) -> Color {
+        isSelected ? Color.pastryWarmAccent : Color.white.opacity(0.08)
     }
 
     private func chipBorder(isSelected: Bool) -> Color {
-        isSelected
-            ? Color(red: 0.72, green: 0.45, blue: 0.15).opacity(0.52)
-            : .white.opacity(0.10)
-    }
-
-    private func chipShadow(isSelected: Bool) -> Color {
-        isSelected
-            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
-            : .black.opacity(0.08)
+        isSelected ? Color.pastryWarmAccent.opacity(0.35) : Color.clear
     }
 
     /// 带应用图标的筛选标签
@@ -320,41 +254,13 @@ private struct AppFilterChipBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(fill)
+            .fill(isSelected ? Color.pastryWarmAccent : Color.white.opacity(0.08))
             .overlay(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(border, lineWidth: 1)
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(.white.opacity(isSelected ? 0.30 : 0.10), lineWidth: 1)
-                        .padding(1)
-                }
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(
+                        isSelected ? Color.pastryWarmAccent.opacity(0.35) : Color.clear,
+                        lineWidth: 0.5
+                    )
             )
-            .shadow(color: shadow, radius: isSelected ? 3 : 1.5, x: 0, y: isSelected ? 2 : 1)
-    }
-
-    private var fill: LinearGradient {
-        let colors: [Color] = isSelected
-            ? [
-                Color(red: 0.88, green: 0.67, blue: 0.35),
-                Color(red: 0.74, green: 0.46, blue: 0.18)
-            ]
-            : [
-                .white.opacity(0.12),
-                .white.opacity(0.055)
-            ]
-        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
-    }
-
-    private var border: Color {
-        isSelected
-            ? Color(red: 0.72, green: 0.45, blue: 0.15).opacity(0.52)
-            : .white.opacity(0.10)
-    }
-
-    private var shadow: Color {
-        isSelected
-            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.24)
-            : .black.opacity(0.08)
     }
 }

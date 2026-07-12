@@ -57,15 +57,8 @@ extension Color {
     static let clipRowHover = Color(nsColor: NSColor.selectedContentBackgroundColor.withAlphaComponent(0.3))
     static let clipAccent = Color.accentColor
     static let pastryWarmAccent = Color(red: 0.741, green: 0.463, blue: 0.184)
-    static let pastryWarmAccentTop = Color(red: 0.875, green: 0.667, blue: 0.345)
-    static let pastryWarmAccentGradient = LinearGradient(
-        colors: [.pastryWarmAccentTop, .pastryWarmAccent],
-        startPoint: .top,
-        endPoint: .bottom
-    )
 }
 
 extension NSColor {
     static let pastryWarmAccent = NSColor(calibratedRed: 0.741, green: 0.463, blue: 0.184, alpha: 1)
-    static let pastryWarmAccentTop = NSColor(calibratedRed: 0.875, green: 0.667, blue: 0.345, alpha: 1)
 }

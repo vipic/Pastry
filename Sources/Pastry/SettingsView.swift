@@ -151,7 +151,7 @@ struct SettingsSceneView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
                 AppIconImageView(size: 40)
-                    .shadow(color: .black.opacity(0.24), radius: 10, x: 0, y: 5)
+                    .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Pastry")
@@ -179,16 +179,7 @@ struct SettingsSceneView: View {
         .padding(.top, 52)
         .padding(.bottom, 14)
         .frame(width: 206)
-        .background(
-            ZStack {
-                Color(red: 0.18, green: 0.20, blue: 0.21).opacity(0.88)
-                LinearGradient(
-                    colors: [.white.opacity(0.08), .clear],
-                    startPoint: .top,
-                    endPoint: .center
-                )
-            }
-        )
+        .background(Color(red: 0.18, green: 0.20, blue: 0.21).opacity(0.92))
         .ignoresSafeArea(.container, edges: .top)
     }
 
@@ -201,20 +192,13 @@ struct SettingsSceneView: View {
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.black.opacity(0.20))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.black.opacity(0.22))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.06), lineWidth: 0.5)
+                    )
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.black.opacity(0.28), lineWidth: 3)
-                    .blur(radius: 5)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.035), lineWidth: 0.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func sidebarTabButton(_ tab: SettingsTab) -> some View {
@@ -270,20 +254,8 @@ struct SettingsSceneView: View {
     }
 
     private var settingsDetailBackground: some View {
-        ZStack {
-            Color(red: 0.949, green: 0.933, blue: 0.886).opacity(0.88)
-            LinearGradient(
-                colors: [Color.white.opacity(0.42), Color.clear],
-                startPoint: .top,
-                endPoint: .center
-            )
-            LinearGradient(
-                colors: [Color(red: 0.851, green: 0.616, blue: 0.263).opacity(0.10), Color.clear],
-                startPoint: .topLeading,
-                endPoint: .center
-            )
-        }
-        .ignoresSafeArea()
+        Color(red: 0.949, green: 0.933, blue: 0.886)
+            .ignoresSafeArea()
     }
 
     private var settingsWindowBackground: some View {
@@ -507,7 +479,7 @@ struct SettingsSceneView: View {
                 .fill(.white.opacity(0.42))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 0.5)
                 )
         )
     }
@@ -536,7 +508,7 @@ struct SettingsSceneView: View {
                 .fill(.white.opacity(0.56))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 0.5)
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -628,7 +600,7 @@ struct SettingsSceneView: View {
                 .fill(versionStatusTint)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 0.5)
                 )
         )
     }
@@ -639,9 +611,8 @@ struct SettingsSceneView: View {
             .foregroundStyle(.white.opacity(0.94))
             .frame(width: 42, height: 42)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(versionBadgeGradient)
-                    .shadow(color: Color(red: 0.45, green: 0.25, blue: 0.10).opacity(0.20), radius: 10, x: 0, y: 5)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(versionBadgeFill)
             )
     }
 
@@ -719,7 +690,7 @@ struct SettingsSceneView: View {
                 .fill(.white.opacity(0.34))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.08), lineWidth: 1)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.08), lineWidth: 0.5)
                 )
         )
     }
@@ -832,24 +803,23 @@ struct SettingsSceneView: View {
     private var versionStatusTint: Color {
         switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            return Color(red: 1.0, green: 0.94, blue: 0.82).opacity(0.62)
+            return Color.pastryWarmAccent.opacity(0.10)
         case .error:
-            return Color.red.opacity(0.08)
+            return Color.red.opacity(0.06)
         default:
-            return .white.opacity(0.56)
+            return .white.opacity(0.72)
         }
     }
 
-    private var versionBadgeGradient: LinearGradient {
-        let colors: [Color] = switch versionUpdateState {
+    private var versionBadgeFill: Color {
+        switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            [Color.pastryWarmAccentTop, Color.pastryWarmAccent]
+            return Color.pastryWarmAccent
         case .error:
-            [Color(red: 1.0, green: 0.48, blue: 0.45), Color(red: 0.74, green: 0.24, blue: 0.22)]
+            return Color(red: 0.74, green: 0.24, blue: 0.22)
         default:
-            [Color(red: 1.0, green: 0.88, blue: 0.65), Color(red: 0.85, green: 0.62, blue: 0.26)]
+            return Color.pastryWarmAccent
         }
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
     private func progressBar(_ progress: Double) -> some View {
@@ -954,7 +924,7 @@ struct SettingsSceneView: View {
     private var aboutIdentitySection: some View {
         HStack(alignment: .center, spacing: 16) {
             AppIconImageView(size: 64)
-                .shadow(color: .black.opacity(0.18), radius: 14, x: 0, y: 8)
+                .shadow(color: .black.opacity(0.14), radius: 6, x: 0, y: 3)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(appDisplayName)
@@ -976,7 +946,7 @@ struct SettingsSceneView: View {
                 .fill(.white.opacity(0.56))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 1)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 0.5)
                 )
         )
     }
@@ -1150,29 +1120,22 @@ struct SettingsSceneView: View {
             .frame(height: 48)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.white.opacity(0.75))
+                    .fill(Color.white.opacity(0.88))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.14), lineWidth: 1)
+                            .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.14), lineWidth: 0.5)
                     )
-                    .shadow(color: Color(red: 0.467, green: 0.298, blue: 0.125).opacity(0.10), radius: 24, x: 0, y: 10)
-                    .shadow(color: .white.opacity(0.78), radius: 0, x: 0, y: 1)
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 3)
             )
             Spacer()
         }
         .frame(maxWidth: 600, minHeight: 142)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [.white.opacity(0.36), Color(red: 0.85, green: 0.62, blue: 0.26).opacity(0.16)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.42))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.09), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 0.5)
                 )
         )
     }
@@ -1187,22 +1150,12 @@ struct SettingsSceneView: View {
             .padding(.horizontal, segment.count > 1 ? 8 : 0)
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                .white,
-                                Color(red: 0.925, green: 0.906, blue: 0.855)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .fill(Color.white)
                     .overlay(
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.14), lineWidth: 1)
+                            .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.14), lineWidth: 0.5)
                     )
                     .shadow(color: Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), radius: 0, x: 0, y: 2)
-                    .shadow(color: .white.opacity(0.70), radius: 0, x: 0, y: 1)
             )
     }
 
@@ -1303,21 +1256,19 @@ struct SettingsSceneView: View {
 
     private var securityPermissionCard: some View {
         let model = AccessibilityPermissionRowModel.resolve(isTrusted: accessibilityTrusted)
-        let badgeColors = accessibilityTrusted
-            ? [Color(red: 0.345, green: 0.678, blue: 0.482), Color(red: 0.180, green: 0.498, blue: 0.333)]
-            : [Color(red: 0.941, green: 0.643, blue: 0.275), Color(red: 0.780, green: 0.384, blue: 0.153)]
-        let accent = accessibilityTrusted ? Color.green : Color.orange
+        let badgeFill = accessibilityTrusted
+            ? Color(red: 0.180, green: 0.498, blue: 0.333)
+            : Color.pastryWarmAccent
 
         return HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(LinearGradient(colors: badgeColors, startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .shadow(color: accent.opacity(0.18), radius: 18, x: 0, y: 10)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(badgeFill)
                 Image(systemName: accessibilityTrusted ? "checkmark" : "exclamationmark")
                     .font(.system(size: 18, weight: .heavy))
                     .foregroundStyle(.white)
             }
-            .frame(width: 46, height: 46)
+            .frame(width: 42, height: 42)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.title)
@@ -1339,11 +1290,11 @@ struct SettingsSceneView: View {
         .padding(16)
         .frame(maxWidth: 600, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(accent.opacity(0.08))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.56))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(accent.opacity(0.22), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.10), lineWidth: 0.5)
                 )
         )
     }
@@ -1489,37 +1440,22 @@ private struct SettingsPillButtonStyle: ButtonStyle {
     @ViewBuilder
     private func buttonBackground(isPressed: Bool) -> some View {
         RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(fillGradient)
+            .fill(fillColor.opacity(isPressed ? 0.88 : 1))
             .overlay(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(borderColor, lineWidth: 1)
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(.white.opacity(innerHighlightOpacity), lineWidth: 1)
-                        .padding(1)
-                }
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(borderColor, lineWidth: 0.5)
             )
-            .shadow(color: shadowColor.opacity(isPressed ? 0.10 : 0.18), radius: isPressed ? 1 : 3, x: 0, y: isPressed ? 1 : 2)
-            .shadow(color: .white.opacity(kind == .secondary ? 0.72 : 0.42), radius: 0, x: 0, y: 1)
     }
 
-    private var fillGradient: LinearGradient {
-        let colors: [Color]
+    private var fillColor: Color {
         switch kind {
         case .primary:
-            return Color.pastryWarmAccentGradient
+            return Color.pastryWarmAccent
         case .secondary:
-            colors = [
-                .white.opacity(0.78),
-                .white.opacity(0.56)
-            ]
+            return Color.white.opacity(0.72)
         case .danger:
-            colors = [
-                Color(red: 0.835, green: 0.420, blue: 0.392),
-                Color(red: 0.724, green: 0.267, blue: 0.247)
-            ]
+            return Color(red: 0.724, green: 0.267, blue: 0.247)
         }
-        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
     }
 
     private var borderColor: Color {
@@ -1531,21 +1467,6 @@ private struct SettingsPillButtonStyle: ButtonStyle {
         case .danger:
             return Color(red: 0.620, green: 0.194, blue: 0.176).opacity(0.50)
         }
-    }
-
-    private var shadowColor: Color {
-        switch kind {
-        case .primary:
-            return Color(red: 0.380, green: 0.200, blue: 0.080)
-        case .secondary:
-            return Color(red: 0.122, green: 0.145, blue: 0.161)
-        case .danger:
-            return Color(red: 0.360, green: 0.070, blue: 0.060)
-        }
-    }
-
-    private var innerHighlightOpacity: Double {
-        kind == .secondary ? 0.44 : 0.30
     }
 }
 
@@ -1589,32 +1510,12 @@ private struct SettingsSwitchBody: View {
                 .fill(trackFill)
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(trackStroke, lineWidth: 1)
+                        .stroke(trackStroke, lineWidth: 0.5)
                 )
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(.black.opacity(isOn ? 0.08 : 0.12), lineWidth: 1)
-                        .blur(radius: 0.5)
-                        .padding(1)
-                )
-                .shadow(color: .white.opacity(isPressed ? 0.42 : 0.60), radius: 0, x: 0, y: 1)
-                .shadow(color: .black.opacity(isPressed ? 0.16 : 0.10), radius: isPressed ? 1 : 2, x: 0, y: 1)
 
             Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [.white, Color(red: 0.890, green: 0.875, blue: 0.830)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay(
-                    Circle()
-                        .stroke(.white.opacity(0.70), lineWidth: 1)
-                        .padding(1)
-                )
-                .shadow(color: .black.opacity(isPressed ? 0.12 : 0.18), radius: isPressed ? 1.5 : 3, x: 0, y: isPressed ? 1 : 2)
-                .shadow(color: .white.opacity(0.64), radius: 0, x: 0, y: 1)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(isPressed ? 0.12 : 0.16), radius: isPressed ? 1 : 2, x: 0, y: 1)
                 .frame(width: 20, height: 20)
                 .scaleEffect(isPressed ? 0.92 : 1)
                 .padding(3)
@@ -1625,15 +1526,10 @@ private struct SettingsSwitchBody: View {
         .animation(.easeOut(duration: 0.12), value: isPressed)
     }
 
-    private var trackFill: LinearGradient {
-        if isOn {
-            return Color.pastryWarmAccentGradient
-        }
-        let colors: [Color] = [
-            Color(red: 0.720, green: 0.710, blue: 0.680),
-            Color(red: 0.835, green: 0.820, blue: 0.780)
-        ]
-        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+    private var trackFill: Color {
+        isOn
+            ? Color.pastryWarmAccent
+            : Color(red: 0.780, green: 0.765, blue: 0.730)
     }
 
     private var trackStroke: Color {

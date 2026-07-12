@@ -527,15 +527,13 @@ struct OverlayView: View {
             }
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
-                    .presentationBackground(filterPopoverPresentationBackground)
+                    // One continuous surface for body + system arrow (no nested card chrome).
+                    .presentationBackground(FilterPopoverStyle.surface)
+                    .presentationCornerRadius(14)
             }
             .scaleEffect(toolbarHoverScale(isHovered: hoverFilter))
             .animation(.easeOut(duration: 0.10), value: hoverFilter)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
-    }
-
-    private var filterPopoverPresentationBackground: Color {
-        Color(red: 0.18, green: 0.21, blue: 0.22).opacity(0.92)
     }
 
     private var searchCountText: String {
@@ -581,8 +579,8 @@ struct OverlayView: View {
         .padding(.bottom, 10)
         .background(panelTrayBackground)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.28), radius: 30, x: 0, y: 20)
-        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.24), radius: 16, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
         .contentShape(Rectangle())
         .onTapGesture { selection.reset() }
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.cardContainer)
@@ -592,48 +590,12 @@ struct OverlayView: View {
         ZStack {
             GlassBackground(cornerRadius: 24)
 
+            // Single flat tint so the hud glass reads consistently without stacked washes.
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.27, green: 0.30, blue: 0.31).opacity(0.72),
-                            Color(red: 0.18, green: 0.21, blue: 0.22).opacity(0.66)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .fill(Color(red: 0.20, green: 0.23, blue: 0.24).opacity(0.55))
 
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.13),
-                            .white.opacity(0.04),
-                            .black.opacity(0.10)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.20),
-                            .white.opacity(0.06),
-                            .black.opacity(0.12)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.8
-                )
-
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(.white.opacity(0.08), lineWidth: 1)
-                .padding(1.5)
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
         }
     }
 
@@ -714,27 +676,11 @@ struct OverlayView: View {
 
     private var overlaySearchFieldBackground: some View {
         RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.black.opacity(0.34),
-                        Color(red: 0.16, green: 0.18, blue: 0.19).opacity(0.24)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+            .fill(Color.black.opacity(0.28))
             .overlay(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(.black.opacity(0.28), lineWidth: 1)
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(.white.opacity(0.08), lineWidth: 1)
-                        .padding(1)
-                }
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.28), radius: 0, x: 0, y: 1)
-            .shadow(color: .white.opacity(0.08), radius: 0, x: 0, y: -1)
     }
 
     private func toolbarForeground(isActive: Bool, isHovered: Bool) -> Color {
@@ -748,48 +694,29 @@ struct OverlayView: View {
         showFilterPopover ? 1 : (isHovered ? 1.015 : 1)
     }
 
+    /// Flat chip chrome: one fill, optional single hairline. No dual strokes / bevel shadows.
     private func toolbarButtonBackground(isActive: Bool, isHovered: Bool) -> some View {
         RoundedRectangle(cornerRadius: 9, style: .continuous)
             .fill(toolbarButtonFill(isActive: isActive, isHovered: isHovered))
             .overlay(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(toolbarButtonBorder(isActive: isActive), lineWidth: 0.5)
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(.white.opacity(isActive ? 0.30 : 0.13), lineWidth: 0.5)
-                        .padding(1)
-                }
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(toolbarButtonBorder(isActive: isActive, isHovered: isHovered), lineWidth: 0.5)
             )
-            .shadow(color: toolbarButtonShadow(isActive: isActive), radius: isActive ? 3 : 2, x: 0, y: isActive ? 2 : 1)
-            .shadow(color: .white.opacity(isActive ? 0.22 : 0.08), radius: 0, x: 0, y: 1)
     }
 
-    private func toolbarButtonFill(isActive: Bool, isHovered: Bool) -> LinearGradient {
-        let colors: [Color]
+    private func toolbarButtonFill(isActive: Bool, isHovered: Bool) -> Color {
         if isActive {
-            colors = [
-                Color(red: 0.88, green: 0.67, blue: 0.35),
-                Color(red: 0.74, green: 0.46, blue: 0.18)
-            ]
-        } else {
-            colors = [
-                .white.opacity(isHovered ? 0.16 : 0.10),
-                .white.opacity(isHovered ? 0.08 : 0.045)
-            ]
+            return Color.pastryWarmAccent
         }
-        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+        return .white.opacity(isHovered ? 0.14 : 0.08)
     }
 
-    private func toolbarButtonBorder(isActive: Bool) -> Color {
-        isActive
-            ? Color(red: 0.72, green: 0.45, blue: 0.15).opacity(0.52)
-            : .white.opacity(0.10)
-    }
-
-    private func toolbarButtonShadow(isActive: Bool) -> Color {
-        isActive
-            ? Color(red: 0.38, green: 0.20, blue: 0.08).opacity(0.18)
-            : .black.opacity(0.12)
+    private func toolbarButtonBorder(isActive: Bool, isHovered: Bool) -> Color {
+        if isActive {
+            return Color.pastryWarmAccent.opacity(0.35)
+        }
+        // Idle: no visible border — fill alone defines the control.
+        return .white.opacity(isHovered ? 0.08 : 0)
     }
 
     // MARK: - 卡片列表
@@ -1099,9 +1026,9 @@ struct OverlayView: View {
             .overlay(
                 ZStack {
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .stroke(.black.opacity(0.14), lineWidth: 1)
+                        .stroke(.black.opacity(0.14), lineWidth: 0.5)
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(.white.opacity(0.22), lineWidth: 1)
+                        .stroke(.white.opacity(0.22), lineWidth: 0.5)
                         .padding(1)
                 }
             )

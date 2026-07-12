@@ -47,7 +47,7 @@ struct ConfirmationOverlay: View {
                     .fill(Color.black.opacity(0.82))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
                     )
             )
             .shadow(color: .black.opacity(0.32), radius: 24, x: 0, y: 12)
@@ -69,7 +69,7 @@ private struct ConfirmationButtonStyle: ButtonStyle {
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1)
+                    .stroke(borderColor, lineWidth: 0.5)
             )
     }
 

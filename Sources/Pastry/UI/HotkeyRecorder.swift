@@ -210,10 +210,10 @@ final class HotkeyRecorderField: NSControl {
         switch state {
         case .recording:
             NSColor.pastryWarmAccent.setStroke()
-            bgPath.lineWidth = 2
+            bgPath.lineWidth = 1.5
         default:
             NSColor.separatorColor.setStroke()
-            bgPath.lineWidth = 1
+            bgPath.lineWidth = 0.5
         }
         bgPath.stroke()
 

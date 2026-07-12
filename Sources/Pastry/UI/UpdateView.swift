@@ -88,7 +88,6 @@ struct UpdateView: View {
                 Circle()
                     .fill(updateAccent)
                     .frame(width: 8, height: 8)
-                    .shadow(color: updateAccent.opacity(0.5), radius: 6)
 
             case .checking:
                 Text(L10n["update.checking"])
@@ -317,17 +316,15 @@ struct PastryPrimaryButtonStyle: ButtonStyle {
     var horizontalPadding: CGFloat = 18
     var verticalPadding: CGFloat = 8
     var cornerRadius: CGFloat = 8
-    var shadowRadius: CGFloat = 3
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: fontSize, weight: fontWeight))
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
-            .background(Color.pastryWarmAccentGradient)
+            .background(Color.pastryWarmAccent)
             .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .shadow(color: Color.pastryWarmAccent.opacity(0.22), radius: shadowRadius, y: 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
@@ -344,7 +341,7 @@ private struct SecondaryButtonStyle: ButtonStyle {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
