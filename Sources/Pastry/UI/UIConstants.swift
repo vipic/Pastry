@@ -47,9 +47,9 @@ enum UIConstants {
         static let countSize: CGFloat = 24
         static let countPadding: CGFloat = 7
         static let countCornerRadius: CGFloat = Radius.button
-        /// 工具栏角落微角标（筛选数量）
-        static let microSize: CGFloat = 14
-        static let microOffset: CGFloat = 4
+        /// 工具栏「有筛选」状态点（类似未保存指示）
+        static let indicatorDotSize: CGFloat = 7
+        static let indicatorDotOffset: CGFloat = 3
         /// 搜索结果 n/m 胶囊
         static let capsuleHeight: CGFloat = 18
         static let capsuleHorizontalPadding: CGFloat = 6

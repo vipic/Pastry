@@ -1854,6 +1854,23 @@
         }
       }
     },
+    "filter.active_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已启用筛选"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filters active"
+          }
+        }
+      }
+    },
     "filter.source_app": {
       "extractionState": "manual",
       "localizations": {

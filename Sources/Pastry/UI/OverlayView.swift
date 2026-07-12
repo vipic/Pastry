@@ -626,18 +626,19 @@ struct OverlayView: View {
                 .foregroundColor(toolbarForeground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
                 .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
 
-            if activeFilterCount > 0 {
-                Text("\(activeFilterCount)")
-                    .font(.system(size: UIConstants.TypeSize.micro, weight: .heavy, design: .rounded))
-                    .foregroundColor(.white)
-                    .monospacedDigit()
-                    .frame(minWidth: UIConstants.Badge.microSize, minHeight: UIConstants.Badge.microSize)
-                    .background(
-                        Circle()
-                            .fill(PastryPalette.warmAccent)
+            if hasActiveTimeOrTypeFilter {
+                Circle()
+                    .fill(PastryPalette.warmAccent)
+                    .frame(
+                        width: UIConstants.Badge.indicatorDotSize,
+                        height: UIConstants.Badge.indicatorDotSize
                     )
-                    .offset(x: UIConstants.Badge.microOffset, y: -UIConstants.Badge.microOffset)
+                    .offset(
+                        x: UIConstants.Badge.indicatorDotOffset,
+                        y: -UIConstants.Badge.indicatorDotOffset
+                    )
                     .transition(.scale(scale: 0.72).combined(with: .opacity))
+                    .accessibilityHidden(true)
             }
         }
             .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
@@ -659,7 +660,10 @@ struct OverlayView: View {
             }
             .scaleEffect(toolbarHoverScale(isHovered: hoverFilter))
             .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverFilter)
+            .animation(.easeOut(duration: UIConstants.Motion.fast), value: hasActiveTimeOrTypeFilter)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
+            .accessibilityLabel(L10n["filter.title"])
+            .accessibilityValue(hasActiveTimeOrTypeFilter ? L10n["filter.active_hint"] : "")
     }
 
     private var searchCountBadge: some View {
@@ -689,14 +693,12 @@ struct OverlayView: View {
         .accessibilityLabel(display)
     }
 
-    private var activeFilterCount: Int {
-        [store.typeFilter != nil, store.timeFilter != .any, store.appFilter != nil, store.handoffFilter, store.urlFilter]
-            .filter { $0 }
-            .count
-    }
-
     private var hasActiveTimeOrTypeFilter: Bool {
-        activeFilterCount > 0
+        store.typeFilter != nil
+            || store.timeFilter != .any
+            || store.appFilter != nil
+            || store.handoffFilter
+            || store.urlFilter
     }
 
     // MARK: - 卡片容器
