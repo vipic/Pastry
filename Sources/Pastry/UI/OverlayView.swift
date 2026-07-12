@@ -27,6 +27,8 @@ extension Notification.Name {
     static let overlayCmdStateChanged = Notification.Name("overlayCmdStateChanged")
     static let overlaySearchEnterPaste = Notification.Name("overlaySearchEnterPaste")
     static let overlayCancelFavoriteNoteEditing = Notification.Name("overlayCancelFavoriteNoteEditing")
+    /// userInfo["delta"]: CGFloat — 横向卡带滚动量（已按侧滚轮/竖滚轮统一）
+    static let overlayCardStripScroll = Notification.Name("overlayCardStripScroll")
 }
 
 // MARK: - 覆盖层主视图
@@ -53,6 +55,18 @@ struct OverlayView: View {
     @State private var iconPrefetchTask: Task<Void, Never>?
 
     @State private var cachedMultiSelectDrag: DragPayloadBuilder.SelectionPayload?
+    /// 横向卡带当前滚动锚点（键盘/滚轮共用）
+    @State private var stripScrollIndex = 0
+    @State private var stripScrollAccumulator: CGFloat = 0
+    /// 滚到尽头时的边缘光晕（不移动卡片，避免抖动/内缩）
+    @State private var stripEdgeGlow: StripEdgeSide? = nil
+    @State private var stripEdgeGlowClearTask: Task<Void, Never>?
+    @State private var lastStripEdgeHapticAt: CFAbsoluteTime = 0
+
+    private enum StripEdgeSide {
+        case leading
+        case trailing
+    }
 
     private enum DeleteRequestMode {
         case selectionPreservingFavorites
@@ -62,7 +76,8 @@ struct OverlayView: View {
     // MARK: - Body
 
     var body: some View {
-        applyModifiers(overlayContent)
+        // Split lifecycle into two `some View` helpers instead of dual AnyView type-erasure.
+        attachAlertAndSearchLifecycle(attachCoreLifecycle(overlayContent))
     }
 
     private var overlayContent: some View {
@@ -92,82 +107,84 @@ struct OverlayView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.root)
     }
 
-    private func applyModifiers<Content: View>(_ content: Content) -> AnyView {
-        let step1 = AnyView(
-            content
-                .onAppear {
-                    resetAllState()
-                    keyHandler.installMouseMonitor()
-                    prefetchAvailableAppIcons()
-                    withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
-                        cardVisible = true
-                    }
+    private func attachCoreLifecycle<Content: View>(_ content: Content) -> some View {
+        content
+            .onAppear {
+                resetAllState()
+                OverlayPanelManager.shared.isHorizontalCardLayout = isHorizontalLayout
+                keyHandler.installMouseMonitor()
+                prefetchAvailableAppIcons()
+                withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
+                    cardVisible = true
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
-                    dismiss()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayCloseSearch)) { note in
-                    let clear = (note.userInfo?["clearFilter"] as? Bool) ?? true
-                    closeSearch(clearFilter: clear)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
-                    withAnimation(searchExpansionAnimation) { showSearch = true }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearchImmediate)) { _ in
-                    withAnimation(searchExpansionAnimation) { showSearch = true }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
-                    let ids = Set(visibleItems.map { $0.id })
-                    withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
-                    updateLayoutForCurrentScreen()
-                }
-                .onChange(of: selection.selectedIds) { _, _ in
-                    cachedMultiSelectDrag = nil
-                }
-                .onReceive(store.$items) { items in
-                    let existing = Set(items.map(\.id))
-                    selection.selectedIds = selection.selectedIds.intersection(existing)
-                    prefetchAvailableAppIcons()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayMoveCursor)) { note in
-                    handleCursorMove(note)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
-                    handleConfirmPaste()
-                }
-        )
-        return AnyView(
-            step1
-                .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
-                    handleDeleteSelectedRequest()
-                }
-                .onChange(of: showDeleteConfirm) {
-                    NotificationCenter.default.post(name: .overlayAlertActive,
-                                                    object: nil,
-                                                    userInfo: ["active": showDeleteConfirm])
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayAlertConfirm)) { _ in
-                    confirmDeleteSelected()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayAlertCancel)) { _ in
-                    cancelDeleteConfirm()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayCmdStateChanged)) { note in
-                    cmdDown = (note.userInfo?["cmdDown"] as? Bool) ?? false
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayCmdPaste)) { note in
-                    handleCommandPaste(note)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .overlaySearchEnterPaste)) { _ in
-                    handleSearchEnterPaste()
-                }
-                .onChange(of: showSearch) { onShowSearchChanged() }
-                .onChange(of: isSearchFocused) { _, focused in
-                    OverlayPanelManager.shared.keyboardOwner = focused ? .searchField : .overlayNavigation
-                }
-        )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayRequestDismiss)) { _ in
+                dismiss()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayCloseSearch)) { note in
+                let clear = (note.userInfo?["clearFilter"] as? Bool) ?? true
+                closeSearch(clearFilter: clear)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
+                withAnimation(searchExpansionAnimation) { showSearch = true }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearchImmediate)) { _ in
+                withAnimation(searchExpansionAnimation) { showSearch = true }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
+                let ids = Set(visibleItems.map { $0.id })
+                withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+                updateLayoutForCurrentScreen()
+            }
+            .onChange(of: selection.selectedIds) { _, _ in
+                cachedMultiSelectDrag = nil
+            }
+            .onReceive(store.$items) { items in
+                let existing = Set(items.map(\.id))
+                selection.selectedIds = selection.selectedIds.intersection(existing)
+                prefetchAvailableAppIcons()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayMoveCursor)) { note in
+                handleCursorMove(note)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayConfirmPaste)) { _ in
+                handleConfirmPaste()
+            }
+    }
+
+    private func attachAlertAndSearchLifecycle<Content: View>(_ content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .overlayDeleteSelected)) { _ in
+                handleDeleteSelectedRequest()
+            }
+            .onChange(of: showDeleteConfirm) {
+                NotificationCenter.default.post(
+                    name: .overlayAlertActive,
+                    object: nil,
+                    userInfo: ["active": showDeleteConfirm]
+                )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayAlertConfirm)) { _ in
+                confirmDeleteSelected()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayAlertCancel)) { _ in
+                cancelDeleteConfirm()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayCmdStateChanged)) { note in
+                cmdDown = (note.userInfo?["cmdDown"] as? Bool) ?? false
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayCmdPaste)) { note in
+                handleCommandPaste(note)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .overlaySearchEnterPaste)) { _ in
+                handleSearchEnterPaste()
+            }
+            .onChange(of: showSearch) { onShowSearchChanged() }
+            .onChange(of: isSearchFocused) { _, focused in
+                OverlayPanelManager.shared.keyboardOwner = focused ? .searchField : .overlayNavigation
+            }
     }
 
     private func onShowSearchChanged() {
@@ -556,42 +573,50 @@ struct OverlayView: View {
         let displayItems = store.filteredItems
         let multiSelectDrag = multiSelectionDragPayload(items: displayItems)
 
+        // Single VStack: header + content (no nested wrapper stack).
         VStack(spacing: 0) {
             headerRow
 
-            VStack(spacing: 0) {
+            Group {
                 if displayItems.isEmpty {
                     emptyState
                 } else {
                     cardList(displayItems, multiSelectDrag: multiSelectDrag)
                         .padding(3)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        // Constrain viewport so ScrollView can scroll instead of growing with content.
+                        .frame(maxWidth: .infinity)
                 }
             }
             .padding(.top, 10)
-            .frame(minHeight: 262)  // 240 card + 6 LazyStack padding + 6 outer padding + 10 top
+            .frame(maxWidth: .infinity, minHeight: 262)  // 240 card + paddings
             .clipped()
         }
+        .frame(maxWidth: .infinity)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 10)
         .padding(.horizontal, 12)
         .padding(.bottom, 10)
         .background(panelTrayBackground)
+        // One outer clip for the tray; GlassBackground uses radius 0 (parent clips).
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.24), radius: 16, x: 0, y: 10)
         .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
         .contentShape(Rectangle())
-        .onTapGesture { selection.reset() }
+        // simultaneous：避免父级 Tap 手势抢走 ScrollView 的滚轮/拖动手势
+        .simultaneousGesture(TapGesture().onEnded { selection.reset() })
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.cardContainer)
+        .onChange(of: displayItems.count) { _, count in
+            stripScrollIndex = min(stripScrollIndex, max(0, count - 1))
+            stripScrollAccumulator = 0
+        }
     }
 
     private var panelTrayBackground: some View {
         ZStack {
-            GlassBackground(cornerRadius: 24)
+            // Corner radius applied by the tray's outer clipShape only.
+            GlassBackground(cornerRadius: 0)
 
-            // Single flat tint so the hud glass reads consistently without stacked washes.
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(red: 0.20, green: 0.23, blue: 0.24).opacity(0.55))
+            Color(red: 0.20, green: 0.23, blue: 0.24).opacity(0.55)
 
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
@@ -736,7 +761,98 @@ struct OverlayView: View {
         let useHorizontal = (screen?.frame.width ?? NSScreen.main?.frame.width ?? 1440) > 1200
         if useHorizontal != isHorizontalLayout {
             isHorizontalLayout = useHorizontal
+            OverlayPanelManager.shared.isHorizontalCardLayout = useHorizontal
+            stripScrollAccumulator = 0
         }
+    }
+
+    /// 横向卡带：侧滚轮 / 竖滚轮 → 按卡片步进滚动（全屏 NSPanel 上 SwiftUI ScrollView 常收不到侧滚轮）
+    private func handleHorizontalStripScroll(
+        delta: CGFloat,
+        items: [ClipboardItem],
+        proxy: ScrollViewProxy
+    ) {
+        guard !items.isEmpty else { return }
+        // 与 AppKit 一致：deltaX > 0 表示内容右移（看见更左边的卡片）→ 索引减小
+        stripScrollAccumulator += delta
+        // 拇指轮步进更碎
+        let threshold: CGFloat = 4
+        var steps = 0
+        while stripScrollAccumulator <= -threshold {
+            stripScrollAccumulator += threshold
+            steps += 1
+        }
+        while stripScrollAccumulator >= threshold {
+            stripScrollAccumulator -= threshold
+            steps -= 1
+        }
+        guard steps != 0 else { return }
+
+        let base = min(max(0, selection.cursorIndex ?? stripScrollIndex), items.count - 1)
+        let unconstrained = base + steps
+        let newIndex = min(max(0, unconstrained), items.count - 1)
+
+        if newIndex != base {
+            stripScrollIndex = newIndex
+            let anchor: UnitPoint
+            if newIndex == 0 {
+                anchor = .leading
+            } else if newIndex == items.count - 1 {
+                anchor = .trailing
+            } else {
+                anchor = steps > 0 ? .trailing : .leading
+            }
+            withAnimation(.easeOut(duration: 0.12)) {
+                proxy.scrollTo(items[newIndex].id, anchor: anchor)
+            }
+        }
+
+        // 越过尽头：边缘光晕 + 限频触感（不移动卡片）
+        if unconstrained != newIndex {
+            showStripEdgeGlow(towardHigherIndex: steps > 0)
+            stripScrollAccumulator = 0
+        }
+    }
+
+    private func showStripEdgeGlow(towardHigherIndex: Bool) {
+        let side: StripEdgeSide = towardHigherIndex ? .trailing : .leading
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            stripEdgeGlow = side
+        }
+
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastStripEdgeHapticAt > 0.4 {
+            lastStripEdgeHapticAt = now
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        }
+
+        stripEdgeGlowClearTask?.cancel()
+        stripEdgeGlowClearTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 340_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.22)) {
+                if stripEdgeGlow == side {
+                    stripEdgeGlow = nil
+                }
+            }
+        }
+    }
+
+    /// 尽头指示：贴卡带视口边缘的短暖金竖条，不铺渐变（避免照出卡片外留白）。
+    private func stripEdgeGlowOverlay(side: StripEdgeSide) -> some View {
+        let visible = stripEdgeGlow == side
+        return Capsule(style: .continuous)
+            .fill(Color.pastryWarmAccent.opacity(visible ? 0.90 : 0))
+            .frame(width: 2.5, height: visible ? 40 : 24)
+            .shadow(
+                color: Color.pastryWarmAccent.opacity(visible ? 0.35 : 0),
+                radius: visible ? 4 : 0
+            )
+            .padding(side == .leading ? .leading : .trailing, 2)
+            .frame(maxHeight: .infinity, alignment: .center)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .scaleEffect(y: visible ? 1 : 0.75, anchor: .center)
     }
 
     @ViewBuilder
@@ -747,14 +863,29 @@ struct OverlayView: View {
                     LazyHStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                             cardView(item, index: idx, multiSelectDrag: multiSelectDrag)
+                                .id(item.id)
                         }
                     }
                     .padding(.vertical, 3)
-                    .padding(.trailing, 8)
+                    // 无左右 padding：首尾卡贴视口边，尽头指示不会落在虚空留白上
                 }
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .leading) { stripEdgeGlowOverlay(side: .leading) }
+                .overlay(alignment: .trailing) { stripEdgeGlowOverlay(side: .trailing) }
                 .animation(nil, value: items.count)
+                .onAppear {
+                    OverlayPanelManager.shared.isHorizontalCardLayout = true
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .overlayCardStripScroll)) { note in
+                    let delta = (note.userInfo?["delta"] as? CGFloat)
+                        ?? (note.userInfo?["delta"] as? Double).map { CGFloat($0) }
+                        ?? 0
+                    guard abs(delta) > 0.01 else { return }
+                    handleHorizontalStripScroll(delta: delta, items: items, proxy: proxy)
+                }
                 .onChange(of: selection.cursorIndex) { oldIdx, newIdx in
                     guard let idx = newIdx, idx < items.count else { return }
+                    stripScrollIndex = idx
                     let rendered = renderedIds.contains(items[idx].id)
                     let downward = (oldIdx ?? 0) < idx
                     let neighborIdx = downward ? idx + 1 : idx - 1
@@ -763,9 +894,7 @@ struct OverlayView: View {
                     guard !rendered || neighborMissing else { return }
                     // 滚动目标：边缘时滚动邻卡（露出下一张），否则滚动当前卡
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
-                    let anchor: UnitPoint = isHorizontalLayout
-                        ? (downward ? .trailing : .leading)
-                        : (downward ? .bottom : .top)
+                    let anchor: UnitPoint = downward ? .trailing : .leading
                     withAnimation(.easeInOut(duration: 0.15)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
@@ -786,6 +915,9 @@ struct OverlayView: View {
                 }
                 .frame(maxWidth: UIConstants.Overlay.compactListMaxWidth)
                 .animation(nil, value: items.count)
+                .onAppear {
+                    OverlayPanelManager.shared.isHorizontalCardLayout = false
+                }
                 .onChange(of: selection.cursorIndex) { oldIdx, newIdx in
                     guard let idx = newIdx, idx < items.count else { return }
                     let rendered = renderedIds.contains(items[idx].id)
@@ -795,9 +927,7 @@ struct OverlayView: View {
                         && !renderedIds.contains(items[neighborIdx].id)
                     guard !rendered || neighborMissing else { return }
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
-                    let anchor: UnitPoint = isHorizontalLayout
-                        ? (downward ? .trailing : .leading)
-                        : (downward ? .bottom : .top)
+                    let anchor: UnitPoint = downward ? .bottom : .top
                     withAnimation(.easeInOut(duration: 0.15)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
@@ -888,8 +1018,8 @@ struct OverlayView: View {
     private func handleCardTap(_ item: ClipboardItem) {
         selection.handleTap(
             item: item,
-            cmdDown: keyHandler.lastMouseModifiers.contains(.command),
-            shiftDown: keyHandler.lastMouseModifiers.contains(.shift),
+            cmdDown: keyHandler.lastMouseHasCommand,
+            shiftDown: keyHandler.lastMouseHasShift,
             visibleItems: visibleItems
         )
     }
@@ -1035,19 +1165,140 @@ struct OverlayView: View {
 }
 
 // MARK: - 键盘/鼠标事件处理器（类实例，避免 struct 捕获问题）
-private final class KeyboardEventHandler: ObservableObject {
-    var lastMouseModifiers: NSEvent.ModifierFlags = []  // 最近一次鼠标点击时的修饰键
+/// 非 private：`ClipboardOverlayPanel` 侧滚轮兜底需要调用静态解析方法。
+final class KeyboardEventHandler: ObservableObject {
+    private(set) var lastMouseHasCommand = false
+    private(set) var lastMouseHasShift = false
+
     private var mouseMonitor: Any?
+    private var scrollMonitor: Any?
+    private var scrollEventTap: CFMachPort?
+    private var scrollRunLoopSource: CFRunLoopSource?
+    /// 防止 local monitor + CGEvent tap 双重触发
+    private static var lastPostedScrollAt: CFAbsoluteTime = 0
+
+    /// 从 NSEvent / CGEvent 提取**纯横向**卡带 delta。
+    /// 不映射竖滚轮，避免横竖方向感混乱。MX 拇指轮多在 Axis2 / deltaX。
+    static func cardStripDelta(from event: NSEvent) -> CGFloat? {
+        let lineScale: CGFloat = 14
+        var xs: [CGFloat] = [
+            event.scrollingDeltaX,
+            event.deltaX * lineScale
+        ]
+
+        if let cg = event.cgEvent {
+            // Axis2 = 横向（拇指轮）；忽略 Axis1 纵向
+            xs.append(contentsOf: [
+                CGFloat(cg.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)),
+                CGFloat(cg.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)),
+                CGFloat(cg.getDoubleValueField(.scrollWheelEventDeltaAxis2)) * lineScale
+            ])
+        }
+
+        let bestX = xs.max(by: { abs($0) < abs($1) }) ?? 0
+        return abs(bestX) > 0.01 ? bestX : nil
+    }
+
+    /// 全屏 NSPanel 上 SwiftUI 横向 ScrollView 常收不到侧滚轮；在 AppKit 层桥接。
+    static func handleScrollWheel(_ event: NSEvent) -> NSEvent? {
+        guard OverlayPanelManager.shared.isVisible else { return event }
+        guard OverlayPanelManager.shared.isHorizontalCardLayout else { return event }
+        guard !OverlayPanelManager.shared.isAlertActive else { return event }
+        guard let delta = cardStripDelta(from: event) else { return event }
+
+        postCardStripScroll(delta: delta)
+        return nil
+    }
+
+    private static func postCardStripScroll(delta: CGFloat) {
+        let now = CFAbsoluteTimeGetCurrent()
+        // ~8ms 内去重，避免 monitor + tap 双发
+        guard now - lastPostedScrollAt > 0.008 else { return }
+        lastPostedScrollAt = now
+        NotificationCenter.default.post(
+            name: .overlayCardStripScroll,
+            object: nil,
+            userInfo: ["delta": delta]
+        )
+    }
+
+    /// CGEvent 级滚动（MX Master 拇指轮有时不经 NSEvent local monitor）
+    private static func handleCGScrollEvent(_ event: CGEvent) {
+        guard OverlayPanelManager.shared.isVisible else { return }
+        guard OverlayPanelManager.shared.isHorizontalCardLayout else { return }
+        guard !OverlayPanelManager.shared.isAlertActive else { return }
+
+        let lineScale: CGFloat = 14
+        // 仅横向 Axis2；不映射竖滚轮
+        let xs: [CGFloat] = [
+            CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)),
+            CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)),
+            CGFloat(event.getDoubleValueField(.scrollWheelEventDeltaAxis2)) * lineScale
+        ]
+        let bestX = xs.max(by: { abs($0) < abs($1) }) ?? 0
+        guard abs(bestX) > 0.01 else { return }
+
+        DispatchQueue.main.async {
+            postCardStripScroll(delta: bestX)
+        }
+    }
+
+    private func installScrollEventTapIfNeeded() {
+        guard scrollEventTap == nil else { return }
+        let mask = CGEventMask(1 << CGEventType.scrollWheel.rawValue)
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: { _, type, event, _ in
+                if type == .scrollWheel {
+                    KeyboardEventHandler.handleCGScrollEvent(event)
+                }
+                return Unmanaged.passUnretained(event)
+            },
+            userInfo: nil
+        ) else {
+            return
+        }
+        scrollEventTap = tap
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        scrollRunLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func removeScrollEventTap() {
+        if let tap = scrollEventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+        if let source = scrollRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        scrollRunLoopSource = nil
+        scrollEventTap = nil
+    }
 
     func installMouseMonitor() {
-        guard mouseMonitor == nil else { return }
-        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            self?.lastMouseModifiers = event.modifierFlags
-            return event
+        if mouseMonitor == nil {
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                let flags = event.modifierFlags
+                self?.lastMouseHasCommand = flags.contains(.command)
+                self?.lastMouseHasShift = flags.contains(.shift)
+                return event
+            }
         }
+        if scrollMonitor == nil {
+            scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                Self.handleScrollWheel(event)
+            }
+        }
+        installScrollEventTapIfNeeded()
     }
 
     func uninstall() {
         if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
+        if let m = scrollMonitor { NSEvent.removeMonitor(m); scrollMonitor = nil }
+        removeScrollEventTap()
     }
 }
