@@ -78,25 +78,25 @@ extension SettingsSceneView {
     var securityPermissionCard: some View {
         let model = AccessibilityPermissionRowModel.resolve(isTrusted: accessibilityTrusted)
         let badgeFill = accessibilityTrusted
-            ? Color(red: 0.180, green: 0.498, blue: 0.333)
-            : Color.pastryWarmAccent
+            ? PastryPalette.successDeep
+            : PastryPalette.warmAccent
 
         return HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .fill(badgeFill)
                 Image(systemName: accessibilityTrusted ? "checkmark" : "exclamationmark")
-                    .font(.system(size: 18, weight: .heavy))
+                    .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
                     .foregroundStyle(.white)
             }
             .frame(width: 42, height: 42)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                     .foregroundStyle(SettingsPalette.ink)
                 Text(model.subtitle)
-                    .font(.system(size: 11))
+                    .font(.system(size: UIConstants.TypeSize.label))
                     .foregroundStyle(SettingsPalette.muted)
             }
 
@@ -121,11 +121,11 @@ extension SettingsSceneView {
 
     var excludedEmptyRow: some View {
         Text(L10n["settings.excluded_empty"])
-            .font(.system(size: 11))
+            .font(.system(size: UIConstants.TypeSize.label))
             .foregroundStyle(SettingsPalette.muted)
             .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
             .padding(.horizontal, 10)
-            .background(SettingsPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(SettingsPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
     }
 
     func excludedAppRow(_ bundleID: String) -> some View {
@@ -133,10 +133,10 @@ extension SettingsSceneView {
             appIcon(for: bundleID)
                 .resizable()
                 .frame(width: 28, height: 28)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous))
 
             Text(displayName(for: bundleID))
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                 .foregroundStyle(SettingsPalette.ink)
                 .lineLimit(1)
 
@@ -150,7 +150,7 @@ extension SettingsSceneView {
         .padding(.leading, 7)
         .padding(.trailing, 10)
         .frame(height: 42)
-        .background(SettingsPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(SettingsPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
     }
 
     // MARK: - 辅助

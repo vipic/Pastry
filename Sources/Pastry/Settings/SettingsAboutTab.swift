@@ -73,10 +73,10 @@ extension SettingsSceneView {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(appDisplayName)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: UIConstants.TypeSize.headline, weight: .bold))
                     .foregroundStyle(SettingsPalette.ink)
                 Text(L10n["about.description"])
-                    .font(.system(size: 12))
+                    .font(.system(size: UIConstants.TypeSize.callout))
                     .foregroundStyle(SettingsPalette.muted)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -86,7 +86,7 @@ extension SettingsSceneView {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
-        .settingsCardChrome(cornerRadius: 14)
+        .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
     }
 
     var appDisplayName: String {

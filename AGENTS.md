@@ -89,12 +89,17 @@ Sources/Pastry/
 │   ├── UpdateView.swift           # 更新检查窗口
 │   ├── GlassBackground.swift      # NSVisualEffectView(.hudWindow) 托盘背景
 │   ├── HotkeyRecorder.swift       # 快捷键录制器
+│   ├── UIConstants.swift          # 尺寸 / 圆角 / 字号 / 透明度 / 动效 token
 │   └── MenuBarManager.swift       # NSStatusBar 菜单栏入口
+├── Settings/
+│   ├── SettingsChrome.swift       # PastryPalette 颜色 token + settingsCardChrome
+│   ├── SettingsControls.swift     # Pill / Switch 等控件样式
+│   └── Settings*Tab.swift         # General / Shortcut / Security / Version / About
 └── Utils/
     ├── AppDirectories.swift       # 应用数据目录
     ├── AppIconProvider.swift      # 提取应用图标 + 主题色
     ├── AppVersionInfo.swift       # About / Settings 版本展示
-    ├── Constants.swift            # SF Symbols、UserDefaults key、颜色
+    ├── Constants.swift            # SF Symbols、UserDefaults key、pastryWarmAccent
     ├── DragPayloadBuilder.swift   # 单选/多选拖拽载荷
     ├── GlobalHotkeyManager.swift  # Carbon RegisterEventHotKey 全局快捷键
     ├── HistoryRetentionPolicy.swift # 历史容量/保留周期策略
@@ -114,6 +119,14 @@ Tests/PastryTests/
 ├── UpdateCheckerTests.swift       # 更新检查/版本比较
 └── 其他：目录、版本、图标、热键、本地化、网络策略、签名配置等
 ```
+
+## Design Tokens
+
+UI 色与尺寸使用两层权威源，**禁止在调用点新增 `Color(red:)` 字面量**：
+
+- **颜色**：`PastryPalette`（[`Settings/SettingsChrome.swift`](Sources/Pastry/Settings/SettingsChrome.swift)）；`SettingsPalette` 为兼容 typealias
+- **尺寸 / 圆角 / 字号 / 透明度 / 动效**：`UIConstants`（[`UI/UIConstants.swift`](Sources/Pastry/UI/UIConstants.swift)）
+- 视觉参考：[`docs/design-tokens.html`](docs/design-tokens.html)
 
 ## Critical Pitfalls
 
