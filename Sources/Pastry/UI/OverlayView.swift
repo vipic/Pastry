@@ -1157,6 +1157,7 @@ struct OverlayView: View {
     @ViewBuilder
     private func cardView(_ item: ClipboardItem, index: Int, multiSelectDrag: DragPayloadBuilder.SelectionPayload?) -> some View {
         let isInMultiSelection = multiSelectDrag != nil && selection.selectedIds.contains(item.id)
+        let insertRole = Self.cardInsertRole(for: item.id, animation: store.insertAnimation)
         ClipboardCardView(
             item: item,
             isSelected: selection.selectedIds.contains(item.id),
@@ -1186,6 +1187,10 @@ struct OverlayView: View {
             }
         )
         .id(item.id)
+        .modifier(CardInsertAppearance(
+            role: insertRole,
+            axis: isHorizontalLayout ? .horizontal : .vertical
+        ))
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.card(item.id.uuidString))
         .onAppear { renderedIds.insert(item.id) }
         .onDisappear { renderedIds.remove(item.id) }
@@ -1215,6 +1220,22 @@ struct OverlayView: View {
                 )
             }
         }
+    }
+
+    private static func cardInsertRole(
+        for id: UUID,
+        animation: ClipboardInsertAnimation?
+    ) -> CardInsertAppearance.Role {
+        guard let animation else { return .none }
+        if id == animation.newID {
+            return animation.promoteFromIndex > 0
+                ? .flyingIn(steps: animation.promoteFromIndex)
+                : .fadingIn
+        }
+        if animation.shiftingIDs.contains(id) {
+            return .shiftingBack
+        }
+        return .none
     }
 
     // MARK: - 选择交互
@@ -1501,6 +1522,68 @@ struct OverlayView: View {
             return PastryPalette.cardAccent
         default:
             return PastryPalette.emptyDefaultAccent
+        }
+    }
+}
+
+// MARK: - 相关卡入场位移（置顶项之前的卡让位；之后的卡不动）
+
+private struct CardInsertAppearance: ViewModifier {
+    enum Role: Equatable {
+        case none
+        case fadingIn
+        case flyingIn(steps: Int)
+        case shiftingBack
+    }
+
+    enum Axis {
+        case horizontal
+        case vertical
+    }
+
+    let role: Role
+    let axis: Axis
+    @State private var settled = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(opacity)
+            .offset(x: axis == .horizontal ? offset : 0, y: axis == .vertical ? offset : 0)
+            .onAppear { runIfNeeded() }
+            .onChange(of: role) { _, _ in runIfNeeded() }
+    }
+
+    private var opacity: Double {
+        guard !settled else { return 1 }
+        switch role {
+        case .fadingIn:
+            return 0
+        case .flyingIn, .shiftingBack, .none:
+            return 1
+        }
+    }
+
+    private var offset: CGFloat {
+        guard !settled else { return 0 }
+        let step = UIConstants.Overlay.cardInsertPushDistance
+        switch role {
+        case .none, .fadingIn:
+            return 0
+        case .flyingIn(let steps):
+            return CGFloat(steps) * step
+        case .shiftingBack:
+            return -step
+        }
+    }
+
+    private func runIfNeeded() {
+        guard role != .none else {
+            settled = true
+            return
+        }
+        settled = false
+        withAnimation(.easeOut(duration: UIConstants.Motion.cardInsert)) {
+            settled = true
         }
     }
 }

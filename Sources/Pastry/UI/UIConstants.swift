@@ -34,11 +34,22 @@ enum UIConstants {
         static let toolbarButtonSize: CGFloat = 32
         static let trayCornerRadius: CGFloat = Radius.tray
         static let overlaySurfaceTintOpacity: Double = 0.55
+        /// 横排新卡入场：整带一次位移的距离 = 卡宽 + 间距
+        static var cardInsertPushDistance: CGFloat { Card.size + cardSpacing }
     }
 
     enum Control {
         static let iconButtonSize: CGFloat = 28
         static let cornerRadius: CGFloat = Radius.control
+    }
+
+    /// 删除/清空确认对话框（与托盘同系深色玻璃）
+    enum Confirmation {
+        static let cardWidth: CGFloat = 360
+        static let contentPadding: CGFloat = 18
+        static let cornerRadius: CGFloat = Radius.panel
+        static let buttonHeight: CGFloat = 30
+        static let scrimOpacity: Double = 0.22
     }
 
     /// Count / status badge geometry. Colors stay on `PastryPalette` + `OnDark`.
@@ -119,5 +130,7 @@ enum UIConstants {
         static let soft = 0.22
         static let iconReveal = 0.25
         static let switchSpring = 0.28
+        /// 新卡片入场（仅新卡自身，非整表位移）
+        static let cardInsert = 0.14
     }
 }

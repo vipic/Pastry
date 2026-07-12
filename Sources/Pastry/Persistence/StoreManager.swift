@@ -3,6 +3,15 @@ import Cocoa
 import CoreGraphics
 import OSLog
 
+/// 剪贴板实时写入后的入场动画描述（仅相关卡位移）。
+struct ClipboardInsertAnimation: Equatable {
+    let newID: UUID
+    /// 需要向后让一格的卡片（被置顶项之前的那些；全新插入则为原可见全部）
+    let shiftingIDs: Set<UUID>
+    /// 置顶前在可见列表中的下标；全新插入为 0（新卡只淡入，不飞移）
+    let promoteFromIndex: Int
+}
+
 // MARK: - 应用数据管理层
 // 连接 ClipboardMonitor → DatabaseManager → SwiftUI
 @MainActor
@@ -15,6 +24,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     @Published private(set) var items: [ClipboardItem] = []
     @Published private(set) var filteredItems: [ClipboardItem] = []
+    /// 实时插入/置顶的入场描述；Overlay 按卡做 offset，避免整带误移。
+    @Published private(set) var insertAnimation: ClipboardInsertAnimation?
 
     /// 当前 pin tab
     @Published var pinTab: PinTab = .all {
@@ -405,14 +416,12 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         var isPinned = item.isPinned
         var favoriteNote = item.favoriteNote
         var favoriteNoteUpdatedAt = item.favoriteNoteUpdatedAt
+        var replacedOldID: UUID?
         switch result {
         case .skippedDuplicate, .skipped:
             return
         case .replaced(let oldID, let preservedPinned, let preservedNote, let preservedNoteAt):
-            // 去重置顶：删内存中的旧条目，并沿用旧记录的收藏状态
-            if let oldUUID = UUID(uuidString: oldID) {
-                items.removeAll { $0.id == oldUUID }
-            }
+            replacedOldID = UUID(uuidString: oldID)
             isPinned = preservedPinned
             favoriteNote = preservedNote
             favoriteNoteUpdatedAt = preservedNoteAt
@@ -434,6 +443,28 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
             favoriteNote: favoriteNote,
             favoriteNoteUpdatedAt: favoriteNoteUpdatedAt
         )
+
+        // 入场：只让「被挤到的」卡片位移；置顶项之后的卡片保持不动。
+        let visibleBefore = filteredItems
+        let animation: ClipboardInsertAnimation
+        if let replacedOldID,
+           let oldIndex = visibleBefore.firstIndex(where: { $0.id == replacedOldID }) {
+            animation = ClipboardInsertAnimation(
+                newID: listItem.id,
+                shiftingIDs: Set(visibleBefore.prefix(oldIndex).map(\.id)),
+                promoteFromIndex: oldIndex
+            )
+        } else {
+            animation = ClipboardInsertAnimation(
+                newID: listItem.id,
+                shiftingIDs: Set(visibleBefore.map(\.id)),
+                promoteFromIndex: 0
+            )
+        }
+
+        if let replacedOldID {
+            items.removeAll { $0.id == replacedOldID }
+        }
         items.insert(listItem, at: 0)
 
         let noActiveFilters = searchQuery.isEmpty
@@ -446,6 +477,18 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
             filteredItems = items
         } else {
             performSearchImmediate()
+        }
+
+        // 新卡若因筛选不可见则不做入场
+        if filteredItems.contains(where: { $0.id == listItem.id }) {
+            insertAnimation = animation
+            let token = listItem.id
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(UIConstants.Motion.cardInsert * 1_200_000_000))
+                if insertAnimation?.newID == token {
+                    insertAnimation = nil
+                }
+            }
         }
 
         refreshStats()

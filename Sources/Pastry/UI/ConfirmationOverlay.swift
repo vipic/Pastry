@@ -15,7 +15,7 @@ struct ConfirmationOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.22)
+            Color.black.opacity(UIConstants.Confirmation.scrimOpacity)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onCancel)
@@ -23,7 +23,7 @@ struct ConfirmationOverlay: View {
             VStack(alignment: .leading, spacing: UIConstants.Radius.cardLarge) {
                 Text(title)
                     .font(.system(size: UIConstants.TypeSize.titleMedium, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.96))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textPrimary))
 
                 Text(message)
                     .font(.system(size: UIConstants.TypeSize.body))
@@ -40,17 +40,24 @@ struct ConfirmationOverlay: View {
                         .buttonStyle(ConfirmationButtonStyle(kind: .destructive))
                 }
             }
-            .padding(18)
-            .frame(width: 360)
-            .background(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
-                    .fill(Color.black.opacity(0.82))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
-                            .stroke(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
-                    )
+            .padding(UIConstants.Confirmation.contentPadding)
+            .frame(width: UIConstants.Confirmation.cardWidth)
+            .background(confirmationCardChrome)
+            .clipShape(RoundedRectangle(cornerRadius: UIConstants.Confirmation.cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: UIConstants.Confirmation.cornerRadius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
             )
-            .shadow(color: .black.opacity(0.32), radius: 24, x: 0, y: 12)
+            .shadow(color: .black.opacity(0.28), radius: 20, x: 0, y: 10)
+            .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
+        }
+    }
+
+    /// 与托盘同系：hud 磨砂 + overlaySurface 着色。
+    private var confirmationCardChrome: some View {
+        ZStack {
+            GlassBackground(cornerRadius: UIConstants.Confirmation.cornerRadius)
+            PastryPalette.overlaySurface.opacity(UIConstants.Overlay.overlaySurfaceTintOpacity)
         }
     }
 }
@@ -64,7 +71,7 @@ private struct ConfirmationButtonStyle: ButtonStyle {
             .foregroundColor(foregroundColor)
             .lineLimit(1)
             .padding(.horizontal, 13)
-            .frame(height: 30)
+            .frame(height: UIConstants.Confirmation.buttonHeight)
             .background(backgroundColor(isPressed: configuration.isPressed))
             .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous))
             .overlay(
@@ -76,7 +83,7 @@ private struct ConfirmationButtonStyle: ButtonStyle {
     private var foregroundColor: Color {
         switch kind {
         case .secondary:
-            return .white.opacity(0.86)
+            return .white.opacity(UIConstants.OnDark.textSecondary)
         case .destructive:
             return .white
         }
@@ -94,7 +101,7 @@ private struct ConfirmationButtonStyle: ButtonStyle {
     private func backgroundColor(isPressed: Bool) -> Color {
         switch kind {
         case .secondary:
-            return Color.white.opacity(isPressed ? 0.18 : 0.10)
+            return Color.white.opacity(isPressed ? UIConstants.OnDark.fillHover : UIConstants.OnDark.fillSubtle)
         case .destructive:
             return PastryPalette.dangerStrong.opacity(isPressed ? 0.82 : 1.0)
         }
