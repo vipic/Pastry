@@ -136,6 +136,39 @@ final class OverlayInteractionModelTests: XCTestCase {
         XCTAssertEqual(selected.map(\.id), [items[1].id, items[3].id])
     }
 
+    func testShouldReselectFirstWhenVisibleIdsChange() {
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        XCTAssertTrue(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [a, b, c],
+                newIds: [b, c]
+            ),
+            "删除后列表 ID 变化应重新选中第一张"
+        )
+        XCTAssertTrue(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [a, b, c],
+                newIds: [a, c]
+            ),
+            "搜索/筛选结果变化应重新选中第一张"
+        )
+        XCTAssertFalse(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [a, b, c],
+                newIds: [a, b, c]
+            ),
+            "ID 序列不变时不应打断当前键盘选择"
+        )
+        XCTAssertTrue(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [],
+                newIds: [a]
+            )
+        )
+    }
+
     func testCommandBadgeIndexOnlyForFirstNineWhileCmdDown() {
         XCTAssertNil(OverlayInteractionModel.commandBadgeIndex(cmdDown: false, itemIndex: 0))
         XCTAssertEqual(OverlayInteractionModel.commandBadgeIndex(cmdDown: true, itemIndex: 0), 1)

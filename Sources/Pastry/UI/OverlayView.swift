@@ -9,6 +9,7 @@ extension Notification.Name {
     static let overlayDeleteSelected = Notification.Name("overlayDeleteSelected")
     static let overlayAlertActive    = Notification.Name("overlayAlertActive")
     static let overlayCloseSearch    = Notification.Name("overlayCloseSearch")
+    static let overlayCloseFilter    = Notification.Name("overlayCloseFilter")
     static let overlayOpenSearch     = Notification.Name("overlayOpenSearch")
     static let overlayOpenSearchImmediate = Notification.Name("overlayOpenSearchImmediate")
     static let overlayMoveUp         = Notification.Name("overlayMoveUp")
@@ -125,6 +126,9 @@ struct OverlayView: View {
                 let clear = (note.userInfo?["clearFilter"] as? Bool) ?? true
                 closeSearch(clearFilter: clear)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .overlayCloseFilter)) { _ in
+                showFilterPopover = false
+            }
             .onReceive(NotificationCenter.default.publisher(for: .overlayOpenSearch)) { _ in
                 withAnimation(searchExpansionAnimation) { showSearch = true }
             }
@@ -141,9 +145,14 @@ struct OverlayView: View {
             .onChange(of: selection.selectedIds) { _, _ in
                 cachedMultiSelectDrag = nil
             }
-            .onReceive(store.$items) { items in
-                let existing = Set(items.map(\.id))
-                selection.selectedIds = selection.selectedIds.intersection(existing)
+            // 可见列表 ID 变化（删除 / 搜索 / 筛选 / 新条目）→ 默认选中第一张
+            .onChange(of: store.filteredItems.map(\.id)) { oldIds, newIds in
+                guard OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                    oldIds: oldIds, newIds: newIds
+                ) else { return }
+                selectFirstVisibleCard()
+            }
+            .onReceive(store.$items) { _ in
                 prefetchAvailableAppIcons()
             }
             .onReceive(NotificationCenter.default.publisher(for: .overlayMoveCursor)) { note in
@@ -182,6 +191,9 @@ struct OverlayView: View {
                 handleSearchEnterPaste()
             }
             .onChange(of: showSearch) { onShowSearchChanged() }
+            .onChange(of: showFilterPopover) { _, isPresented in
+                OverlayPanelManager.shared.isFilterPopoverActive = isPresented
+            }
             .onChange(of: isSearchFocused) { _, focused in
                 OverlayPanelManager.shared.keyboardOwner = focused ? .searchField : .overlayNavigation
             }
@@ -190,14 +202,15 @@ struct OverlayView: View {
     private func onShowSearchChanged() {
         OverlayPanelManager.shared.isSearchActive = showSearch
         if showSearch {
-            selection.reset()
+            selectFirstVisibleCard()
             OverlayPanelManager.shared.keyboardOwner = .searchField
             focusSearchFieldAfterExpansion()
         } else {
             isSearchFocused = false
             showFilterPopover = false
             OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
-            // clearFilters 由 closeSearch(clearFilter:) 控制，不在这里自动清
+            // clearFilters 由 closeSearch(clearFilter:) 控制；列表 ID 变化时会再选中第一张
+            selectFirstVisibleCard()
         }
     }
 
@@ -268,10 +281,19 @@ struct OverlayView: View {
         showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
+        OverlayPanelManager.shared.isFilterPopoverActive = false
         OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
         store.clearFilters()
-        selection.reset()
+        // 打开面板默认选中第一张卡片，便于立刻 Enter / 方向键 / Delete
+        selectFirstVisibleCard()
         renderedIds = []
+    }
+
+    /// 当前可见列表的默认键盘落点：第一张卡片（空列表则清空选择）。
+    private func selectFirstVisibleCard() {
+        selection.selectFirst(visibleItems: store.filteredItems)
+        stripScrollIndex = 0
+        stripScrollAccumulator = 0
     }
 
     // MARK: - 退场
@@ -285,6 +307,7 @@ struct OverlayView: View {
         showFilterPopover = false
         isSearchFocused = false
         OverlayPanelManager.shared.isSearchActive = false
+        OverlayPanelManager.shared.isFilterPopoverActive = false
         OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
         withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
             cardVisible = false
@@ -316,17 +339,15 @@ struct OverlayView: View {
 
     private func deleteSelected() {
         let ids = pendingDeleteIds.isEmpty ? selection.selectedIds : pendingDeleteIds
-        let deletedIds: Set<UUID>
         switch pendingDeleteMode {
         case .selectionPreservingFavorites:
-            deletedIds = store.deleteSelected(ids, clearSystemClipboardWhenEmpty: true, preservePinned: true)
+            _ = store.deleteSelected(ids, clearSystemClipboardWhenEmpty: true, preservePinned: true)
         case .direct:
-            deletedIds = store.deleteSelected(ids, clearSystemClipboardWhenEmpty: false, preservePinned: false)
+            _ = store.deleteSelected(ids, clearSystemClipboardWhenEmpty: false, preservePinned: false)
         }
-        selection.selectedIds.subtract(deletedIds)
-        if selection.selectedIds.isEmpty {
-            selection.reset()
-        }
+        // deleteSelected 会刷新 filteredItems；onChange 在 ID 列表变化时选中第一张。
+        // 若删除未改变可见 ID 列表（例如删的是筛掉的项），仍强制回到第一张。
+        selectFirstVisibleCard()
     }
 
     private func confirmDeleteSelected() {
@@ -532,8 +553,7 @@ struct OverlayView: View {
             .background(toolbarButtonBackground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
             .contentShape(Rectangle())
             .onTapGesture {
-                // 打开前预热图标 + 清选择，减轻 popover 首帧卡顿（保持系统气泡形态）
-                selection.reset()
+                // 打开前预热图标，减轻 popover 首帧卡顿（保持系统气泡形态）
                 prefetchAvailableAppIcons()
                 showFilterPopover.toggle()
             }
@@ -542,7 +562,7 @@ struct OverlayView: View {
                 if hovering { NSCursor.arrow.push() } else { NSCursor.arrow.pop() }
             }
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
-                FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
+                FilterPopoverContent(store: store, onFilterChange: { selectFirstVisibleCard() })
                     .presentationBackground(FilterPopoverStyle.surface)
                     .presentationCornerRadius(14)
             }
@@ -678,8 +698,8 @@ struct OverlayView: View {
 
     private func tabButton(tab: StoreManager.PinTab, icon: String, label: String, isSelected: Bool) -> some View {
         Button {
-            selection.reset()
             store.pinTab = tab
+            selectFirstVisibleCard()
         } label: {
             let isHover = hoverTab == tab
             HStack(spacing: 4) {

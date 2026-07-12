@@ -24,6 +24,14 @@ enum OverlayInteractionModel {
         visibleItems.filter { selectedIds.contains($0.id) }
     }
 
+    /// 可见列表 ID 序列变化时（删除 / 搜索 / 筛选 / 新条目），应重新默认选中第一张。
+    static func shouldReselectFirstAfterVisibleIdsChange(
+        oldIds: [UUID],
+        newIds: [UUID]
+    ) -> Bool {
+        oldIds != newIds
+    }
+
     static func commandBadgeIndex(cmdDown: Bool, itemIndex: Int) -> Int? {
         guard cmdDown, itemIndex >= 0, itemIndex < 9 else { return nil }
         return itemIndex + 1
