@@ -24,6 +24,7 @@ enum AppIcons {
     static let star = "star.fill"
     static let starEmpty = "star"
     static let paste = "arrow.right.doc.on.clipboard"
+    static let copy = "doc.on.doc"
     static let delete = "trash"
     static let pin = "pin.fill"
     static let settings = "gearshape"

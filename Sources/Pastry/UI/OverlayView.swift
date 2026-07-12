@@ -51,6 +51,7 @@ struct OverlayView: View {
     @State private var hoverClearSearch = false
     @State private var hoverFilter = false
     @State private var hoverGear = false
+    @State private var hoverMultiAction: MultiSelectToolbarAction? = nil
     @State private var hoverTab: StoreManager.PinTab? = nil
     @State private var cmdDown = false
     @FocusState private var isSearchFocused: Bool
@@ -76,6 +77,12 @@ struct OverlayView: View {
     private enum DeleteRequestMode {
         case selectionPreservingFavorites
         case direct
+    }
+
+    private enum MultiSelectToolbarAction {
+        case paste
+        case copy
+        case delete
     }
 
     // MARK: - Body
@@ -262,6 +269,28 @@ struct OverlayView: View {
             return
         }
         requestDelete(ids: selection.selectedIds, mode: .selectionPreservingFavorites)
+    }
+
+    /// 多选复制：拼接选中条目文本写回系统剪贴板，不关闭面板、不触发粘贴。
+    private func handleCopySelected() {
+        guard !showDeleteConfirm else { return }
+        let ids = selection.selectedIds
+        guard ids.count > 1 else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        let targets = store.items.filter { ids.contains($0.id) }
+        guard !targets.isEmpty else {
+            SoundFeedback.invalidAction()
+            return
+        }
+        let lines = targets.map { target in
+            if target.sourceFormat == .fileURL || target.sourceFormat == .image {
+                return target.content
+            }
+            return DatabaseManager.shared.loadFullContent(id: target.id) ?? target.content
+        }
+        PasteboardWriter.writePlainText(lines.joined(separator: "\n"))
     }
 
     private func handleCommandPaste(_ note: Notification) {
@@ -710,19 +739,85 @@ struct OverlayView: View {
             .onHover { hoverGear = $0 }
         }
         .overlay(alignment: .leading) {
-            // 与搜索栏同行居左：权限提示优先；否则显示多选计数
-            if !accessibilityTrusted {
-                accessibilityPermissionBanner
-                    .padding(.leading, 4)
-            } else if selection.selectedIds.count > 1 {
-                Text(L10n["toolbar.selected_count", selection.selectedIds.count])
-                    .font(.system(size: UIConstants.TypeSize.label))
-                    .foregroundColor(.white.opacity(0.68))
-                    .padding(.leading, 12)
+            // 居左：多选计数 + 快捷操作；无辅助功能时 banner 跟在其右侧
+            HStack(spacing: UIConstants.Overlay.cardSpacing) {
+                if selection.selectedIds.count > 1 {
+                    multiSelectToolbarLeading
+                }
+                if !accessibilityTrusted {
+                    accessibilityPermissionBanner
+                }
             }
+            .padding(.leading, 4)
         }
         .padding(.horizontal, 8)
         .animation(searchExpansionAnimation, value: showSearch)
+    }
+
+    private var multiSelectToolbarLeading: some View {
+        HStack(spacing: 8) {
+            Text(L10n["toolbar.selected_count", selection.selectedIds.count])
+                .font(.system(size: UIConstants.TypeSize.label))
+                .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
+                .fixedSize()
+
+            HStack(spacing: 4) {
+                multiSelectActionButton(
+                    action: .paste,
+                    icon: AppIcons.paste,
+                    label: L10n["help.usage.paste"],
+                    accessibilityId: AccessibilityIdentifiers.Overlay.multiPasteButton
+                ) {
+                    handleConfirmPaste()
+                }
+                multiSelectActionButton(
+                    action: .copy,
+                    icon: AppIcons.copy,
+                    label: L10n["context.copy"],
+                    accessibilityId: AccessibilityIdentifiers.Overlay.multiCopyButton
+                ) {
+                    handleCopySelected()
+                }
+                multiSelectActionButton(
+                    action: .delete,
+                    icon: AppIcons.delete,
+                    label: L10n["context.delete"],
+                    accessibilityId: AccessibilityIdentifiers.Overlay.multiDeleteButton
+                ) {
+                    handleDeleteSelectedRequest()
+                }
+            }
+        }
+    }
+
+    private func multiSelectActionButton(
+        action: MultiSelectToolbarAction,
+        icon: String,
+        label: String,
+        accessibilityId: String,
+        perform: @escaping () -> Void
+    ) -> some View {
+        let isHovered = hoverMultiAction == action
+        return Button(action: perform) {
+            Image(systemName: icon)
+                .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
+                .foregroundColor(toolbarForeground(isActive: false, isHovered: isHovered))
+                .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
+                .background(toolbarButtonBackground(isActive: false, isHovered: isHovered))
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(accessibilityId)
+        .scaleEffect(toolbarHoverScale(isHovered: isHovered))
+        .animation(.easeOut(duration: UIConstants.Motion.instant), value: isHovered)
+        .onHover { hovering in
+            if hovering {
+                hoverMultiAction = action
+            } else if hoverMultiAction == action {
+                hoverMultiAction = nil
+            }
+        }
     }
 
     private func tabButton(tab: StoreManager.PinTab, icon: String, label: String, isSelected: Bool) -> some View {
@@ -1174,26 +1269,30 @@ struct OverlayView: View {
             HStack(spacing: 6) {
                 Image(systemName: "hand.raised.fill")
                     .font(.system(size: UIConstants.TypeSize.caption, weight: .medium))
-                    .foregroundColor(.white.opacity(UIConstants.OnDark.textTertiary))
+                    .foregroundColor(PastryPalette.warmGoldSoft)
 
                 Text(L10n["overlay.accessibility_banner"])
                     .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
-                    .foregroundColor(.white.opacity(0.62))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
                     .lineLimit(1)
 
                 Text("→")
                     .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
-                    .foregroundColor(.white.opacity(0.38))
+                    .foregroundColor(PastryPalette.warmGoldSoft.opacity(UIConstants.OnDark.textTertiary))
 
                 Text(L10n["overlay.accessibility_banner_action"])
                     .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
-                    .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
+                    .foregroundColor(PastryPalette.warmGoldSoft)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, UIConstants.Overlay.cardSpacing)
+            .frame(height: UIConstants.Overlay.toolbarButtonSize)
             .background(
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.07))
+                RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                    .fill(PastryPalette.warmAccent.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                            .stroke(PastryPalette.warmAccent.opacity(0.35), lineWidth: UIConstants.Stroke.hairline)
+                    )
             )
             .fixedSize(horizontal: true, vertical: false)
         }
