@@ -310,7 +310,7 @@ extension SettingsSceneView {
         guard !isVersionCheckInFlight else { return }
         isVersionCheckInFlight = true
         let startedAt = Date()
-        withAnimation(.easeOut(duration: 0.16)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.note)) {
             versionUpdateState = .checking
         }
         if let result = await UpdateChecker.shared.checkForUpdate(force: force, allowDevBuild: allowDevBuild) {
@@ -319,7 +319,7 @@ extension SettingsSceneView {
             versionReleaseHistory = result.releaseHistory
             versionCurrentVersion = result.currentVersion
             versionLatestVersion = result.latestVersion
-            withAnimation(.easeOut(duration: 0.16)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.note)) {
                 versionUpdateState = .updateAvailable(result: result)
             }
         } else {

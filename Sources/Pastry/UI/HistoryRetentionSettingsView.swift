@@ -36,7 +36,7 @@ struct HistoryRetentionSettingsView: View {
                 .foregroundColor(.secondary)
         } header: {
             Text(L10n["settings.history.section"])
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
                 .foregroundColor(.secondary)
         }
     }

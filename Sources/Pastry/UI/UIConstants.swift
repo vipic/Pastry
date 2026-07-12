@@ -48,6 +48,7 @@ enum UIConstants {
         static let toolbar: CGFloat = 9
         static let card: CGFloat = 10
         static let panel: CGFloat = 12
+        static let emptyIcon: CGFloat = 13
         static let cardLarge: CGFloat = 14
         static let tray: CGFloat = 24
     }
@@ -59,13 +60,16 @@ enum UIConstants {
         static let caption: CGFloat = 10
         static let label: CGFloat = 11
         static let callout: CGFloat = 12
+        static let subhead: CGFloat = 14
         static let body: CGFloat = 13
         static let title: CGFloat = 15
+        static let titleMedium: CGFloat = 16
         static let title2: CGFloat = 17
         static let title3: CGFloat = 18
         static let headline: CGFloat = 20
         static let display: CGFloat = 22
         static let displayLarge: CGFloat = 24
+        static let heroIcon: CGFloat = 28
     }
 
     enum Stroke {
@@ -86,7 +90,11 @@ enum UIConstants {
     enum Motion {
         static let instant = 0.10
         static let fast = 0.12
+        static let short = 0.15
+        static let note = 0.16
         static let overlay = 0.20
+        static let soft = 0.22
+        static let iconReveal = 0.25
         static let switchSpring = 0.28
     }
 }

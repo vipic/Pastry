@@ -22,7 +22,7 @@ struct ConfirmationOverlay: View {
 
             VStack(alignment: .leading, spacing: UIConstants.Radius.cardLarge) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.titleMedium, weight: .semibold))
                     .foregroundColor(.white.opacity(0.96))
 
                 Text(message)

@@ -196,7 +196,7 @@ final class HotkeyRecorderField: NSControl {
 
         switch state {
         case .recording:
-            NSColor.pastryWarmAccent.withAlphaComponent(0.15).setFill()
+            PastryPalette.warmAccentNS.withAlphaComponent(0.15).setFill()
         default:
             if isHovered {
                 NSColor.controlBackgroundColor.blended(withFraction: 0.06, of: .secondaryLabelColor)?.setFill()
@@ -209,7 +209,7 @@ final class HotkeyRecorderField: NSControl {
 
         switch state {
         case .recording:
-            NSColor.pastryWarmAccent.setStroke()
+            PastryPalette.warmAccentNS.setStroke()
             bgPath.lineWidth = 1.5
         default:
             NSColor.separatorColor.setStroke()

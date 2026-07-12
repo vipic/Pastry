@@ -57,7 +57,7 @@ struct ClipboardLinkContentView: View {
                     endPoint: .bottomTrailing
                 )
                 Image(systemName: "link")
-                    .font(.system(size: 14, weight: .light))
+                    .font(.system(size: UIConstants.TypeSize.subhead, weight: .light))
                     .foregroundColor(.secondary.opacity(0.35))
             }
         }

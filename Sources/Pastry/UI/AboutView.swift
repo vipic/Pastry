@@ -82,25 +82,25 @@ struct HelpView: View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader(L10n["help.usage.capture"])
             Text(L10n["help.usage.capture_desc"])
-                .font(.system(size: 12))
+                .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundColor(.secondary)
                 .lineSpacing(4)
 
             sectionHeader(L10n["help.usage.paste"])
             Text(L10n["help.usage.paste_desc"])
-                .font(.system(size: 12))
+                .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundColor(.secondary)
                 .lineSpacing(4)
 
             sectionHeader(L10n["help.usage.manage"])
             Text(L10n["help.usage.manage_desc"])
-                .font(.system(size: 12))
+                .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundColor(.secondary)
                 .lineSpacing(4)
 
             sectionHeader(L10n["help.usage.filter"])
             Text(L10n["help.usage.filter_desc"])
-                .font(.system(size: 12))
+                .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundColor(.secondary)
                 .lineSpacing(4)
         }
@@ -123,7 +123,7 @@ struct HelpView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: UIConstants.TypeSize.callout, weight: .semibold))
             .foregroundColor(.primary)
             .padding(.bottom, 4)
     }
@@ -131,16 +131,16 @@ struct HelpView: View {
     private func shortcutRow(_ key: String, _ desc: String) -> some View {
         HStack(spacing: 8) {
             Text(key)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.system(size: UIConstants.TypeSize.label, weight: .medium, design: .monospaced))
                 .foregroundColor(.primary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
                         .fill(Color.primary.opacity(0.08))
                 )
             Text(desc)
-                .font(.system(size: 12))
+                .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundColor(.secondary)
         }
     }
@@ -148,11 +148,11 @@ struct HelpView: View {
     private func tipRow(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "lightbulb")
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
                 .foregroundColor(.secondary)
                 .frame(width: 16)
             Text(text)
-                .font(.system(size: 12))
+                .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundColor(.secondary)
                 .lineSpacing(4)
         }

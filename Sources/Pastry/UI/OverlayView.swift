@@ -394,7 +394,7 @@ struct OverlayView: View {
         NotificationCenter.default.post(name: .overlayAlertActive,
                                         object: nil,
                                         userInfo: ["active": true])
-        withAnimation(.easeOut(duration: 0.12)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
             showDeleteConfirm = true
         }
     }
@@ -408,7 +408,7 @@ struct OverlayView: View {
             onCancel: cancelDeleteConfirm,
             onConfirm: confirmDeleteSelected
         )
-        .animation(.easeOut(duration: 0.12), value: showDeleteConfirm)
+        .animation(.easeOut(duration: UIConstants.Motion.fast), value: showDeleteConfirm)
     }
 
     private var deleteConfirmTitle: String {
@@ -854,7 +854,7 @@ struct OverlayView: View {
             } else {
                 anchor = steps > 0 ? .trailing : .leading
             }
-            withAnimation(.easeOut(duration: 0.12)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
                 proxy.scrollTo(items[result.index].id, anchor: anchor)
             }
         }
@@ -882,7 +882,7 @@ struct OverlayView: View {
         stripEdgeGlowClearTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 340_000_000)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.22)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.soft)) {
                 if stripEdgeGlow == side {
                     stripEdgeGlow = nil
                 }
@@ -947,7 +947,7 @@ struct OverlayView: View {
                     // 滚动目标：边缘时滚动邻卡（露出下一张），否则滚动当前卡
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
                     let anchor: UnitPoint = downward ? .trailing : .leading
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(.easeInOut(duration: UIConstants.Motion.short)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
@@ -980,7 +980,7 @@ struct OverlayView: View {
                     guard !rendered || neighborMissing else { return }
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
                     let anchor: UnitPoint = downward ? .bottom : .top
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(.easeInOut(duration: UIConstants.Motion.short)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
@@ -1311,7 +1311,7 @@ struct OverlayView: View {
     }
 
     private func emptyStateIconBackground(accent: Color) -> some View {
-        RoundedRectangle(cornerRadius: 13, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.emptyIcon, style: .continuous)
             .fill(accent.opacity(0.72))
     }
 

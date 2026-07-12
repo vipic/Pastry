@@ -106,8 +106,8 @@ struct ClipboardCardView: View {
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
         .scaleEffect(didPaste ? UIConstants.Card.pasteScale : 1.0)
         .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
-        .animation(.easeInOut(duration: 0.16), value: item.isPinned)
-        .animation(.easeInOut(duration: 0.16), value: isEditingFavoriteNote)
+        .animation(.easeInOut(duration: UIConstants.Motion.note), value: item.isPinned)
+        .animation(.easeInOut(duration: UIConstants.Motion.note), value: isEditingFavoriteNote)
         .contentShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius))
     }
 
@@ -224,7 +224,7 @@ struct ClipboardCardView: View {
         }
         .frame(width: UIConstants.Card.appIconSize, height: UIConstants.Card.appIconSize)
         .offset(x: 12, y: (UIConstants.Card.headerHeight - UIConstants.Card.appIconSize) / 2 - 2)
-        .animation(.easeInOut(duration: 0.25), value: appIcon != nil)
+        .animation(.easeInOut(duration: UIConstants.Motion.iconReveal), value: appIcon != nil)
     }
 
     // MARK: - 内容区

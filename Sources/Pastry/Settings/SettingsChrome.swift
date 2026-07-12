@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Design color tokens + shared settings card chrome
 
@@ -15,6 +16,8 @@ enum PastryPalette {
 
     // Brand / warm
     static let warmAccent = Color.pastryWarmAccent
+    /// AppKit twin of `warmAccent` for NSView drawing.
+    static let warmAccentNS = NSColor.pastryWarmAccent
     static let warmInk = Color(red: 0.23, green: 0.15, blue: 0.06)
     static let warmGold = Color(red: 0.86, green: 0.62, blue: 0.28)
     static let warmGoldSoft = Color(red: 0.90, green: 0.70, blue: 0.40)
