@@ -68,7 +68,6 @@ struct OverlayView: View {
     @StateObject private var keyHandler = KeyboardEventHandler()
     @State private var iconPrefetchTask: Task<Void, Never>?
 
-    @State private var cachedMultiSelectDrag: DragPayloadBuilder.SelectionPayload?
     /// 横向卡带当前滚动锚点（键盘/滚轮共用）
     @State private var stripScrollIndex = 0
     @State private var stripScrollAccumulator: CGFloat = 0
@@ -171,9 +170,6 @@ struct OverlayView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 updateLayoutForCurrentScreen()
-            }
-            .onChange(of: selection.selectedIds) { _, _ in
-                cachedMultiSelectDrag = nil
             }
             // 可见列表 ID 变化（删除 / 搜索 / 筛选 / 新条目）→ 默认选中第一张
             .onChange(of: store.filteredItems.map(\.id)) { oldIds, newIds in
@@ -716,7 +712,6 @@ struct OverlayView: View {
     @ViewBuilder
     private var cardContainer: some View {
         let displayItems = store.filteredItems
-        let multiSelectDrag = multiSelectionDragPayload(items: displayItems)
 
         // Single VStack: header + content (no nested wrapper stack).
         VStack(spacing: 0) {
@@ -726,7 +721,7 @@ struct OverlayView: View {
                 if displayItems.isEmpty {
                     emptyState
                 } else {
-                    cardList(displayItems, multiSelectDrag: multiSelectDrag)
+                    cardList(displayItems)
                         .padding(3)
                         // Constrain viewport so ScrollView can scroll instead of growing with content.
                         .frame(maxWidth: .infinity)
@@ -1084,13 +1079,13 @@ struct OverlayView: View {
     }
 
     @ViewBuilder
-    private func cardList(_ items: [ClipboardItem], multiSelectDrag: DragPayloadBuilder.SelectionPayload?) -> some View {
+    private func cardList(_ items: [ClipboardItem]) -> some View {
         if isHorizontalLayout {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                            cardView(item, index: idx, multiSelectDrag: multiSelectDrag)
+                            cardView(item, index: idx)
                                 .id(item.id)
                         }
                     }
@@ -1133,7 +1128,7 @@ struct OverlayView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                            cardView(item, index: idx, multiSelectDrag: multiSelectDrag)
+                            cardView(item, index: idx)
                                 .frame(maxWidth: UIConstants.Overlay.compactCardMaxWidth)
                                 .clipped()
                         }
@@ -1165,8 +1160,8 @@ struct OverlayView: View {
     }
 
     @ViewBuilder
-    private func cardView(_ item: ClipboardItem, index: Int, multiSelectDrag: DragPayloadBuilder.SelectionPayload?) -> some View {
-        let isInMultiSelection = multiSelectDrag != nil && selection.selectedIds.contains(item.id)
+    private func cardView(_ item: ClipboardItem, index: Int) -> some View {
+        let isInMultiSelection = selection.selectedIds.count > 1 && selection.selectedIds.contains(item.id)
         let insertRole = Self.cardInsertRole(for: item.id, animation: store.insertAnimation)
         ClipboardCardView(
             item: item,
@@ -1204,7 +1199,10 @@ struct OverlayView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.card(item.id.uuidString))
         .onAppear { renderedIds.insert(item.id) }
         .onDisappear { renderedIds.remove(item.id) }
+        // 多选拖拽也走 SwiftUI .onDrag：不再用 AppKit 覆盖层——
+        // 覆盖层会吃掉左键 mouseDown，⌘/⇧ 点选永远到不了卡片手势。
         .onDrag {
+            OverlayPanelManager.shared.beginDragThrough()
             if isInMultiSelection {
                 let selected = visibleItems.filter { selection.selectedIds.contains($0.id) }
                 DeveloperDiagnostics.record(DiagnosticsEvent.dragMulti)
@@ -1212,22 +1210,10 @@ struct OverlayView: View {
                     DatabaseManager.shared.loadFullContent(id: item.id)
                 }
             } else {
-                OverlayPanelManager.shared.beginDragThrough()
                 DeveloperDiagnostics.record(DiagnosticsEvent.dragSingle)
                 return DragPayloadBuilder.provider(for: item) { item in
                     DatabaseManager.shared.loadFullContent(id: item.id)
                 }
-            }
-        }
-        .overlay {
-            if let drag = multiSelectDrag, isInMultiSelection {
-                MultiSelectionDragSourceView(
-                    isActive: true,
-                    itemCount: selection.selectedIds.count,
-                    payloadText: drag.text,
-                    payloadWebURLs: drag.webURLs,
-                    payloadFileURLs: drag.fileURLs
-                )
             }
         }
     }
@@ -1250,37 +1236,21 @@ struct OverlayView: View {
 
     // MARK: - 选择交互
 
-    private func multiSelectionDragPayload(items: [ClipboardItem]) -> DragPayloadBuilder.SelectionPayload? {
-        let ids = selection.selectedIds
-        guard ids.count > 1 else {
-            if cachedMultiSelectDrag != nil { cachedMultiSelectDrag = nil }
-            return nil
-        }
-        if let cached = cachedMultiSelectDrag { return cached }
-        let selected = items.filter { ids.contains($0.id) }
-        guard !selected.isEmpty else { return nil }
-        let payload = DragPayloadBuilder.payloadForSelection(selected) { item in
-            DatabaseManager.shared.loadFullContent(id: item.id)
-        }
-        let result = payload.isEmpty ? nil : payload
-        cachedMultiSelectDrag = result
-        return result
-    }
-
     /// 卡片单击：委托可测管线（修饰键解析 + SelectionState）
     private func handleCardTap(_ item: ClipboardItem) {
-        // 优先当前点击事件修饰键；mouseDown monitor 作兜底（gesture 时 currentEvent 偶发丢失 flags）
-        let flags = NSApp.currentEvent?.modifierFlags ?? []
+        // currentEvent ∪ live flags；mouseDown monitor 再兜底（SwiftUI gesture 常丢 ⌘/⇧）
+        let flags = OverlayInteractionModel.readCardTapModifierFlags()
         OverlayInteractionModel.applyCardClick(
             selection: &selection,
             item: item,
-            eventCommand: flags.contains(.command),
-            eventShift: flags.contains(.shift),
+            eventCommand: flags.command,
+            eventShift: flags.shift,
             monitoredCommand: keyHandler.lastMouseHasCommand,
             monitoredShift: keyHandler.lastMouseHasShift,
             visibleItems: visibleItems
         )
     }
+
 
     // MARK: - 键盘事件
 
@@ -1702,7 +1672,7 @@ final class KeyboardEventHandler: ObservableObject {
     func installMouseMonitor() {
         if mouseMonitor == nil {
             mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-                let flags = event.modifierFlags
+                let flags = OverlayInteractionModel.normalizedModifierFlags(event.modifierFlags)
                 self?.lastMouseHasCommand = flags.contains(.command)
                 self?.lastMouseHasShift = flags.contains(.shift)
                 // applicationDefined 预览：点外部只关预览，不连带关托盘

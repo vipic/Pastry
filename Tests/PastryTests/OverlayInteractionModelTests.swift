@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 @testable import Pastry
 
 /// 覆盖面板交互策略：鼠标多选管线、空白点击清空约定。
@@ -105,6 +106,139 @@ final class OverlayInteractionModelTests: XCTestCase {
         )
         XCTAssertFalse(mods.cmdDown)
         XCTAssertFalse(mods.shiftDown)
+    }
+
+    func testCardTapModifierFlagsORsEventAndLive() {
+        let onlyLive = OverlayInteractionModel.cardTapModifierFlags(
+            eventFlags: [],
+            liveFlags: .command
+        )
+        XCTAssertTrue(onlyLive.command)
+        XCTAssertFalse(onlyLive.shift)
+
+        let onlyEvent = OverlayInteractionModel.cardTapModifierFlags(
+            eventFlags: .shift,
+            liveFlags: []
+        )
+        XCTAssertFalse(onlyEvent.command)
+        XCTAssertTrue(onlyEvent.shift)
+
+        let both = OverlayInteractionModel.cardTapModifierFlags(
+            eventFlags: .command,
+            liveFlags: .shift
+        )
+        XCTAssertTrue(both.command)
+        XCTAssertTrue(both.shift)
+    }
+
+    func testNormalizedModifierFlagsStripsDeviceBits() {
+        // deviceIndependentFlagsMask 保留高位修饰键；低位是设备相关位，应被剥掉
+        var raw: NSEvent.ModifierFlags = [.command, .shift]
+        raw.insert(NSEvent.ModifierFlags(rawValue: 0x0000_00FF))
+        let normalized = OverlayInteractionModel.normalizedModifierFlags(raw)
+        XCTAssertTrue(normalized.contains(.command))
+        XCTAssertTrue(normalized.contains(.shift))
+        XCTAssertEqual(normalized, raw.intersection(.deviceIndependentFlagsMask))
+        XCTAssertNotEqual(normalized.rawValue, raw.rawValue)
+    }
+
+    /// 多选中普通点击已选卡片 → 折叠为单选，不粘贴（防 ⌘ 读丢误粘贴）。
+    func testEnhancedModeMultiSelectionClickSelectsInsteadOfPaste() {
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .enhanced,
+                isSelected: true,
+                isInMultiSelection: true,
+                commandOrShift: false
+            ),
+            .select,
+            "多选中再点已选卡片应折叠选中，不得粘贴"
+        )
+        // 单选状态下（非多选）保持「再点粘贴」
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .enhanced,
+                isSelected: true,
+                isInMultiSelection: false,
+                commandOrShift: false
+            ),
+            .paste
+        )
+        // speed 模式不受多选影响：单击即粘贴
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .speed,
+                isSelected: true,
+                isInMultiSelection: true,
+                commandOrShift: false
+            ),
+            .paste
+        )
+    }
+
+    /// ⌘/⇧ 在多选中也始终优先走 select。
+    func testMultiSelectionModifierClickStillSelects() {
+        for mode in CardClickMode.allCases {
+            let action = OverlayInteractionModel.cardClickAction(
+                mode: mode,
+                isSelected: true,
+                isInMultiSelection: true,
+                commandOrShift: true
+            )
+            XCTAssertEqual(action, .select, "⌘/⇧ 在 \(mode) 模式多选中应走选中")
+        }
+    }
+
+    /// 回归：多选后 ⌘ 点已选项只移除该项，其余保持选中（Finder 语义）。
+    func testCmdClickDeselectOneKeepsOthers() {
+        var selection = SelectionState()
+        let items = makeItems(4)
+
+        OverlayInteractionModel.applyCardClick(
+            selection: &selection,
+            item: items[0],
+            eventCommand: false,
+            eventShift: false,
+            monitoredCommand: false,
+            monitoredShift: false,
+            visibleItems: items
+        )
+        OverlayInteractionModel.applyCardClick(
+            selection: &selection,
+            item: items[1],
+            eventCommand: true,
+            eventShift: false,
+            monitoredCommand: false,
+            monitoredShift: false,
+            visibleItems: items
+        )
+        OverlayInteractionModel.applyCardClick(
+            selection: &selection,
+            item: items[2],
+            eventCommand: true,
+            eventShift: false,
+            monitoredCommand: false,
+            monitoredShift: false,
+            visibleItems: items
+        )
+        XCTAssertEqual(selection.selectedIds.count, 3)
+
+        // 模拟拖拽层转发：event 丢 ⌘、仅 monitor / live 管线报 ⌘
+        OverlayInteractionModel.applyCardClick(
+            selection: &selection,
+            item: items[1],
+            eventCommand: false,
+            eventShift: false,
+            monitoredCommand: true,
+            monitoredShift: false,
+            visibleItems: items
+        )
+
+        XCTAssertEqual(
+            selection.selectedIds,
+            Set([items[0].id, items[2].id]),
+            "⌘ 再点已选项应只移除该项，不得 reset 整批"
+        )
     }
 
     // MARK: - 过滤 / 选中列表 / ⌘ 角标

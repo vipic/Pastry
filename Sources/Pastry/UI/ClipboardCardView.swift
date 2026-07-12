@@ -1000,11 +1000,13 @@ struct ClipboardCardView: View {
             return
         }
 
-        let flags = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
-        let commandOrShift = flags.contains(.command) || flags.contains(.shift)
+        // currentEvent ∪ live：onTapGesture 触发时 currentEvent 常丢 ⌘/⇧
+        let flags = OverlayInteractionModel.readCardTapModifierFlags()
+        let commandOrShift = flags.command || flags.shift
         switch OverlayInteractionModel.cardClickAction(
             mode: cardClickMode,
             isSelected: isSelected,
+            isInMultiSelection: selectedIds.count > 1 && selectedIds.contains(item.id),
             commandOrShift: commandOrShift
         ) {
         case .select:

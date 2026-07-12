@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 // MARK: - 卡片左键点击模式
@@ -31,17 +32,21 @@ enum CardClickAction: Equatable {
 enum OverlayInteractionModel {
     /// 根据点击模式解析卡片左键行为。⌘/⇧ 始终走选中（多选）。
     ///
-    /// - enhanced：未选中 → 选中；**已选中再点** → 粘贴（看起来像双击，实为两次单击）
+    /// - enhanced：未选中 → 选中；**单选状态下再点** → 粘贴（看起来像双击，实为两次单击）
+    /// - enhanced + 多选：普通点击已选卡片 → 折叠为单选（Finder 语义），**不粘贴**；
+    ///   批量粘贴走 Enter / 工具栏。这样 ⌘ 偶发读丢时最多折叠选择，不会误触发粘贴。
     /// - speed：单击 → 粘贴
     /// - Enter 粘贴由键盘路由处理，两种模式一致
     static func cardClickAction(
         mode: CardClickMode,
         isSelected: Bool,
+        isInMultiSelection: Bool = false,
         commandOrShift: Bool
     ) -> CardClickAction {
         if commandOrShift { return .select }
         switch mode {
         case .enhanced:
+            if isInMultiSelection { return .select }
             return isSelected ? .paste : .select
         case .speed:
             return .paste
@@ -123,7 +128,37 @@ enum OverlayInteractionModel {
 
     // MARK: - 鼠标多选（可单测的点击管线）
 
-    /// 合并「当前点击事件」与「mouseDown monitor」两路修饰键。
+    /// 规范化修饰键（去掉设备相关位），避免 `.contains(.command)` 偶发失效。
+    static func normalizedModifierFlags(_ flags: NSEvent.ModifierFlags) -> NSEvent.ModifierFlags {
+        flags.intersection(.deviceIndependentFlagsMask)
+    }
+
+    /// 卡片点击时读取修饰键：事件 flags ∪ 实时 flags。
+    /// SwiftUI `onTapGesture` 触发时 `currentEvent` 经常丢 ⌘/⇧，必须合并 live。
+    ///
+    /// 注意：不要给 `liveFlags` 写默认值 `= NSEvent.modifierFlags`——与类型同名，
+    /// Swift 会把类型位解析成属性访问而编译失败。调用方传入 `NSEvent.modifierFlags`。
+    static func cardTapModifierFlags(
+        eventFlags: NSEvent.ModifierFlags,
+        liveFlags: NSEvent.ModifierFlags
+    ) -> (command: Bool, shift: Bool) {
+        let event = normalizedModifierFlags(eventFlags)
+        let live = normalizedModifierFlags(liveFlags)
+        return (
+            event.contains(.command) || live.contains(.command),
+            event.contains(.shift) || live.contains(.shift)
+        )
+    }
+
+    /// 便捷读取：`currentEvent` ∪ 实时修饰键。
+    static func readCardTapModifierFlags(currentEvent: NSEvent? = NSApp.currentEvent) -> (command: Bool, shift: Bool) {
+        cardTapModifierFlags(
+            eventFlags: currentEvent?.modifierFlags ?? [],
+            liveFlags: NSEvent.modifierFlags
+        )
+    }
+
+    /// 合并「事件/live 读取」与「mouseDown monitor」两路修饰键。
     static func resolveCardTapModifiers(
         eventCommand: Bool,
         eventShift: Bool,

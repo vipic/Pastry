@@ -81,7 +81,6 @@ Sources/Pastry/
 │   ├── OverlayView.swift          # SwiftUI 内容层（透明底 + 卡片托盘）
 │   ├── ClipboardCardView.swift    # 卡片视图主体
 │   ├── ClipboardCardActions.swift # 右键菜单、打开、预览、分享
-│   ├── MultiSelectionDragSourceView.swift # 多选拖拽源（单 dragging item）
 │   ├── LinkPreviewLoader.swift    # 链接预览抓取 + 图片选取
 │   ├── RemoteThumbnail.swift      # 远程缩略图渲染
 │   ├── FilePreviewContent.swift   # 文件/多文件卡片内容
@@ -335,14 +334,11 @@ scripts/check_coverage.sh
 
 ### 多选拖拽策略
 
-多选拖拽使用 `MultiSelectionDragSourceView` 的单个 `NSDraggingItem`，避免 macOS 对多个 dragging item 自动叠加系统数量角标。自定义拖拽图固定显示两张重叠卡片和 Pastry 自绘数量角标。
+多选拖拽与单选一样走 SwiftUI `.onDrag`：`isInMultiSelection` 时用 `DragPayloadBuilder.providerForSelection` 生成**单个** `NSItemProvider`（多行文本），拖拽图为系统卡片快照。
 
-`DragPayloadBuilder.payloadForSelection` 同时计算三类载荷：
-- `text`：文本、RTF、HTML、链接和文件路径拼接为多行文本
-- `webURLs`：仅当所选条目全部是链接时记录 URL 列表；拖拽 pasteboard 只暴露首个 URL flavor，保证编辑器优先接收多行文本
-- `fileURLs`：多选中存在本地文件或图片时，记录存在于磁盘的文件 URL；单个 dragging item 只能稳定暴露首个 file URL
+**历史教训**：曾用 AppKit `MultiSelectionDragSourceView` 覆盖层做自定义拖拽图（两张叠卡 + 自绘数量角标），但该覆盖层的 `hitTest` 会吃掉左键 mouseDown，导致 ⌘/⇧ 点选永远到不了卡片手势，且 `hitTest` 穿透方案会落到托盘空白手势触发 `selection.reset()` 整批清空。**不要再引入盖住卡片的 AppKit 事件层**；自定义拖拽图价值远低于点选正确性。
 
-当前取舍：多选链接拖到桌面不再生成多个 `.webloc`，而是和多选文本一样生成一个包含多行链接的文本剪贴内容；拖到编辑器则插入多行链接文本。
+当前取舍：多选拖拽只暴露拼接的多行文本 flavor（不再有独立 `.webloc` / 多 file URL），批量文件投递建议走工具栏「粘贴 / 复制」。
 
 ### 链接预览图片选取
 
