@@ -532,10 +532,10 @@ struct OverlayView: View {
             .background(toolbarButtonBackground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
             .contentShape(Rectangle())
             .onTapGesture {
+                // 打开前预热图标 + 清选择，减轻 popover 首帧卡顿（保持系统气泡形态）
+                selection.reset()
+                prefetchAvailableAppIcons()
                 showFilterPopover.toggle()
-                DispatchQueue.main.async {
-                    selection.reset()
-                }
             }
             .onHover { hovering in
                 hoverFilter = hovering
@@ -543,7 +543,6 @@ struct OverlayView: View {
             }
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selection.reset() })
-                    // One continuous surface for body + system arrow (no nested card chrome).
                     .presentationBackground(FilterPopoverStyle.surface)
                     .presentationCornerRadius(14)
             }
@@ -1077,11 +1076,20 @@ struct OverlayView: View {
     private func prefetchAvailableAppIcons() {
         let apps = store.availableApps
         guard !apps.isEmpty else { return }
-        iconPrefetchTask?.cancel()
-        iconPrefetchTask = Task.detached(priority: .utility) {
-            for app in apps.prefix(24) {
-                guard !Task.isCancelled else { return }
-                _ = AppIconProvider.shared.icon(for: app)
+        // 不取消已有任务：筛选打开时再调一次可补全未完成的预取，避免 cancel 导致首帧仍 miss cache
+        if iconPrefetchTask == nil || iconPrefetchTask?.isCancelled == true {
+            iconPrefetchTask = Task.detached(priority: .userInitiated) {
+                for app in apps.prefix(32) {
+                    guard !Task.isCancelled else { return }
+                    _ = AppIconProvider.shared.icon(for: app)
+                }
+            }
+        } else {
+            // 已有预取在跑时，并行补一轮高优先级剩余（icon 有缓存则很快）
+            Task.detached(priority: .userInitiated) {
+                for app in apps.prefix(32) {
+                    _ = AppIconProvider.shared.icon(for: app)
+                }
             }
         }
     }

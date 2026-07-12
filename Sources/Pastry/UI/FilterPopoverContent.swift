@@ -13,7 +13,6 @@ enum FilterPopoverStyle {
 struct FilterPopoverContent: View {
     @ObservedObject var store: StoreManager
     var onFilterChange: (() -> Void)?
-    @State private var contentVisible = false
 
     private var hasActiveFilter: Bool {
         store.typeFilter != nil || store.timeFilter != .any || store.appFilter != nil || store.handoffFilter
@@ -108,15 +107,9 @@ struct FilterPopoverContent: View {
         }
         .padding(14)
         .frame(width: 370)
-        // No separate rounded fill/stroke here — that paints a card on top of the
-        // system popover shape and severs the arrow. Body + triangle both come from
-        // `.presentationBackground(FilterPopoverStyle.surface)` on the caller.
-        .opacity(contentVisible ? 1 : 0)
-        .scaleEffect(contentVisible ? 1 : 0.985, anchor: .top)
-        .animation(.easeOut(duration: 0.12), value: contentVisible)
-        .onAppear {
-            contentVisible = true
-        }
+        // 表面与三角由调用方 `.presentationBackground` 提供。
+        // 不做内容层 fade/scale，以免叠在系统 popover 动画上。
+        .drawingGroup(opaque: false)
     }
 
     private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
@@ -171,6 +164,14 @@ struct FilterPopoverContent: View {
         let action: () -> Void
         @State private var icon: NSImage?
 
+        init(app: String, isSelected: Bool, action: @escaping () -> Void) {
+            self.app = app
+            self.isSelected = isSelected
+            self.action = action
+            // 预取命中时首帧即有图标，避免打开动画中途批量 @State 刷新掉帧
+            _icon = State(initialValue: AppIconProvider.shared.cachedIcon(for: app))
+        }
+
         var body: some View {
             Button(action: action) {
                 HStack(spacing: 5) {
@@ -190,6 +191,7 @@ struct FilterPopoverContent: View {
             }
             .buttonStyle(.plain)
             .task(id: app) {
+                guard icon == nil else { return }
                 await loadIcon()
             }
         }

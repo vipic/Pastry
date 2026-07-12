@@ -39,6 +39,15 @@ final class AppIconProvider {
         return icon
     }
 
+    /// 仅读缓存，未命中返回 nil（筛选气泡首帧避免同步 I/O）
+    func cachedIcon(for appName: String?) -> NSImage? {
+        guard let name = appName, !name.isEmpty else { return nil }
+        lock.lock()
+        let icon = iconCache.object(forKey: name as NSString)
+        lock.unlock()
+        return icon
+    }
+
     /// 获取主题色
     func themeColor(for appName: String?) -> NSColor {
         guard let name = appName, !name.isEmpty else {
