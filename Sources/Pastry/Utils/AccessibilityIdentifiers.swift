@@ -10,6 +10,8 @@ enum AccessibilityIdentifiers {
         static let pinnedTab = "overlay.tab.pinned"
         static let settingsButton = "overlay.settings-button"
         static let emptyState = "overlay.empty-state"
+        static let emptyCopyHint = "overlay.empty-copy-hint"
+        static let accessibilityBanner = "overlay.accessibility-banner"
         static func card(_ id: String) -> String { "overlay.card.\(id)" }
     }
 
@@ -19,6 +21,7 @@ enum AccessibilityIdentifiers {
         static let languagePicker = "settings.language-picker"
         static let launchAtLoginToggle = "settings.launch-at-login-toggle"
         static let soundToggle = "settings.sound-toggle"
+        static let cardClickModeToggle = "settings.card-click-mode-toggle"
         static let linkPreviewNetworkToggle = "settings.link-preview-network-toggle"
         static let performanceLoggingToggle = "settings.performance-logging-toggle"
         static let clearAllButton = "settings.clear-all-button"

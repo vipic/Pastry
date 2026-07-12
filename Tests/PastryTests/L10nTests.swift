@@ -69,6 +69,9 @@ final class L10nTests: XCTestCase {
             "settings.general.language_help",
             "settings.general.launch_help",
             "settings.general.sound_help",
+            "settings.card_click_mode",
+            "settings.card_click_mode.help_off",
+            "settings.card_click_mode.help_on",
             "settings.general.maximum_history",
             "settings.general.max_items_help",
             "settings.general.keep_records_for",
@@ -105,7 +108,10 @@ final class L10nTests: XCTestCase {
             "delete.confirm_direct_msg",
             "empty.no_pins_hint",
             "empty.no_results_hint",
-            "empty.no_history_hint"
+            "empty.no_history_hint",
+            "empty.copy_try_hint",
+            "overlay.accessibility_banner",
+            "overlay.accessibility_banner_action"
         ]
         for key in keys {
             let value = L10n[key]

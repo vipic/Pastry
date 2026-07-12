@@ -76,6 +76,20 @@ extension SettingsSceneView {
                                 .toggleStyle(SettingsSwitchStyle())
                                 .accessibilityIdentifier(AccessibilityIdentifiers.Settings.soundToggle)
                         }
+
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.card_click_mode"],
+                            help: speedClickEnabled
+                                ? L10n["settings.card_click_mode.help_on"]
+                                : L10n["settings.card_click_mode.help_off"]
+                        ) {
+                            Toggle("", isOn: speedClickEnabledBinding)
+                                .labelsHidden()
+                                .toggleStyle(SettingsSwitchStyle())
+                                .accessibilityIdentifier(AccessibilityIdentifiers.Settings.cardClickModeToggle)
+                        }
                     }
                     .frame(maxWidth: .infinity, minHeight: generalSectionHeight, alignment: .top)
 
@@ -171,5 +185,17 @@ extension SettingsSceneView {
         )
     }
 
-    var generalSectionHeight: CGFloat { 244 }
+    /// 开关打开 = 极速（单击粘贴）；关闭 = 当前增强（单击选中 / 再点已选粘贴）
+    var speedClickEnabled: Bool {
+        CardClickMode.resolved(stored: cardClickModeRaw) == .speed
+    }
+
+    var speedClickEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { CardClickMode.resolved(stored: cardClickModeRaw) == .speed },
+            set: { cardClickModeRaw = ($0 ? CardClickMode.speed : CardClickMode.enhanced).rawValue }
+        )
+    }
+
+    var generalSectionHeight: CGFloat { 300 }
 }

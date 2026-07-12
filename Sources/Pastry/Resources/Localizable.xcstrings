@@ -92,13 +92,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "调整日常行为：语言、启动、提示音、历史保留和数据清理。"
+            "value": "调整日常行为：语言、启动、提示音、左键点击、历史保留和数据清理。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tune the everyday behavior: language, launch, sounds, history retention, and data cleanup."
+            "value": "Tune the everyday behavior: language, launch, sounds, left-click, history retention, and data cleanup."
           }
         }
       }
@@ -252,6 +252,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play a sound when copying or pasting."
+          }
+        }
+      }
+    },
+    "settings.card_click_mode": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左键点击"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left-click"
+          }
+        }
+      }
+    },
+    "settings.card_click_mode.help_off": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单击选中，再点已选卡片粘贴"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to select, click again on the selected card to paste"
+          }
+        }
+      }
+    },
+    "settings.card_click_mode.help_on": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单击粘贴"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to paste"
           }
         }
       }
@@ -1952,6 +2003,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copy text, links, images, or files to start building history."
+          }
+        }
+      }
+    },
+    "empty.copy_try_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制任意内容试试"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try copying anything"
+          }
+        }
+      }
+    },
+    "overlay.accessibility_banner": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴需要辅助功能权限"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste needs Accessibility permission"
+          }
+        }
+      }
+    },
+    "overlay.accessibility_banner_action": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去开启"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable"
           }
         }
       }

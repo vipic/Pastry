@@ -17,6 +17,61 @@ final class OverlayInteractionModelTests: XCTestCase {
         }
     }
 
+    // MARK: - 左键点击模式
+
+    func testCardClickModeDefaultsToEnhanced() {
+        XCTAssertEqual(CardClickMode.default, .enhanced)
+        XCTAssertEqual(CardClickMode.resolved(stored: nil), .enhanced)
+        XCTAssertEqual(CardClickMode.resolved(stored: "bogus"), .enhanced)
+        XCTAssertEqual(CardClickMode.resolved(stored: "speed"), .speed)
+    }
+
+    func testEnhancedModeClickMatrix() {
+        // 未选中 → 选中；已选中再点 → 粘贴（两次单击，非系统双击）
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .enhanced, isSelected: false, commandOrShift: false
+            ),
+            .select
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .enhanced, isSelected: true, commandOrShift: false
+            ),
+            .paste
+        )
+    }
+
+    func testSpeedModeClickMatrix() {
+        // 无论是否已选中，单击都粘贴
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .speed, isSelected: false, commandOrShift: false
+            ),
+            .paste
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.cardClickAction(
+                mode: .speed, isSelected: true, commandOrShift: false
+            ),
+            .paste
+        )
+    }
+
+    func testCardClickModifiersAlwaysSelectInBothModes() {
+        for mode in CardClickMode.allCases {
+            for selected in [false, true] {
+                XCTAssertEqual(
+                    OverlayInteractionModel.cardClickAction(
+                        mode: mode, isSelected: selected, commandOrShift: true
+                    ),
+                    .select,
+                    "⌘/⇧ 在 \(mode) 模式 isSelected=\(selected) 时应多选"
+                )
+            }
+        }
+    }
+
     // MARK: - 修饰键解析
 
     func testResolveModifiersPrefersEventFlags() {
@@ -134,6 +189,63 @@ final class OverlayInteractionModelTests: XCTestCase {
             selectedIds: [items[3].id, items[1].id]
         )
         XCTAssertEqual(selected.map(\.id), [items[1].id, items[3].id])
+    }
+
+    func testSearchCountWidthReserveKeepsStableDigitSlots() {
+        // 10→9 时两侧仍按最大位数预留，避免徽标变窄
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 10, totalCount: 10),
+            "00/00"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 9, totalCount: 10),
+            "00/00"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountDisplayText(filteredCount: 9, totalCount: 10),
+            "9/10"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 0, totalCount: 0),
+            "0/0"
+        )
+        XCTAssertEqual(
+            OverlayInteractionModel.searchCountWidthReserveText(filteredCount: 3, totalCount: 100),
+            "000/000"
+        )
+    }
+
+    func testShouldReselectFirstWhenVisibleIdsChange() {
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        XCTAssertTrue(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [a, b, c],
+                newIds: [b, c]
+            ),
+            "删除后列表 ID 变化应重新选中第一张"
+        )
+        XCTAssertTrue(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [a, b, c],
+                newIds: [a, c]
+            ),
+            "搜索/筛选结果变化应重新选中第一张"
+        )
+        XCTAssertFalse(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [a, b, c],
+                newIds: [a, b, c]
+            ),
+            "ID 序列不变时不应打断当前键盘选择"
+        )
+        XCTAssertTrue(
+            OverlayInteractionModel.shouldReselectFirstAfterVisibleIdsChange(
+                oldIds: [],
+                newIds: [a]
+            )
+        )
     }
 
     func testCommandBadgeIndexOnlyForFirstNineWhileCmdDown() {

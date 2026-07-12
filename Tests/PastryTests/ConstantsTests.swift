@@ -24,6 +24,7 @@ final class ConstantsTests: XCTestCase {
 
     func testSoundEnabledKey() {
         XCTAssertEqual(UserDefaultsKeys.soundEnabled, "sound_enabled")
+        XCTAssertEqual(UserDefaultsKeys.cardClickMode, "card_click_mode")
     }
 
     func testSoundFeedbackEnabledReflectsUserPreference() {
