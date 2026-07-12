@@ -52,12 +52,8 @@ struct ClipboardCardView: View {
     var body: some View {
         cardBase
             .onHover { isHovered = $0 }
-            // 双击手势须写在单击前，否则系统会先消费单击。
-            .onTapGesture(count: 2) {
-                handlePrimaryClick(isDoubleClick: true)
-            }
-            .onTapGesture(count: 1) {
-                handlePrimaryClick(isDoubleClick: false)
+            .onTapGesture {
+                handlePrimaryClick()
             }
             .overlay(
                 RightClickDetector { view, event in
@@ -783,7 +779,7 @@ struct ClipboardCardView: View {
         }
     }
 
-    private func handlePrimaryClick(isDoubleClick: Bool) {
+    private func handlePrimaryClick() {
         if isEditingFavoriteNote {
             commitFavoriteNote()
             return
@@ -793,15 +789,13 @@ struct ClipboardCardView: View {
         let commandOrShift = flags.contains(.command) || flags.contains(.shift)
         switch OverlayInteractionModel.cardClickAction(
             mode: cardClickMode,
-            isDoubleClick: isDoubleClick,
+            isSelected: isSelected,
             commandOrShift: commandOrShift
         ) {
         case .select:
             onTap(item)
         case .paste:
             pasteItem()
-        case .ignore:
-            break
         }
     }
 

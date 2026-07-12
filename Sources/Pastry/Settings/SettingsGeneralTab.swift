@@ -185,7 +185,7 @@ extension SettingsSceneView {
         )
     }
 
-    /// 开关打开 = 极速（单击粘贴）；关闭 = 当前增强（单击选中 / 双击粘贴）
+    /// 开关打开 = 极速（单击粘贴）；关闭 = 当前增强（单击选中 / 再点已选粘贴）
     var speedClickEnabled: Bool {
         CardClickMode.resolved(stored: cardClickModeRaw) == .speed
     }
