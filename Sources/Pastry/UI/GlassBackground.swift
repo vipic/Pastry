@@ -6,7 +6,7 @@ struct GlassBackground: NSViewRepresentable {
 
     let cornerRadius: CGFloat
 
-    init(cornerRadius: CGFloat = 20) {
+    init(cornerRadius: CGFloat = UIConstants.Radius.tray) {
         self.cornerRadius = cornerRadius
     }
 

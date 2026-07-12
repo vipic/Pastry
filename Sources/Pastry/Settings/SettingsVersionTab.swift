@@ -31,10 +31,10 @@ extension SettingsSceneView {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(versionStatusTitle)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                     .foregroundStyle(SettingsPalette.ink)
                 Text(versionStatusSubtitle)
-                    .font(.system(size: 11))
+                    .font(.system(size: UIConstants.TypeSize.label))
                     .foregroundStyle(SettingsPalette.muted)
                     .lineLimit(2)
             }
@@ -45,16 +45,16 @@ extension SettingsSceneView {
         }
         .padding(14)
         .frame(maxWidth: 600, minHeight: 72, alignment: .leading)
-        .settingsCardChrome(cornerRadius: 14, fill: versionStatusTint)
+        .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: versionStatusTint)
     }
 
     var versionBadge: some View {
         Text(versionBadgeText)
-            .font(.system(size: 18, weight: .heavy))
+            .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
             .foregroundStyle(.white.opacity(0.94))
             .frame(width: 42, height: 42)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .fill(versionBadgeFill)
             )
     }
@@ -79,13 +79,13 @@ extension SettingsSceneView {
                 progressBar(progress)
                     .frame(width: 118)
                 Text("\(Int(min(max(progress, 0), 1) * 100))%")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
                     .foregroundStyle(SettingsPalette.muted)
                     .monospacedDigit()
             }
         case .installing:
             ProgressView()
-                .tint(.pastryWarmAccent)
+                .tint(PastryPalette.warmAccent)
                 .controlSize(.small)
         case .updateAvailable(let result):
             Button(L10n["update.update_btn"]) {
@@ -105,12 +105,12 @@ extension SettingsSceneView {
     var versionReleaseNotesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(releaseNotesTitle)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                 .foregroundStyle(SettingsPalette.ink)
 
             if releaseNotesItems.isEmpty {
                 Text(L10n["settings.version.no_release_notes"])
-                    .font(.system(size: 12))
+                    .font(.system(size: UIConstants.TypeSize.callout))
                     .foregroundStyle(SettingsPalette.muted)
                     .lineSpacing(3)
                     .textSelection(.enabled)
@@ -129,11 +129,11 @@ extension SettingsSceneView {
         .padding(16)
         .frame(maxWidth: 600, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: UIConstants.Radius.cardLarge, style: .continuous)
                 .fill(.white.opacity(0.34))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(SettingsPalette.ink.opacity(0.08), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.cardLarge, style: .continuous)
+                        .stroke(SettingsPalette.ink.opacity(0.08), lineWidth: UIConstants.Stroke.hairline)
                 )
         )
     }
@@ -159,24 +159,24 @@ extension SettingsSceneView {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text("v\(note.version)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.callout, weight: .semibold))
                     .foregroundStyle(SettingsPalette.ink)
                 if isLatest, case .updateAvailable = versionUpdateState {
                     Text(L10n["settings.version.available_badge"])
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: UIConstants.TypeSize.caption, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(
                             Capsule()
-                                .fill(Color.pastryWarmAccent)
+                                .fill(PastryPalette.warmAccent)
                         )
                 }
                 Spacer()
             }
 
             Text(releaseNoteBody(note))
-                .font(.system(size: 12))
+                .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundStyle(SettingsPalette.muted)
                 .lineSpacing(3)
                 .textSelection(.enabled)
@@ -246,9 +246,9 @@ extension SettingsSceneView {
     var versionStatusTint: Color {
         switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            return Color.pastryWarmAccent.opacity(0.10)
+            return PastryPalette.warmAccent.opacity(0.10)
         case .error:
-            return Color.red.opacity(0.06)
+            return PastryPalette.danger.opacity(0.06)
         default:
             return .white.opacity(0.72)
         }
@@ -257,11 +257,11 @@ extension SettingsSceneView {
     var versionBadgeFill: Color {
         switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            return Color.pastryWarmAccent
+            return PastryPalette.warmAccent
         case .error:
-            return Color(red: 0.74, green: 0.24, blue: 0.22)
+            return PastryPalette.dangerBadge
         default:
-            return Color.pastryWarmAccent
+            return PastryPalette.warmAccent
         }
     }
 
@@ -270,11 +270,11 @@ extension SettingsSceneView {
         let visible = max(clamped, 0.02)
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
                     .fill(SettingsPalette.ink.opacity(0.10))
                     .frame(height: 6)
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.pastryWarmAccent)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
+                    .fill(PastryPalette.warmAccent)
                     .frame(width: geo.size.width * CGFloat(visible), height: 6)
             }
         }
@@ -310,7 +310,7 @@ extension SettingsSceneView {
         guard !isVersionCheckInFlight else { return }
         isVersionCheckInFlight = true
         let startedAt = Date()
-        withAnimation(.easeOut(duration: 0.16)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.note)) {
             versionUpdateState = .checking
         }
         if let result = await UpdateChecker.shared.checkForUpdate(force: force, allowDevBuild: allowDevBuild) {
@@ -319,7 +319,7 @@ extension SettingsSceneView {
             versionReleaseHistory = result.releaseHistory
             versionCurrentVersion = result.currentVersion
             versionLatestVersion = result.latestVersion
-            withAnimation(.easeOut(duration: 0.16)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.note)) {
                 versionUpdateState = .updateAvailable(result: result)
             }
         } else {

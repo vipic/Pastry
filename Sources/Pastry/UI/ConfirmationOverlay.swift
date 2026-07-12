@@ -20,17 +20,17 @@ struct ConfirmationOverlay: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onCancel)
 
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: UIConstants.Radius.cardLarge) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.titleMedium, weight: .semibold))
                     .foregroundColor(.white.opacity(0.96))
 
                 Text(message)
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.72))
+                    .font(.system(size: UIConstants.TypeSize.body))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 8) {
+                HStack(spacing: UIConstants.Card.footerBottomPadding) {
                     Spacer()
 
                     Button(cancelTitle, action: onCancel)
@@ -43,11 +43,11 @@ struct ConfirmationOverlay: View {
             .padding(18)
             .frame(width: 360)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                     .fill(Color.black.opacity(0.82))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
+                            .stroke(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
                     )
             )
             .shadow(color: .black.opacity(0.32), radius: 24, x: 0, y: 12)
@@ -60,16 +60,16 @@ private struct ConfirmationButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
             .foregroundColor(foregroundColor)
             .lineLimit(1)
             .padding(.horizontal, 13)
             .frame(height: 30)
             .background(backgroundColor(isPressed: configuration.isPressed))
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(borderColor, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
+                    .stroke(borderColor, lineWidth: UIConstants.Stroke.hairline)
             )
     }
 
@@ -85,9 +85,9 @@ private struct ConfirmationButtonStyle: ButtonStyle {
     private var borderColor: Color {
         switch kind {
         case .secondary:
-            return .white.opacity(0.12)
+            return .white.opacity(UIConstants.OnDark.stroke)
         case .destructive:
-            return Color(red: 1.0, green: 0.36, blue: 0.34).opacity(0.34)
+            return PastryPalette.dangerGlow.opacity(0.34)
         }
     }
 
@@ -96,7 +96,7 @@ private struct ConfirmationButtonStyle: ButtonStyle {
         case .secondary:
             return Color.white.opacity(isPressed ? 0.18 : 0.10)
         case .destructive:
-            return Color(red: 0.84, green: 0.12, blue: 0.10).opacity(isPressed ? 0.82 : 1.0)
+            return PastryPalette.dangerStrong.opacity(isPressed ? 0.82 : 1.0)
         }
     }
 }

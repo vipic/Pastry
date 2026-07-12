@@ -11,12 +11,12 @@ struct ClipboardLinkContentView: View {
         VStack(spacing: 0) {
             thumbnail(imageURL: preview?.imageURL)
                 .frame(height: 106)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.sm))
                 .padding(.bottom, 6)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(text.title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
                     .foregroundColor(.primary)
                     .lineLimit(text.titleLineLimit)
                     .truncationMode(.tail)
@@ -26,13 +26,13 @@ struct ClipboardLinkContentView: View {
                     .layoutPriority(1)
                 if let desc = text.description {
                     Text(desc)
-                        .font(.system(size: 9))
+                        .font(.system(size: UIConstants.TypeSize.caption2))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
                 Text(text.host)
-                    .font(.system(size: 8))
+                    .font(.system(size: UIConstants.TypeSize.micro))
                     .foregroundColor(.secondary.opacity(0.6))
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -57,7 +57,7 @@ struct ClipboardLinkContentView: View {
                     endPoint: .bottomTrailing
                 )
                 Image(systemName: "link")
-                    .font(.system(size: 14, weight: .light))
+                    .font(.system(size: UIConstants.TypeSize.subhead, weight: .light))
                     .foregroundColor(.secondary.opacity(0.35))
             }
         }
@@ -74,7 +74,7 @@ struct ClipboardImageContentView: View {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
+                    .cornerRadius(UIConstants.Radius.sm)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ClipboardImageFallbackView()
@@ -82,7 +82,7 @@ struct ClipboardImageContentView: View {
 
             if let annotation, !annotation.isEmpty {
                 Text(annotation)
-                    .font(.system(size: 10))
+                    .font(.system(size: UIConstants.TypeSize.caption))
                     .foregroundColor(.secondary)
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,7 +112,7 @@ struct ClipboardMultiLinkContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(format: L10n["card.multi_links"], urls.count))
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: UIConstants.TypeSize.micro, weight: .medium))
                 .foregroundColor(.secondary.opacity(0.5))
                 .padding(.bottom, 4)
 
@@ -120,20 +120,20 @@ struct ClipboardMultiLinkContentView: View {
                 HStack(spacing: 6) {
                     ZStack {
                         Circle()
-                            .fill(Color.pastryWarmAccent.opacity(0.12))
+                            .fill(PastryPalette.warmAccent.opacity(0.12))
                             .frame(width: 20, height: 20)
                         Text(String(url.host?.prefix(1).uppercased() ?? "?"))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(.pastryWarmAccent)
+                            .font(.system(size: UIConstants.TypeSize.caption2, weight: .semibold))
+                            .foregroundColor(PastryPalette.warmAccent)
                     }
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text(url.host ?? url.absoluteString)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: UIConstants.TypeSize.caption, weight: .medium))
                             .foregroundColor(.primary)
                             .lineLimit(1)
                         Text(url.path.isEmpty ? "/" : url.path)
-                            .font(.system(size: 8))
+                            .font(.system(size: UIConstants.TypeSize.micro))
                             .foregroundColor(.secondary.opacity(0.5))
                             .lineLimit(1)
                     }
@@ -141,14 +141,14 @@ struct ClipboardMultiLinkContentView: View {
                 .padding(.vertical, 3)
                 .padding(.horizontal, 4)
                 .background(
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
                         .fill(Color.primary.opacity(idx % 2 == 0 ? 0.02 : 0))
                 )
             }
 
             if urls.count > 6 {
                 Text(String(format: L10n["card.extra_links"], urls.count - 6))
-                    .font(.system(size: 9))
+                    .font(.system(size: UIConstants.TypeSize.caption2))
                     .foregroundColor(.secondary)
                     .padding(.top, 4)
             }
@@ -167,7 +167,7 @@ struct ClipboardHTMLSegmentsContentView: View {
                     switch segment {
                     case .text(let text):
                         Text(text)
-                            .font(.system(size: 11))
+                            .font(.system(size: UIConstants.TypeSize.label))
                             .foregroundColor(.primary)
                             .lineLimit(idx == 0 ? 5 : 2)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -175,7 +175,7 @@ struct ClipboardHTMLSegmentsContentView: View {
                         RemoteThumbnail(urlString: url)
                             .frame(maxWidth: .infinity)
                             .aspectRatio(contentMode: .fit)
-                            .cornerRadius(4)
+                            .cornerRadius(UIConstants.Radius.sm)
                             .padding(.vertical, 2)
                     }
                 }

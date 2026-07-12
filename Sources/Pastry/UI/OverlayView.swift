@@ -394,7 +394,7 @@ struct OverlayView: View {
         NotificationCenter.default.post(name: .overlayAlertActive,
                                         object: nil,
                                         userInfo: ["active": true])
-        withAnimation(.easeOut(duration: 0.12)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
             showDeleteConfirm = true
         }
     }
@@ -408,7 +408,7 @@ struct OverlayView: View {
             onCancel: cancelDeleteConfirm,
             onConfirm: confirmDeleteSelected
         )
-        .animation(.easeOut(duration: 0.12), value: showDeleteConfirm)
+        .animation(.easeOut(duration: UIConstants.Motion.fast), value: showDeleteConfirm)
     }
 
     private var deleteConfirmTitle: String {
@@ -446,7 +446,7 @@ struct OverlayView: View {
     private var searchControl: some View {
         HStack(spacing: showSearch ? 6 : 0) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: showSearch ? 12 : 13, weight: .semibold))
+                .font(.system(size: showSearch ? UIConstants.TypeSize.callout : UIConstants.TypeSize.body, weight: .semibold))
                 .foregroundColor(showSearch ? .white.opacity(0.46) : toolbarForeground(isActive: false, isHovered: hoverSearch))
                 .frame(width: showSearch ? 12 : searchControlHeight, height: searchControlHeight)
 
@@ -454,7 +454,7 @@ struct OverlayView: View {
                 ZStack(alignment: .leading) {
                     if store.searchQuery.isEmpty {
                         Text(L10n["search.placeholder"])
-                            .font(.system(size: 13))
+                            .font(.system(size: UIConstants.TypeSize.body))
                             .foregroundColor(.white.opacity(0.68))
                             .allowsHitTesting(false)
                     }
@@ -462,8 +462,8 @@ struct OverlayView: View {
                     TextField("", text: $store.searchQuery)
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled(true)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.92))
+                        .font(.system(size: UIConstants.TypeSize.body))
+                        .foregroundColor(.white.opacity(UIConstants.OnDark.textPrimary))
                         .focused($isSearchFocused)
                         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchField)
                         .onExitCommand {
@@ -477,15 +477,15 @@ struct OverlayView: View {
                     store.searchQuery = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.system(size: UIConstants.TypeSize.label))
                         .frame(width: 16, height: 16)
                         .background(
                             Circle()
-                                .fill(hoverClearSearch ? Color.white.opacity(0.12) : Color.clear)
+                                .fill(hoverClearSearch ? Color.white.opacity(UIConstants.OnDark.stroke) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.white.opacity(hoverClearSearch ? 0.72 : 0.40))
+                .foregroundColor(.white.opacity(hoverClearSearch ? UIConstants.OnDark.textSecondary : 0.40))
                 .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.clearSearchButton)
                 .opacity(store.searchQuery.isEmpty ? 0 : 1)
                 .allowsHitTesting(!store.searchQuery.isEmpty)
@@ -493,7 +493,7 @@ struct OverlayView: View {
                     hoverClearSearch = hovering
                     if hovering { NSCursor.arrow.push() } else { NSCursor.pop() }
                 }
-                .animation(.easeOut(duration: 0.10), value: hoverClearSearch)
+                .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverClearSearch)
 
                 searchCountBadge
                     .transition(.opacity.combined(with: .scale(scale: 0.94)))
@@ -503,8 +503,8 @@ struct OverlayView: View {
         .padding(.vertical, showSearch ? 6 : 0)
         .frame(width: searchControlWidth, height: searchControlHeight, alignment: .leading)
         .background(searchControlBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous))
         .scaleEffect(toolbarHoverScale(isHovered: !showSearch && hoverSearch))
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
         .onTapGesture {
@@ -515,7 +515,7 @@ struct OverlayView: View {
             hoverSearch = hovering
         }
         .animation(searchExpansionAnimation, value: showSearch)
-        .animation(.easeOut(duration: 0.10), value: hoverSearch)
+        .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverSearch)
         .padding(.trailing, 6)
     }
 
@@ -533,25 +533,25 @@ struct OverlayView: View {
     private var filterButton: some View {
         ZStack(alignment: .topTrailing) {
             Image(systemName: "line.3.horizontal.decrease")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                 .foregroundColor(toolbarForeground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
-                .frame(width: 32, height: 32)
+                .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
 
             if activeFilterCount > 0 {
                 Text("\(activeFilterCount)")
-                    .font(.system(size: 8, weight: .heavy, design: .rounded))
-                    .foregroundColor(Color(red: 0.23, green: 0.15, blue: 0.06))
+                    .font(.system(size: UIConstants.TypeSize.micro, weight: .heavy, design: .rounded))
+                    .foregroundColor(PastryPalette.warmInk)
                     .monospacedDigit()
                     .frame(minWidth: 14, minHeight: 14)
                     .background(
                         Circle()
-                            .fill(Color.pastryWarmAccent)
+                            .fill(PastryPalette.warmAccent)
                     )
                     .offset(x: 4, y: -4)
                     .transition(.scale(scale: 0.72).combined(with: .opacity))
             }
         }
-            .frame(width: 32, height: 32)
+            .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
             .background(toolbarButtonBackground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
             .contentShape(Rectangle())
             .onTapGesture {
@@ -566,10 +566,10 @@ struct OverlayView: View {
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selectFirstVisibleCard() })
                     .presentationBackground(FilterPopoverStyle.surface)
-                    .presentationCornerRadius(14)
+                    .presentationCornerRadius(UIConstants.Radius.cardLarge)
             }
             .scaleEffect(toolbarHoverScale(isHovered: hoverFilter))
-            .animation(.easeOut(duration: 0.10), value: hoverFilter)
+            .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverFilter)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.filterButton)
     }
 
@@ -588,14 +588,14 @@ struct OverlayView: View {
                 .hidden()
             Text(display)
         }
-        .font(.system(size: 10, weight: .bold, design: .rounded))
+        .font(.system(size: UIConstants.TypeSize.caption, weight: .bold, design: .rounded))
         .foregroundColor(.white.opacity(0.66))
         .monospacedDigit()
         .padding(.horizontal, 6)
         .frame(height: 18)
         .background(
             Capsule(style: .continuous)
-                .fill(.white.opacity(0.08))
+                .fill(.white.opacity(UIConstants.OnDark.fillSubtle))
         )
         .accessibilityLabel(display)
     }
@@ -642,7 +642,7 @@ struct OverlayView: View {
         .padding(.bottom, 10)
         .background(panelTrayBackground)
         // One outer clip for the tray; GlassBackground uses radius 0 (parent clips).
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: UIConstants.Overlay.trayCornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.24), radius: 16, x: 0, y: 10)
         .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
         .contentShape(Rectangle())
@@ -668,10 +668,10 @@ struct OverlayView: View {
             // Corner radius applied by the tray's outer clipShape only.
             GlassBackground(cornerRadius: 0)
 
-            Color(red: 0.20, green: 0.23, blue: 0.24).opacity(0.55)
+            PastryPalette.overlaySurface.opacity(UIConstants.Overlay.overlaySurfaceTintOpacity)
 
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: UIConstants.Overlay.trayCornerRadius, style: .continuous)
+                .strokeBorder(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
         }
     }
 
@@ -698,14 +698,14 @@ struct OverlayView: View {
                 openSettingsFromOverlay()
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.title, weight: .semibold))
                     .foregroundColor(toolbarForeground(isActive: false, isHovered: hoverGear))
-                    .frame(width: 32, height: 32)
+                    .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
                     .background(toolbarButtonBackground(isActive: false, isHovered: hoverGear))
             }
             .buttonStyle(.plain)
             .scaleEffect(toolbarHoverScale(isHovered: hoverGear))
-            .animation(.easeOut(duration: 0.10), value: hoverGear)
+            .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverGear)
             .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.settingsButton)
             .onHover { hoverGear = $0 }
         }
@@ -716,7 +716,7 @@ struct OverlayView: View {
                     .padding(.leading, 4)
             } else if selection.selectedIds.count > 1 {
                 Text(L10n["toolbar.selected_count", selection.selectedIds.count])
-                    .font(.system(size: 11))
+                    .font(.system(size: UIConstants.TypeSize.label))
                     .foregroundColor(.white.opacity(0.68))
                     .padding(.leading, 12)
             }
@@ -733,21 +733,21 @@ struct OverlayView: View {
             let isHover = hoverTab == tab
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: showSearch ? 12 : 11))
+                    .font(.system(size: showSearch ? UIConstants.TypeSize.callout : UIConstants.TypeSize.label))
                 if !showSearch {
                     Text(label)
-                        .font(.system(size: 11))
+                        .font(.system(size: UIConstants.TypeSize.label))
                 }
             }
             .padding(.horizontal, showSearch ? 6 : 10)
             .padding(.vertical, 4)
-            .frame(height: 32)
+            .frame(height: UIConstants.Overlay.toolbarButtonSize)
             .foregroundColor(toolbarForeground(isActive: isSelected, isHovered: isHover))
             .background(toolbarButtonBackground(isActive: isSelected, isHovered: isHover))
         }
         .buttonStyle(.plain)
         .scaleEffect(toolbarHoverScale(isHovered: hoverTab == tab))
-        .animation(.easeOut(duration: 0.10), value: hoverTab)
+        .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverTab)
         .accessibilityIdentifier(tab == .all ? AccessibilityIdentifiers.Overlay.allTab : AccessibilityIdentifiers.Overlay.pinnedTab)
         .onHover { hovering in
             hoverTab = hovering ? tab : nil
@@ -755,17 +755,17 @@ struct OverlayView: View {
     }
 
     private var overlaySearchFieldBackground: some View {
-        RoundedRectangle(cornerRadius: 9, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
             .fill(Color.black.opacity(0.28))
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                    .stroke(Color.white.opacity(UIConstants.OnDark.fillSubtle), lineWidth: UIConstants.Stroke.hairline)
             )
     }
 
     private func toolbarForeground(isActive: Bool, isHovered: Bool) -> Color {
         if isActive {
-            return Color(red: 0.23, green: 0.15, blue: 0.06)
+            return PastryPalette.warmInk
         }
         return .white.opacity(isHovered ? 0.86 : 0.62)
     }
@@ -776,27 +776,27 @@ struct OverlayView: View {
 
     /// Flat chip chrome: one fill, optional single hairline. No dual strokes / bevel shadows.
     private func toolbarButtonBackground(isActive: Bool, isHovered: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 9, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
             .fill(toolbarButtonFill(isActive: isActive, isHovered: isHovered))
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(toolbarButtonBorder(isActive: isActive, isHovered: isHovered), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                    .stroke(toolbarButtonBorder(isActive: isActive, isHovered: isHovered), lineWidth: UIConstants.Stroke.hairline)
             )
     }
 
     private func toolbarButtonFill(isActive: Bool, isHovered: Bool) -> Color {
         if isActive {
-            return Color.pastryWarmAccent
+            return PastryPalette.warmAccent
         }
-        return .white.opacity(isHovered ? 0.14 : 0.08)
+        return .white.opacity(isHovered ? UIConstants.OnDark.fillHover : UIConstants.OnDark.fillSubtle)
     }
 
     private func toolbarButtonBorder(isActive: Bool, isHovered: Bool) -> Color {
         if isActive {
-            return Color.pastryWarmAccent.opacity(0.35)
+            return PastryPalette.warmAccent.opacity(0.35)
         }
         // Idle: no visible border — fill alone defines the control.
-        return .white.opacity(isHovered ? 0.08 : 0)
+        return .white.opacity(isHovered ? UIConstants.OnDark.fillSubtle : 0)
     }
 
     // MARK: - 卡片列表
@@ -854,7 +854,7 @@ struct OverlayView: View {
             } else {
                 anchor = steps > 0 ? .trailing : .leading
             }
-            withAnimation(.easeOut(duration: 0.12)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
                 proxy.scrollTo(items[result.index].id, anchor: anchor)
             }
         }
@@ -882,7 +882,7 @@ struct OverlayView: View {
         stripEdgeGlowClearTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 340_000_000)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.22)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.soft)) {
                 if stripEdgeGlow == side {
                     stripEdgeGlow = nil
                 }
@@ -894,10 +894,10 @@ struct OverlayView: View {
     private func stripEdgeGlowOverlay(side: StripEdgeSide) -> some View {
         let visible = stripEdgeGlow == side
         return Capsule(style: .continuous)
-            .fill(Color.pastryWarmAccent.opacity(visible ? 0.90 : 0))
+            .fill(PastryPalette.warmAccent.opacity(visible ? 0.90 : 0))
             .frame(width: 2.5, height: visible ? 40 : 24)
             .shadow(
-                color: Color.pastryWarmAccent.opacity(visible ? 0.35 : 0),
+                color: PastryPalette.warmAccent.opacity(visible ? 0.35 : 0),
                 radius: visible ? 4 : 0
             )
             .padding(side == .leading ? .leading : .trailing, 2)
@@ -947,7 +947,7 @@ struct OverlayView: View {
                     // 滚动目标：边缘时滚动邻卡（露出下一张），否则滚动当前卡
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
                     let anchor: UnitPoint = downward ? .trailing : .leading
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(.easeInOut(duration: UIConstants.Motion.short)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
@@ -980,7 +980,7 @@ struct OverlayView: View {
                     guard !rendered || neighborMissing else { return }
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
                     let anchor: UnitPoint = downward ? .bottom : .top
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(.easeInOut(duration: UIConstants.Motion.short)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
@@ -1173,21 +1173,21 @@ struct OverlayView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.white.opacity(0.52))
+                    .font(.system(size: UIConstants.TypeSize.caption, weight: .medium))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textTertiary))
 
                 Text(L10n["overlay.accessibility_banner"])
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
                     .foregroundColor(.white.opacity(0.62))
                     .lineLimit(1)
 
                 Text("→")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
                     .foregroundColor(.white.opacity(0.38))
 
                 Text(L10n["overlay.accessibility_banner_action"])
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.72))
+                    .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -1230,18 +1230,18 @@ struct OverlayView: View {
                 ZStack {
                     emptyStateIconBackground(accent: accent)
                     Image(systemName: model.icon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: UIConstants.TypeSize.display, weight: .semibold))
                         .foregroundColor(emptyStateIconColor(icon: model.icon))
                 }
                 .frame(width: 48, height: 48)
                 .padding(.bottom, 4)
 
                 Text(model.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.title, weight: .semibold))
                     .foregroundColor(.white.opacity(0.90))
 
                 Text(model.subtitle)
-                    .font(.system(size: 12))
+                    .font(.system(size: UIConstants.TypeSize.callout))
                     .foregroundColor(.white.opacity(0.56))
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
@@ -1268,41 +1268,41 @@ struct OverlayView: View {
         HStack(spacing: 10) {
             // 键帽示意
             Text("⌘C")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .font(.system(size: UIConstants.TypeSize.label, weight: .bold, design: .rounded))
                 .foregroundColor(.white.opacity(0.88))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
                         .fill(Color.white.opacity(0.10))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.5)
+                            RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.16), lineWidth: UIConstants.Stroke.hairline)
                         )
                         .shadow(color: .black.opacity(0.18), radius: 0, x: 0, y: 1)
                 )
 
             Image(systemName: "arrow.right")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: UIConstants.TypeSize.caption, weight: .semibold))
                 .foregroundColor(.white.opacity(0.36))
 
             HStack(spacing: 6) {
                 Image(systemName: "doc.on.clipboard")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
                 Text(L10n["empty.copy_try_hint"])
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
             }
             .foregroundColor(.white.opacity(0.78))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                 .fill(Color.white.opacity(0.06))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                         .strokeBorder(
-                            Color.white.opacity(0.14),
+                            Color.white.opacity(UIConstants.OnDark.fillHover),
                             style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                         )
                 )
@@ -1311,27 +1311,23 @@ struct OverlayView: View {
     }
 
     private func emptyStateIconBackground(accent: Color) -> some View {
-        RoundedRectangle(cornerRadius: 13, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.emptyIcon, style: .continuous)
             .fill(accent.opacity(0.72))
     }
 
     private func emptyStateIconColor(icon: String) -> Color {
-        .white.opacity(icon == "magnifyingglass" ? 0.92 : 0.84)
+        .white.opacity(icon == "magnifyingglass" ? UIConstants.OnDark.textPrimary : 0.84)
     }
 
     private func emptyStateAccent(icon: String) -> Color {
         switch icon {
         case "magnifyingglass":
-            return emptyStateSearchAccent
+            return PastryPalette.emptySearchAccent
         case "pin.slash":
-            return Color(red: 0.85, green: 0.62, blue: 0.26)
+            return PastryPalette.cardAccent
         default:
-            return Color(red: 0.88, green: 0.67, blue: 0.35)
+            return PastryPalette.emptyDefaultAccent
         }
-    }
-
-    private var emptyStateSearchAccent: Color {
-        Color(red: 0.30, green: 0.50, blue: 0.78)
     }
 }
 

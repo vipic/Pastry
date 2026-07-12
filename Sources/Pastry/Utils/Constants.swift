@@ -58,6 +58,7 @@ extension Color {
     static let clipBackground = Color(nsColor: NSColor.windowBackgroundColor)
     static let clipRowHover = Color(nsColor: NSColor.selectedContentBackgroundColor.withAlphaComponent(0.3))
     static let clipAccent = Color.accentColor
+    /// Brand warm accent. Prefer `PastryPalette.warmAccent` at call sites.
     static let pastryWarmAccent = Color(red: 0.741, green: 0.463, blue: 0.184)
 }
 

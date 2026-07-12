@@ -5,7 +5,7 @@ import SwiftUI
 /// 气泡本体与系统 popover 三角（`presentationBackground`）必须同一实色，
 /// 否则箭头会和面板发色不一致。
 enum FilterPopoverStyle {
-    static let surface = Color(red: 0.20, green: 0.23, blue: 0.24)
+    static let surface = PastryPalette.overlaySurface
 }
 
 // MARK: - 筛选气泡内容（NSPopover 内嵌 SwiftUI）
@@ -25,16 +25,16 @@ struct FilterPopoverContent: View {
 
     /// 三列网格配置
     private let gridColumns: [GridItem] = [
-        GridItem(.flexible(), spacing: 6),
-        GridItem(.flexible(), spacing: 6),
-        GridItem(.flexible(), spacing: 6)
+        GridItem(.flexible(), spacing: UIConstants.Card.contentVerticalPadding),
+        GridItem(.flexible(), spacing: UIConstants.Card.contentVerticalPadding),
+        GridItem(.flexible(), spacing: UIConstants.Card.contentVerticalPadding)
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: UIConstants.Overlay.cardSpacing) {
             HStack {
                 Text(L10n["filter.title"])
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: UIConstants.TypeSize.body, weight: .bold))
                     .foregroundColor(.white.opacity(0.90))
                 Spacer()
                 Button(L10n["filter.clear"]) {
@@ -46,20 +46,20 @@ struct FilterPopoverContent: View {
                         onFilterChange?()
                     }
                 }
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color(red: 0.90, green: 0.70, blue: 0.40))
-                .padding(.horizontal, 8)
+                .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
+                .foregroundColor(PastryPalette.warmGoldSoft)
+                .padding(.horizontal, UIConstants.Card.footerBottomPadding)
                 .frame(height: 24)
                 .background(filterClearButtonBackground)
                 .opacity(hasActiveFilter ? 1 : 0)
                 .allowsHitTesting(hasActiveFilter)
                 .buttonStyle(.plain)
             }
-            .frame(height: 28)
+            .frame(height: UIConstants.Control.iconButtonSize)
 
             if !store.availableApps.isEmpty || hasHandoffItems {
                 filterSection(title: L10n["filter.source_app"]) {
-                    LazyVGrid(columns: gridColumns, spacing: 6) {
+                    LazyVGrid(columns: gridColumns, spacing: UIConstants.Card.contentVerticalPadding) {
                         filterChip(L10n["filter.all"], isSelected: store.appFilter == nil && !store.handoffFilter) {
                             store.appFilter = nil
                             store.handoffFilter = false
@@ -84,7 +84,7 @@ struct FilterPopoverContent: View {
             }
 
             filterSection(title: L10n["filter.type"]) {
-                LazyVGrid(columns: gridColumns, spacing: 6) {
+                LazyVGrid(columns: gridColumns, spacing: UIConstants.Card.contentVerticalPadding) {
                     ForEach(SourceFormat.allCases, id: \.rawValue) { format in
                         filterChip(format.label, iconName: format.iconName, isSelected: store.typeFilter == format) {
                             store.typeFilter = (store.typeFilter == format) ? nil : format
@@ -95,7 +95,7 @@ struct FilterPopoverContent: View {
             }
 
             filterSection(title: L10n["filter.time"]) {
-                LazyVGrid(columns: gridColumns, spacing: 6) {
+                LazyVGrid(columns: gridColumns, spacing: UIConstants.Card.contentVerticalPadding) {
                     ForEach(StoreManager.TimeFilter.allCases, id: \.rawValue) { tf in
                         filterChip(tf.label, isSelected: store.timeFilter == tf) {
                             store.timeFilter = tf
@@ -105,7 +105,7 @@ struct FilterPopoverContent: View {
                 }
             }
         }
-        .padding(14)
+        .padding(UIConstants.Radius.cardLarge)
         .frame(width: 370)
         // 表面与三角由调用方 `.presentationBackground` 提供。
         // 不做内容层 fade/scale，以免叠在系统 popover 动画上。
@@ -113,14 +113,14 @@ struct FilterPopoverContent: View {
     }
 
     private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: UIConstants.Card.footerBottomPadding) {
             Text(title)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: UIConstants.TypeSize.caption, weight: .bold))
                 .foregroundColor(.white.opacity(0.62))
                 .textCase(.uppercase)
             content()
         }
-        .padding(10)
+        .padding(UIConstants.Overlay.cardSpacing)
         .background(filterSectionBackground)
     }
 
@@ -129,16 +129,16 @@ struct FilterPopoverContent: View {
             HStack(spacing: 4) {
                 if let iconName {
                     Image(systemName: iconName)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: UIConstants.TypeSize.caption, weight: .semibold))
                 }
                 Text(label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .foregroundColor(FilterChipChrome.foreground(isSelected: isSelected))
-            .padding(.horizontal, 8)
+            .padding(.horizontal, UIConstants.Card.footerBottomPadding)
             .padding(.vertical, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -148,13 +148,13 @@ struct FilterPopoverContent: View {
     }
 
     private var filterSectionBackground: some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
             .fill(Color.white.opacity(0.04))
     }
 
     private var filterClearButtonBackground: some View {
-        RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(Color.white.opacity(0.08))
+        RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
+            .fill(Color.white.opacity(UIConstants.OnDark.fillSubtle))
     }
 
     /// 带应用图标的筛选标签
@@ -177,13 +177,13 @@ struct FilterPopoverContent: View {
                 HStack(spacing: 5) {
                     appIcon
                     Text(app)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .foregroundColor(FilterChipChrome.foreground(isSelected: isSelected))
-                .padding(.horizontal, 8)
+                .padding(.horizontal, UIConstants.Card.footerBottomPadding)
                 .padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -204,11 +204,11 @@ struct FilterPopoverContent: View {
                     .frame(width: 14, height: 14)
             } else {
                 Text(appInitial)
-                    .font(.system(size: 8, weight: .heavy, design: .rounded))
+                    .font(.system(size: UIConstants.TypeSize.micro, weight: .heavy, design: .rounded))
                     .foregroundColor(.white.opacity(0.78))
                     .background(
                         Circle()
-                            .fill(.white.opacity(0.12))
+                            .fill(.white.opacity(UIConstants.OnDark.stroke))
                             .frame(width: 14, height: 14)
                     )
                     .frame(width: 14, height: 14)
@@ -233,17 +233,17 @@ struct FilterPopoverContent: View {
 /// Shared chip fill/border/foreground for text chips and app chips.
 enum FilterChipChrome {
     static func foreground(isSelected: Bool) -> Color {
-        isSelected ? Color(red: 0.23, green: 0.15, blue: 0.06) : .white.opacity(0.72)
+        isSelected ? PastryPalette.warmInk : .white.opacity(UIConstants.OnDark.textSecondary)
     }
 
     static func background(isSelected: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(isSelected ? Color.pastryWarmAccent : Color.white.opacity(0.08))
+        RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
+            .fill(isSelected ? PastryPalette.warmAccent : Color.white.opacity(UIConstants.OnDark.fillSubtle))
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
                     .stroke(
-                        isSelected ? Color.pastryWarmAccent.opacity(0.35) : Color.clear,
-                        lineWidth: 0.5
+                        isSelected ? PastryPalette.warmAccent.opacity(0.35) : Color.clear,
+                        lineWidth: UIConstants.Stroke.hairline
                     )
             )
     }

@@ -27,7 +27,7 @@ struct FilePreviewContent: View {
                 filePreviewContent(url: url, style: style)
             }
             Text(formattedFileLabel(url: url))
-                .font(.system(size: 9))
+                .font(.system(size: UIConstants.TypeSize.caption2))
                 .foregroundColor(isMissing ? .secondary.opacity(0.4) : .secondary)
                 .strikethrough(isMissing)
                 .lineLimit(1)
@@ -43,7 +43,7 @@ struct FilePreviewContent: View {
                 Image(nsImage: img)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
+                    .cornerRadius(UIConstants.Radius.sm)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 fallbackPreview
@@ -53,7 +53,7 @@ struct FilePreviewContent: View {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .cornerRadius(4)
+                    .cornerRadius(UIConstants.Radius.sm)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -64,10 +64,10 @@ struct FilePreviewContent: View {
         VStack(spacing: 4) {
             Spacer()
             Image(systemName: "questionmark.folder")
-                .font(.system(size: 28))
+                .font(.system(size: UIConstants.TypeSize.heroIcon))
                 .foregroundColor(.secondary.opacity(0.3))
             Text(L10n["card.file_not_found"])
-                .font(.system(size: 10))
+                .font(.system(size: UIConstants.TypeSize.caption))
                 .foregroundColor(.secondary.opacity(0.45))
             Spacer()
         }
@@ -83,7 +83,7 @@ struct FilePreviewContent: View {
                 HStack(spacing: 4) {
                     if isMissing {
                         Image(systemName: "questionmark.folder")
-                            .font(.system(size: 10))
+                            .font(.system(size: UIConstants.TypeSize.caption))
                             .foregroundColor(.secondary.opacity(0.4))
                     } else if let icon = fileIcons[url] {
                         Image(nsImage: icon)
@@ -92,14 +92,14 @@ struct FilePreviewContent: View {
                     }
                     Text(formattedFileLabel(url: url))
                         .lineLimit(1)
-                        .font(.system(size: 10))
+                        .font(.system(size: UIConstants.TypeSize.caption))
                         .foregroundColor(isMissing ? .secondary.opacity(0.4) : .primary)
                         .strikethrough(isMissing)
                 }
             }
             if urls.count > 4 {
                 Text(String(format: L10n["card.extra_files"], urls.count - 4))
-                    .font(.system(size: 9))
+                    .font(.system(size: UIConstants.TypeSize.caption2))
                     .foregroundColor(.secondary)
             }
         }

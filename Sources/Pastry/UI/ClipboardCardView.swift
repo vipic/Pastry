@@ -106,8 +106,8 @@ struct ClipboardCardView: View {
         .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
         .scaleEffect(didPaste ? UIConstants.Card.pasteScale : 1.0)
         .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
-        .animation(.easeInOut(duration: 0.16), value: item.isPinned)
-        .animation(.easeInOut(duration: 0.16), value: isEditingFavoriteNote)
+        .animation(.easeInOut(duration: UIConstants.Motion.note), value: item.isPinned)
+        .animation(.easeInOut(duration: UIConstants.Motion.note), value: isEditingFavoriteNote)
         .contentShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius))
     }
 
@@ -137,14 +137,10 @@ struct ClipboardCardView: View {
         DisplayMode.resolve(item: item, hasMissingFiles: !missingFileURLs.isEmpty)
     }
 
-    private var cardAccentColor: Color {
-        Color(red: 0.85, green: 0.62, blue: 0.26)
-    }
-
     /// Single chrome stroke for all card states (no glow / dual-ring stack).
     private var cardChromeBorderColor: Color {
         if didPaste { return Color.green }
-        if isSelected { return cardAccentColor.opacity(0.88) }
+        if isSelected { return PastryPalette.cardAccent.opacity(0.88) }
         if isHovered { return .white.opacity(0.30) }
         return .white.opacity(0.22)
     }
@@ -153,18 +149,18 @@ struct ClipboardCardView: View {
         if didPaste || isSelected {
             return UIConstants.Card.selectedBorderWidth
         }
-        return 0.5
+        return UIConstants.Stroke.hairline
     }
 
     /// ⌘+数字角标 — 按住 ⌘ 时在卡片右下角显示序号
     private func cmdBadge(_ idx: Int) -> some View {
         Text("\(idx)")
-            .font(.system(size: 12, weight: .heavy, design: .rounded))
-            .foregroundColor(Color(red: 0.23, green: 0.15, blue: 0.06))
+            .font(.system(size: UIConstants.TypeSize.callout, weight: .heavy, design: .rounded))
+            .foregroundColor(PastryPalette.warmInk)
             .frame(width: 24, height: 24)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.pastryWarmAccent)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
+                    .fill(PastryPalette.warmAccent)
             )
             .padding(7)
     }
@@ -174,12 +170,12 @@ struct ClipboardCardView: View {
     private var topBar: some View {
         HStack(spacing: 0) {
             Image(systemName: item.sourceFormat.iconName)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: UIConstants.TypeSize.caption, weight: .medium))
                 .foregroundColor(.white.opacity(0.9))
-                .padding(.leading, 10)
+                .padding(.leading, UIConstants.Card.contentHorizontalPadding)
 
             Text(cardTypeLabel)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: UIConstants.TypeSize.caption, weight: .semibold))
                 .foregroundColor(.white.opacity(0.76))
                 .lineLimit(1)
                 .padding(.leading, 5)
@@ -228,7 +224,7 @@ struct ClipboardCardView: View {
         }
         .frame(width: UIConstants.Card.appIconSize, height: UIConstants.Card.appIconSize)
         .offset(x: 12, y: (UIConstants.Card.headerHeight - UIConstants.Card.appIconSize) / 2 - 2)
-        .animation(.easeInOut(duration: 0.25), value: appIcon != nil)
+        .animation(.easeInOut(duration: UIConstants.Motion.iconReveal), value: appIcon != nil)
     }
 
     // MARK: - 内容区
@@ -419,7 +415,7 @@ struct ClipboardCardView: View {
     ]
 
     private var textPreview: some View {
-        Text(previewText).lineLimit(7).font(.system(size: 11)).foregroundColor(.primary)
+        Text(previewText).lineLimit(7).font(.system(size: UIConstants.TypeSize.label)).foregroundColor(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -446,13 +442,13 @@ struct ClipboardCardView: View {
                 if isEditingFavoriteNote {
                     HStack(spacing: 5) {
                         Image(systemName: "note.text")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: UIConstants.TypeSize.caption2, weight: .semibold))
                             .foregroundColor(themeColor)
 
                         TextField(L10n["favorite_note.placeholder"], text: $favoriteNoteDraft)
                             .textFieldStyle(.plain)
                             .autocorrectionDisabled(true)
-                            .font(.system(size: 10))
+                            .font(.system(size: UIConstants.TypeSize.caption))
                             .foregroundColor(.primary)
                             .focused($favoriteNoteFocused)
                             .onSubmit { commitFavoriteNote() }
@@ -460,7 +456,7 @@ struct ClipboardCardView: View {
 
                         Button(action: commitFavoriteNote) {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: UIConstants.TypeSize.caption2, weight: .bold))
                                 .frame(width: 16, height: 16)
                                 .background(
                                     Circle()
@@ -476,7 +472,7 @@ struct ClipboardCardView: View {
 
                         Button(action: cancelFavoriteNoteEditing) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: UIConstants.TypeSize.caption2, weight: .bold))
                                 .frame(width: 16, height: 16)
                                 .background(
                                     Circle()
@@ -493,12 +489,12 @@ struct ClipboardCardView: View {
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
                             .fill(themeColor.opacity(0.10))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(themeColor.opacity(0.18), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
+                            .stroke(themeColor.opacity(0.18), lineWidth: UIConstants.Stroke.hairline)
                     )
                     .onAppear {
                         OverlayPanelManager.shared.keyboardOwner = .favoriteNoteEditor
@@ -516,10 +512,10 @@ struct ClipboardCardView: View {
                     Button(action: beginFavoriteNoteEditing) {
                         HStack(spacing: 5) {
                             Image(systemName: "note.text")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.system(size: UIConstants.TypeSize.caption2, weight: .semibold))
                                 .foregroundColor(themeColor)
                             Text(favoriteNoteText ?? L10n["favorite_note.add"])
-                                .font(.system(size: 10))
+                                .font(.system(size: UIConstants.TypeSize.caption))
                                 .foregroundColor(favoriteNoteText == nil ? .secondary : .primary.opacity(0.82))
                                 .lineLimit(1)
                             Spacer(minLength: 0)
@@ -527,12 +523,12 @@ struct ClipboardCardView: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
                                 .fill(isFavoriteNoteHovered ? themeColor.opacity(0.08) : Color.black.opacity(0.035))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: 0.5)
+                            RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
+                                .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: UIConstants.Stroke.hairline)
                         )
                     }
                     .buttonStyle(.plain)
@@ -584,17 +580,17 @@ struct ClipboardCardView: View {
         HStack(spacing: 4) {
             if item.isPinned {
                 Image(systemName: "pin.fill")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.micro, weight: .semibold))
                     .foregroundColor(themeColor)
                 Text("·").font(.caption2).foregroundColor(.secondary)
             }
-            Text(formattedTime).font(.system(size: 9)).foregroundColor(.secondary)
+            Text(formattedTime).font(.system(size: UIConstants.TypeSize.caption2)).foregroundColor(.secondary)
             if item.isHandoff {
                 Text("·").font(.caption2).foregroundColor(.secondary)
-                Text(L10n["card.handoff_label"]).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
+                Text(L10n["card.handoff_label"]).font(.system(size: UIConstants.TypeSize.caption2)).foregroundColor(.secondary).lineLimit(1)
             } else if let app = item.appName {
                 Text("·").font(.caption2).foregroundColor(.secondary)
-                Text(app).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
+                Text(app).font(.system(size: UIConstants.TypeSize.caption2)).foregroundColor(.secondary).lineLimit(1)
             }
             Spacer()
         }

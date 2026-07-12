@@ -126,7 +126,7 @@ struct SettingsSceneView: View {
             .onReceive(NotificationCenter.default.publisher(for: .settingsSelectTab)) { note in
                 guard let rawValue = note.object as? String,
                       let tab = SettingsTab(rawValue: rawValue) else { return }
-                withAnimation(.easeInOut(duration: 0.14)) {
+                withAnimation(.easeInOut(duration: UIConstants.Motion.fast)) {
                     selectedTab = tab
                 }
             }
@@ -156,11 +156,11 @@ struct SettingsSceneView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Pastry")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.92))
+                        .font(.system(size: UIConstants.TypeSize.title, weight: .bold))
+                        .foregroundStyle(.white.opacity(UIConstants.OnDark.textPrimary))
                     Text(L10n["settings.sidebar.subtitle"])
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.52))
+                        .font(.system(size: UIConstants.TypeSize.label))
+                        .foregroundStyle(.white.opacity(UIConstants.OnDark.textTertiary))
                 }
             }
             .padding(.horizontal, 6)
@@ -186,18 +186,18 @@ struct SettingsSceneView: View {
 
     var sidebarFooterNote: some View {
         Text(L10n["settings.sidebar.footer"])
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(.white.opacity(0.52))
+            .font(.system(size: UIConstants.TypeSize.caption, weight: .medium))
+            .foregroundStyle(.white.opacity(UIConstants.OnDark.textTertiary))
             .lineSpacing(2)
             .padding(.horizontal, 11)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .fill(Color.black.opacity(0.22))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.06), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.06), lineWidth: UIConstants.Stroke.hairline)
                     )
             )
     }
@@ -205,25 +205,25 @@ struct SettingsSceneView: View {
     func sidebarTabButton(_ tab: SettingsTab) -> some View {
         let isSelected = selectedTab == tab
         return Button {
-            withAnimation(.easeInOut(duration: 0.14)) {
+            withAnimation(.easeInOut(duration: UIConstants.Motion.fast)) {
                 selectedTab = tab
             }
         } label: {
             HStack(spacing: 8) {
                 sidebarTabGlyph(tab, isSelected: isSelected)
                 Text(tab.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: UIConstants.TypeSize.body, weight: .medium))
                     .foregroundStyle(isSelected ? .white : .white.opacity(0.62))
                 Spacer()
             }
             .padding(.horizontal, 9)
             .frame(height: 34)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
                     .fill(isSelected ? .white.opacity(0.16) : .clear)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(isSelected ? .white.opacity(0.10) : .clear, lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
+                            .stroke(isSelected ? .white.opacity(0.10) : .clear, lineWidth: UIConstants.Stroke.hairline)
                     )
             )
             .contentShape(Rectangle())
@@ -234,22 +234,22 @@ struct SettingsSceneView: View {
 
     @ViewBuilder
     func sidebarTabGlyph(_ tab: SettingsTab, isSelected: Bool) -> some View {
-        let foreground = isSelected ? Color(red: 0.24, green: 0.17, blue: 0.08) : .white.opacity(0.72)
-        let background = isSelected ? Color(red: 0.86, green: 0.62, blue: 0.28) : .white.opacity(0.09)
+        let foreground = isSelected ? PastryPalette.warmInk : .white.opacity(UIConstants.OnDark.textSecondary)
+        let background = isSelected ? PastryPalette.warmGold : .white.opacity(UIConstants.OnDark.fillSubtle)
 
         Group {
             if tab.usesSymbolIcon {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.callout, weight: .semibold))
             } else {
                 Text(tab.icon)
-                    .font(.system(size: 12, weight: .heavy))
+                    .font(.system(size: UIConstants.TypeSize.callout, weight: .heavy))
             }
         }
         .foregroundStyle(foreground)
         .frame(width: 22, height: 22)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
                 .fill(background)
         )
     }
@@ -272,10 +272,10 @@ struct SettingsSceneView: View {
         HStack(alignment: .top, spacing: 18) {
             VStack(alignment: .leading, spacing: 7) {
                 Text(title)
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold))
                     .foregroundStyle(SettingsPalette.ink)
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(.system(size: UIConstants.TypeSize.body))
                     .foregroundStyle(SettingsPalette.muted)
                     .lineSpacing(1)
                     .frame(maxWidth: 460, alignment: .leading)
@@ -289,12 +289,12 @@ struct SettingsSceneView: View {
     func metricCard(value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(value)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: UIConstants.TypeSize.headline, weight: .bold))
                 .foregroundStyle(SettingsPalette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: UIConstants.TypeSize.label))
                 .foregroundStyle(SettingsPalette.muted)
                 .lineLimit(1)
         }
@@ -309,7 +309,7 @@ struct SettingsSceneView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: UIConstants.TypeSize.label, weight: .bold))
                 .foregroundStyle(SettingsPalette.muted)
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
@@ -334,11 +334,11 @@ struct SettingsSceneView: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(danger ? .red : SettingsPalette.ink)
+                    .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
+                    .foregroundStyle(danger ? PastryPalette.danger : SettingsPalette.ink)
                 if let help {
                     Text(help)
-                        .font(.system(size: 11))
+                        .font(.system(size: UIConstants.TypeSize.label))
                         .foregroundStyle(SettingsPalette.muted)
                         .lineLimit(2)
                 }
@@ -350,7 +350,7 @@ struct SettingsSceneView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(minHeight: 48)
-        .background(danger ? Color.red.opacity(0.055) : Color.clear)
+        .background(danger ? PastryPalette.danger.opacity(0.055) : Color.clear)
     }
 
     var settingsDivider: some View {

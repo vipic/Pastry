@@ -13,13 +13,13 @@ struct SettingsPillButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: UIConstants.TypeSize.callout, weight: .semibold))
             .foregroundStyle(foreground)
             .padding(.horizontal, 10)
-            .frame(minHeight: 28)
+            .frame(minHeight: UIConstants.Control.iconButtonSize)
             .background(buttonBackground(isPressed: configuration.isPressed))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeOut(duration: 0.10), value: configuration.isPressed)
+            .animation(.easeOut(duration: UIConstants.Motion.instant), value: configuration.isPressed)
     }
 
     private var foreground: Color {
@@ -27,45 +27,45 @@ struct SettingsPillButtonStyle: ButtonStyle {
         case .primary, .danger:
             return .white
         case .secondary:
-            return Color(red: 0.122, green: 0.145, blue: 0.161)
+            return PastryPalette.ink
         }
     }
 
     @ViewBuilder
     private func buttonBackground(isPressed: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 7, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
             .fill(fillColor.opacity(isPressed ? 0.88 : 1))
             .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(borderColor, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
+                    .stroke(borderColor, lineWidth: UIConstants.Stroke.hairline)
             )
     }
 
     private var fillColor: Color {
         switch kind {
         case .primary:
-            return Color.pastryWarmAccent
+            return PastryPalette.warmAccent
         case .secondary:
             return Color.white.opacity(0.72)
         case .danger:
-            return Color(red: 0.724, green: 0.267, blue: 0.247)
+            return PastryPalette.danger
         }
     }
 
     private var borderColor: Color {
         switch kind {
         case .primary:
-            return Color(red: 0.718, green: 0.451, blue: 0.153).opacity(0.50)
+            return PastryPalette.warmBorder.opacity(0.50)
         case .secondary:
-            return Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.16)
+            return PastryPalette.ink.opacity(0.16)
         case .danger:
-            return Color(red: 0.620, green: 0.194, blue: 0.176).opacity(0.50)
+            return PastryPalette.dangerBorder.opacity(0.50)
         }
     }
 }
 
 struct SettingsSwitchStyle: ToggleStyle {
-    private let switchAnimation = Animation.spring(response: 0.28, dampingFraction: 0.74, blendDuration: 0.08)
+    private let switchAnimation = Animation.spring(response: UIConstants.Motion.switchSpring, dampingFraction: 0.74, blendDuration: 0.08)
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
@@ -104,7 +104,7 @@ struct SettingsSwitchBody: View {
                 .fill(trackFill)
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(trackStroke, lineWidth: 0.5)
+                        .stroke(trackStroke, lineWidth: UIConstants.Stroke.hairline)
                 )
 
             Circle()
@@ -117,19 +117,19 @@ struct SettingsSwitchBody: View {
         .frame(width: 46, height: 26)
         .contentShape(Capsule(style: .continuous))
         .animation(animation, value: isOn)
-        .animation(.easeOut(duration: 0.12), value: isPressed)
+        .animation(.easeOut(duration: UIConstants.Motion.fast), value: isPressed)
     }
 
     private var trackFill: Color {
         isOn
-            ? Color.pastryWarmAccent
-            : Color(red: 0.780, green: 0.765, blue: 0.730)
+            ? PastryPalette.warmAccent
+            : PastryPalette.switchOff
     }
 
     private var trackStroke: Color {
         isOn
-            ? Color(red: 0.718, green: 0.451, blue: 0.153).opacity(0.45)
-            : Color(red: 0.122, green: 0.145, blue: 0.161).opacity(0.16)
+            ? PastryPalette.warmBorder.opacity(0.45)
+            : PastryPalette.ink.opacity(0.16)
     }
 }
 
