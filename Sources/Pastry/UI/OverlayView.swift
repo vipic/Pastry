@@ -1199,7 +1199,7 @@ final class KeyboardEventHandler: ObservableObject {
     private static var lastPostedScrollAt: CFAbsoluteTime = 0
 
     /// 从 NSEvent / CGEvent 提取**纯横向**卡带 delta。
-    /// 不映射竖滚轮，避免横竖方向感混乱。MX 拇指轮多在 Axis2 / deltaX。
+    /// 不映射竖滚轮；策略见 `OverlayInteractionModel.preferredCardStripDelta`。
     static func cardStripDelta(from event: NSEvent) -> CGFloat? {
         let lineScale: CGFloat = 14
         var xs: [CGFloat] = [
@@ -1216,8 +1216,13 @@ final class KeyboardEventHandler: ObservableObject {
             ])
         }
 
-        let bestX = xs.max(by: { abs($0) < abs($1) }) ?? 0
-        return abs(bestX) > 0.01 ? bestX : nil
+        return OverlayInteractionModel.preferredCardStripDelta(
+            horizontalCandidates: xs,
+            verticalCandidates: [
+                event.scrollingDeltaY,
+                event.deltaY * lineScale
+            ]
+        )
     }
 
     /// 全屏 NSPanel 上 SwiftUI 横向 ScrollView 常收不到侧滚轮；在 AppKit 层桥接。
@@ -1250,17 +1255,23 @@ final class KeyboardEventHandler: ObservableObject {
         guard !OverlayPanelManager.shared.isAlertActive else { return }
 
         let lineScale: CGFloat = 14
-        // 仅横向 Axis2；不映射竖滚轮
         let xs: [CGFloat] = [
             CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)),
             CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)),
             CGFloat(event.getDoubleValueField(.scrollWheelEventDeltaAxis2)) * lineScale
         ]
-        let bestX = xs.max(by: { abs($0) < abs($1) }) ?? 0
-        guard abs(bestX) > 0.01 else { return }
+        let ys: [CGFloat] = [
+            CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1)),
+            CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)),
+            CGFloat(event.getDoubleValueField(.scrollWheelEventDeltaAxis1)) * lineScale
+        ]
+        guard let delta = OverlayInteractionModel.preferredCardStripDelta(
+            horizontalCandidates: xs,
+            verticalCandidates: ys
+        ) else { return }
 
         DispatchQueue.main.async {
-            postCardStripScroll(delta: bestX)
+            postCardStripScroll(delta: delta)
         }
     }
 

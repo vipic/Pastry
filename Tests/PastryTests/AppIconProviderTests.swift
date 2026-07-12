@@ -78,6 +78,27 @@ final class AppIconProviderTests: XCTestCase {
         XCTAssertFalse(icon.size.width == 0, "应返回有效图标")
     }
 
+    // MARK: - cachedIcon（筛选气泡首帧）
+
+    func testCachedIconMissReturnsNil() {
+        XCTAssertNil(
+            provider.cachedIcon(for: "AppThatWasNeverLoaded-\(UUID().uuidString)"),
+            "未加载过的应用名不应假装命中缓存"
+        )
+    }
+
+    func testCachedIconHitAfterIconLoad() {
+        let name = "PastryCacheHit-\(UUID().uuidString)"
+        _ = provider.icon(for: name)
+        let cached = provider.cachedIcon(for: name)
+        XCTAssertNotNil(cached, "icon(for:) 之后 cachedIcon 应命中")
+    }
+
+    func testCachedIconNilAndEmpty() {
+        XCTAssertNil(provider.cachedIcon(for: nil))
+        XCTAssertNil(provider.cachedIcon(for: ""))
+    }
+
     // MARK: - icon: 已知应用返回真实图标
 
     func testIconKnownAppNotDefaultIcon() {

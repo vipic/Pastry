@@ -144,6 +144,32 @@ final class OverlayInteractionModelTests: XCTestCase {
         XCTAssertNil(OverlayInteractionModel.commandBadgeIndex(cmdDown: true, itemIndex: -1))
     }
 
+    // MARK: - 横向卡带滚轮策略
+
+    func testPreferredCardStripDeltaUsesHorizontalAxis() {
+        let delta = OverlayInteractionModel.preferredCardStripDelta(
+            horizontalCandidates: [0, 3.5, -0.01],
+            verticalCandidates: [100]
+        )
+        XCTAssertEqual(delta, 3.5)
+    }
+
+    func testPreferredCardStripDeltaIgnoresVerticalOnly() {
+        let delta = OverlayInteractionModel.preferredCardStripDelta(
+            horizontalCandidates: [0, 0.005],
+            verticalCandidates: [12, -8]
+        )
+        XCTAssertNil(delta, "仅有竖轴位移时不得映射为卡带滚动")
+    }
+
+    func testPreferredCardStripDeltaPicksLargestAbsHorizontal() {
+        let delta = OverlayInteractionModel.preferredCardStripDelta(
+            horizontalCandidates: [2, -9, 4],
+            verticalCandidates: []
+        )
+        XCTAssertEqual(delta, -9)
+    }
+
     // MARK: - ⌘/⇧ 点击管线（与 SelectionState 组合）
 
     func testApplyCardClickCommandToggleMultiSelect() {
