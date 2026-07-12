@@ -1582,6 +1582,23 @@
         }
       }
     },
+    "favorite_note.delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除备注"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Note"
+          }
+        }
+      }
+    },
     "toolbar.selected_count": {
       "extractionState": "manual",
       "localizations": {

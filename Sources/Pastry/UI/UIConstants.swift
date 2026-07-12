@@ -11,6 +11,10 @@ enum UIConstants {
         static let footerBottomPadding: CGFloat = 8
         /// 备注与 footer / hover 操作之间的间距
         static let favoriteNoteBottomPadding: CGFloat = 12
+        /// 链接预览缩略图高度
+        static let linkThumbnailHeight: CGFloat = 106
+        /// 有备注时媒体图宽高同比缩小（相对 linkThumbnailHeight）
+        static let linkThumbnailHeightCompact: CGFloat = 72
         static let idleBorderOpacity: CGFloat = 0.08
         static let hoverBorderOpacity: CGFloat = 0.15
         static let selectedBorderWidth: CGFloat = Stroke.emphasis

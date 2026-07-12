@@ -32,6 +32,7 @@ struct ClipboardCardView: View {
     @State private var isFavoriteNoteHovered = false
     @State private var isFavoriteNoteCommitHovered = false
     @State private var isFavoriteNoteCancelHovered = false
+    @State private var isFavoriteNoteDeleteHovered = false
     @FocusState private var favoriteNoteFocused: Bool
 
     /// 链接预览版本号（递增触发重绘，配合计算属性从缓存读取）
@@ -106,16 +107,25 @@ struct ClipboardCardView: View {
     private var cardBase: some View {
         VStack(spacing: 0) {
             topBar
+                .layoutPriority(2)
             contentArea
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
-                .padding(.vertical, UIConstants.Card.contentVerticalPadding)
+                .padding(.top, UIConstants.Card.contentVerticalPadding)
+                // 有备注时收紧底部，避免域名与备注之间再空出一整段 content padding
+                .padding(.bottom, showsFavoriteNoteStrip ? 2 : UIConstants.Card.contentVerticalPadding)
+                .layoutPriority(0)
+                .clipped()
             favoriteNoteStrip
                 .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
                 .padding(.bottom, UIConstants.Card.favoriteNoteBottomPadding)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
             footerBar
                 .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
                 .padding(.bottom, UIConstants.Card.footerBottomPadding)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(2)
         }
         .frame(width: UIConstants.Card.size, height: UIConstants.Card.size)
         .background(Color(nsColor: NSColor.windowBackgroundColor))
@@ -282,7 +292,16 @@ struct ClipboardCardView: View {
     @ViewBuilder
     private func linkContent(_ url: URL) -> some View {
         let text = Self.linkCardText(url: url, preview: linkPreview)
-        ClipboardLinkContentView(preview: linkPreview, text: text)
+        ClipboardLinkContentView(
+            preview: linkPreview,
+            text: text,
+            compactMedia: showsFavoriteNoteStrip
+        )
+    }
+
+    /// 备注条可见（编辑中或已有备注）
+    private var showsFavoriteNoteStrip: Bool {
+        isEditingFavoriteNote || favoriteNoteText != nil
     }
 
     @ViewBuilder
@@ -555,32 +574,61 @@ struct ClipboardCardView: View {
                         }
                     }
                 } else {
-                    Button(action: beginFavoriteNoteEditing) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "note.text")
-                                .font(.system(size: UIConstants.TypeSize.caption2, weight: .semibold))
-                                .foregroundColor(themeColor)
-                            Text(favoriteNoteText ?? L10n["favorite_note.add"])
-                                .font(.system(size: UIConstants.TypeSize.caption))
-                                .foregroundColor(favoriteNoteText == nil ? .secondary : .primary.opacity(0.82))
-                                .lineLimit(1)
-                            Spacer(minLength: 0)
+                    HStack(spacing: 5) {
+                        Button(action: beginFavoriteNoteEditing) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "note.text")
+                                    .font(.system(size: UIConstants.TypeSize.caption2, weight: .semibold))
+                                    .foregroundColor(themeColor)
+                                Text(favoriteNoteText ?? L10n["favorite_note.add"])
+                                    .font(.system(size: UIConstants.TypeSize.caption))
+                                    .foregroundColor(favoriteNoteText == nil ? .secondary : .primary.opacity(0.82))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                Spacer(minLength: 0)
+                            }
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(
-                            RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                                .fill(isFavoriteNoteHovered ? themeColor.opacity(0.08) : Color.black.opacity(0.035))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                                .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: UIConstants.Stroke.hairline)
-                        )
+                        .buttonStyle(.plain)
+
+                        if isFavoriteNoteHovered {
+                            Button(action: clearFavoriteNote) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: UIConstants.TypeSize.caption2, weight: .bold))
+                                    .frame(width: 16, height: 16)
+                                    .background(
+                                        Circle()
+                                            .fill(isFavoriteNoteDeleteHovered
+                                                  ? Color.black.opacity(0.08)
+                                                  : Color.clear)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.secondary)
+                            .help(L10n["favorite_note.delete"])
+                            .accessibilityLabel(L10n["favorite_note.delete"])
+                            .onHover { hovering in
+                                isFavoriteNoteDeleteHovered = hovering
+                                if hovering { NSCursor.arrow.push() } else { NSCursor.pop() }
+                            }
+                            .transition(.opacity.combined(with: .scale(scale: 0.86)))
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
+                            .fill(isFavoriteNoteHovered ? themeColor.opacity(0.08) : Color.black.opacity(0.035))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
+                            .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: UIConstants.Stroke.hairline)
+                    )
                     .onHover { hovering in
                         isFavoriteNoteHovered = hovering
+                        if !hovering { isFavoriteNoteDeleteHovered = false }
                     }
+                    .animation(.easeInOut(duration: UIConstants.Motion.fast), value: isFavoriteNoteHovered)
                 }
             }
             .frame(height: 24)
@@ -591,7 +639,7 @@ struct ClipboardCardView: View {
         }
     }
 
-    private var favoriteNoteText: String? {
+    var favoriteNoteText: String? {
         let trimmed = item.favoriteNote?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -616,6 +664,12 @@ struct ClipboardCardView: View {
         isEditingFavoriteNote = false
         favoriteNoteFocused = false
         OverlayPanelManager.shared.noteFavoriteNoteEditingCancelled()
+    }
+
+    func clearFavoriteNote() {
+        StoreManager.shared.updateFavoriteNote(item.id, note: nil)
+        isFavoriteNoteHovered = false
+        isFavoriteNoteDeleteHovered = false
     }
 
     // MARK: - 底部栏

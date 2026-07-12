@@ -28,8 +28,11 @@ enum NetworkAccessPolicy {
         if normalized.hasSuffix(".local") { return false }
         if isBlockedHostLiteral(normalized) { return false }
 
-        // 解析后再次校验：拦截 DNS 重绑定到内网 IP 的情况
-        if let resolvedIP = Self.firstResolvedIPv4(for: normalized), isBlockedIPv4Address(resolvedIP) {
+        // 解析后再次校验：拦截 DNS 重绑定到内网 IP 的情况。
+        // 注意：198.18.0.0/15 常被 Clash/Surge fake-ip 用作假地址，不能当 DNS 结果拦截，
+        // 否则链接预览 HTML/缩略图会对所有公网域名直接失败。
+        if let resolvedIP = Self.firstResolvedIPv4(for: normalized),
+           isDNSRebindingTargetIPv4(resolvedIP) {
             log.warning("拒绝 DNS 重绑定: \(normalized, privacy: .public) → \(resolvedIP, privacy: .public)")
             return false
         }
@@ -149,6 +152,28 @@ enum NetworkAccessPolicy {
         return isBlockedIPv4Octets(parts[0], parts[1], parts[2], parts[3])
     }
 
+    /// DNS 重绑定防护：只拦真正能打到本机/内网的地址。
+    /// 不含 198.18.0.0/15（基准测试段，也被本地代理 fake-ip 大量使用）。
+    private static func isDNSRebindingTargetIPv4(_ ip: String) -> Bool {
+        let parts = ip.split(separator: ".").compactMap { UInt32($0) }
+        guard parts.count == 4, parts.allSatisfy({ $0 <= 255 }) else { return false }
+        let a = parts[0], b = parts[1]
+        switch a {
+        case 0, 10, 127:
+            return true
+        case 100:
+            return (64...127).contains(b) // CGNAT
+        case 169:
+            return b == 254
+        case 172:
+            return (16...31).contains(b)
+        case 192:
+            return b == 168 // 仅 RFC1918；不含 192.0.0.0/24 字面量段在 DNS 结果里的误伤
+        default:
+            return false
+        }
+    }
+
     private static func isBlockedIPv6Literal(_ host: String) -> Bool {
         // 显式回环与未指定
         if host == "::1" || host == "::" { return true }
@@ -211,5 +236,11 @@ enum NetworkAccessPolicy {
             ptr = cur.pointee.ai_next
         }
         return nil
+    }
+
+    // MARK: - Testing
+
+    static func isDNSRebindingTargetIPv4ForTesting(_ ip: String) -> Bool {
+        isDNSRebindingTargetIPv4(ip)
     }
 }

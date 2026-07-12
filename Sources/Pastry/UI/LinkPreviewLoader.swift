@@ -157,12 +157,24 @@ final class LinkPreviewLoader {
         return t.isEmpty ? nil : t
     }
 
-    /// 相对路径图片 URL 用页面 URL 解析
+    /// 相对路径图片 URL 用页面 URL 解析；http 图源升级为 https，以通过远程资源策略。
     private func resolveImageURL(src: String, baseURL: URL) -> String? {
-        if let resolved = URL(string: src, relativeTo: baseURL) {
-            return resolved.absoluteString
+        let cleaned = src
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "&amp;", with: "&")
+        guard !cleaned.isEmpty else { return nil }
+
+        guard var resolved = URL(string: cleaned, relativeTo: baseURL)?.absoluteURL else {
+            return URL(string: cleaned)?.absoluteString
         }
-        return URL(string: src)?.absoluteString
+        if resolved.scheme?.lowercased() == "http",
+           var components = URLComponents(url: resolved, resolvingAgainstBaseURL: false) {
+            components.scheme = "https"
+            if let httpsURL = components.url {
+                resolved = httpsURL
+            }
+        }
+        return resolved.absoluteString
     }
 
     /// og:image 缺失时的降级方案：语义排序选择最佳内容图片

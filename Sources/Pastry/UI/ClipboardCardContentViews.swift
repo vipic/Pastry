@@ -6,15 +6,35 @@ import Cocoa
 struct ClipboardLinkContentView: View {
     let preview: LinkPreviewLoader.Preview?
     let text: ClipboardCardView.LinkCardText
+    /// 有备注时媒体图宽高等比缩小，标题/域名保持原尺寸。
+    var compactMedia: Bool = false
     @AppStorage(UserDefaultsKeys.linkPreviewNetworkEnabled)
     private var linkPreviewNetworkEnabled = false
 
+    private var mediaScale: CGFloat {
+        compactMedia
+            ? UIConstants.Card.linkThumbnailHeightCompact / UIConstants.Card.linkThumbnailHeight
+            : 1
+    }
+
+    private var thumbnailHeight: CGFloat {
+        UIConstants.Card.linkThumbnailHeight * mediaScale
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            thumbnail(imageURL: preview?.imageURL)
-                .frame(height: 106)
-                .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.sm))
-                .padding(.bottom, 6)
+            GeometryReader { geo in
+                let width = geo.size.width * mediaScale
+                let height = UIConstants.Card.linkThumbnailHeight * mediaScale
+                thumbnail(imageURL: preview?.imageURL)
+                    .frame(width: width, height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.sm * mediaScale, style: .continuous))
+                    .frame(width: geo.size.width, height: height, alignment: .center)
+            }
+            .frame(height: thumbnailHeight)
+            .padding(.bottom, compactMedia ? 4 : 6)
+            // 与文件卡备注出现时同款缓动（宽高一起插值）
+            .animation(.easeInOut(duration: UIConstants.Motion.note), value: compactMedia)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(text.title)
@@ -25,7 +45,6 @@ struct ClipboardLinkContentView: View {
                     .lineSpacing(1)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .layoutPriority(1)
                 if let desc = text.description {
                     Text(desc)
                         .font(.system(size: UIConstants.TypeSize.caption2))
@@ -39,9 +58,15 @@ struct ClipboardLinkContentView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // 有备注时不要把剩余高度撑在域名下方，否则域名与备注之间会出现大块空白
+            .fixedSize(horizontal: false, vertical: true)
+
+            if !compactMedia {
+                Spacer(minLength: 0)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     @ViewBuilder

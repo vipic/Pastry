@@ -120,6 +120,22 @@ final class LinkPreviewLoaderTests: XCTestCase {
         XCTAssertEqual(result, "https://example.com/blog/images/hero.png")
     }
 
+    func testResolveHTTPImageUpgradesToHTTPS() {
+        let result = LinkPreviewLoader.resolveImageURLForTesting(
+            src: "http://cdn.example.com/hero.jpg",
+            baseURL: URL(string: "https://example.com/page")!
+        )
+        XCTAssertEqual(result, "https://cdn.example.com/hero.jpg")
+    }
+
+    func testResolveImageURLUnescapesHTMLAmpersands() {
+        let result = LinkPreviewLoader.resolveImageURLForTesting(
+            src: "https://cdn.example.com/img.jpg?a=1&amp;b=2",
+            baseURL: URL(string: "https://example.com/page")!
+        )
+        XCTAssertEqual(result, "https://cdn.example.com/img.jpg?a=1&b=2")
+    }
+
     // MARK: - 降级图片提取（基础）
 
     func testFirstImageSimple() {

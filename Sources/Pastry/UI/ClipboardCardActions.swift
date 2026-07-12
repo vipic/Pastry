@@ -140,6 +140,8 @@ extension ClipboardCardView {
                     onPin(item, selectedIds)
                 case "edit_note":
                     beginFavoriteNoteEditing()
+                case "clear_note":
+                    clearFavoriteNote()
                 case "open":       openItem()
                 case "show_in_finder": showInFinder()
                 case "copy":       copyItem()
@@ -169,6 +171,15 @@ extension ClipboardCardView {
         noteItem.representedObject = "edit_note" as NSString
         noteItem.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: noteLabel)
         menu.addItem(noteItem)
+
+        if favoriteNoteText != nil {
+            let clearNoteLabel = L10n["favorite_note.delete"]
+            let clearNoteItem = NSMenuItem(title: clearNoteLabel, action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")
+            clearNoteItem.target = handler
+            clearNoteItem.representedObject = "clear_note" as NSString
+            clearNoteItem.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: clearNoteLabel)
+            menu.addItem(clearNoteItem)
+        }
 
         // Copy
         let copyMenuItem = NSMenuItem(title: L10n["context.copy"], action: #selector(_MenuHandler.invoke(_:)), keyEquivalent: "")

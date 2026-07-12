@@ -132,6 +132,30 @@ final class NetworkAccessPolicyTests: XCTestCase {
         XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://198.19.1.1/a")!))
     }
 
+    /// Clash/Surge fake-ip 会把公网域名解析到 198.18.x；DNS 重绑定检查不得因此拒绝缩略图请求。
+    func testDNSRebindingIgnoresFakeIPBenchmarkRange() {
+        XCTAssertFalse(
+            NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("198.18.5.239"),
+            "fake-ip 段不应视为 DNS 重绑定目标"
+        )
+        XCTAssertFalse(NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("198.19.1.1"))
+        XCTAssertTrue(NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("127.0.0.1"))
+        XCTAssertTrue(NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("10.0.0.1"))
+        XCTAssertTrue(NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("192.168.1.1"))
+        XCTAssertTrue(NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("172.16.0.1"))
+        XCTAssertTrue(NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("169.254.1.1"))
+        XCTAssertTrue(NetworkAccessPolicy.isDNSRebindingTargetIPv4ForTesting("100.64.0.1"))
+    }
+
+    /// 字面量 198.18 仍拒绝；但公网 hostname 即使被系统 DNS 指到 fake-ip 也应放行。
+    func testAllowsPublicHostnameUnderFakeIPStyleDNS() {
+        let url = URL(string: "https://www.apple.com/ac/structured-data/images/open_graph_logo.png")!
+        XCTAssertTrue(
+            NetworkAccessPolicy.isAllowedRemoteResourceURL(url),
+            "公网 hostname 不得因 DNS 返回 198.18.x（代理 fake-ip）而被拒；否则链接预览图永久空白"
+        )
+    }
+
     func testRejectsMdnsLocalSuffix() {
         XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://printer.local/a")!))
         XCTAssertFalse(NetworkAccessPolicy.isAllowedRemoteResourceURL(URL(string: "https://foo.bar.local/")!))
