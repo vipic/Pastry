@@ -37,7 +37,7 @@ enum UserDefaultsKeys {
     static let language = "PastryLanguage"
     static let launchAtLogin = "launch_at_login"
     static let soundEnabled = "sound_enabled"
-    /// 卡片左键：enhanced = 单击选中/双击粘贴；speed = 单击粘贴
+    /// 卡片左键：enhanced = 单击选中 / 再点已选粘贴；speed = 单击粘贴
     static let cardClickMode = "card_click_mode"
     static let hotkeyKeyCode = "hotkey_keycode"
     static let hotkeyModifiers = "hotkey_modifiers"

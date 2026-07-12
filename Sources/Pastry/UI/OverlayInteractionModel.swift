@@ -4,9 +4,9 @@ import Foundation
 
 /// 卡片主键点击策略（设置「左键点击」）。
 enum CardClickMode: String, CaseIterable, Identifiable {
-    /// A 当前增强：单击选中，双击粘贴
+    /// A 当前增强：单击选中；再点已选中卡片 → 粘贴（两次单击，非系统双击）
     case enhanced
-    /// B 极速：单击粘贴
+    /// B 极速：单击即粘贴
     case speed
 
     var id: String { rawValue }
@@ -22,27 +22,29 @@ enum CardClickMode: String, CaseIterable, Identifiable {
 
 }
 
-/// 单次主键点击（或双击）解析后的动作。
+/// 单击主键后的动作。
 enum CardClickAction: Equatable {
     case select
     case paste
-    case ignore
 }
 
 enum OverlayInteractionModel {
     /// 根据点击模式解析卡片左键行为。⌘/⇧ 始终走选中（多选）。
-    /// Enter 粘贴不在此路径，由键盘路由处理，两种模式一致。
+    ///
+    /// - enhanced：未选中 → 选中；**已选中再点** → 粘贴（看起来像双击，实为两次单击）
+    /// - speed：单击 → 粘贴
+    /// - Enter 粘贴由键盘路由处理，两种模式一致
     static func cardClickAction(
         mode: CardClickMode,
-        isDoubleClick: Bool,
+        isSelected: Bool,
         commandOrShift: Bool
     ) -> CardClickAction {
         if commandOrShift { return .select }
         switch mode {
         case .enhanced:
-            return isDoubleClick ? .paste : .select
+            return isSelected ? .paste : .select
         case .speed:
-            return isDoubleClick ? .ignore : .paste
+            return .paste
         }
     }
 

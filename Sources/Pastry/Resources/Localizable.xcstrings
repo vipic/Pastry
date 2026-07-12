@@ -279,13 +279,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "单击选中，双击粘贴"
+            "value": "单击选中，再点已选卡片粘贴"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Click to select, double-click to paste"
+            "value": "Click to select, click again on the selected card to paste"
           }
         }
       }

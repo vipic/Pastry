@@ -27,46 +27,46 @@ final class OverlayInteractionModelTests: XCTestCase {
     }
 
     func testEnhancedModeClickMatrix() {
-        // 单击 → 选中；双击 → 粘贴
+        // 未选中 → 选中；已选中再点 → 粘贴（两次单击，非系统双击）
         XCTAssertEqual(
             OverlayInteractionModel.cardClickAction(
-                mode: .enhanced, isDoubleClick: false, commandOrShift: false
+                mode: .enhanced, isSelected: false, commandOrShift: false
             ),
             .select
         )
         XCTAssertEqual(
             OverlayInteractionModel.cardClickAction(
-                mode: .enhanced, isDoubleClick: true, commandOrShift: false
+                mode: .enhanced, isSelected: true, commandOrShift: false
             ),
             .paste
         )
     }
 
     func testSpeedModeClickMatrix() {
-        // 单击 → 粘贴；双击 → 忽略
+        // 无论是否已选中，单击都粘贴
         XCTAssertEqual(
             OverlayInteractionModel.cardClickAction(
-                mode: .speed, isDoubleClick: false, commandOrShift: false
+                mode: .speed, isSelected: false, commandOrShift: false
             ),
             .paste
         )
         XCTAssertEqual(
             OverlayInteractionModel.cardClickAction(
-                mode: .speed, isDoubleClick: true, commandOrShift: false
+                mode: .speed, isSelected: true, commandOrShift: false
             ),
-            .ignore
+            .paste
         )
     }
 
     func testCardClickModifiersAlwaysSelectInBothModes() {
         for mode in CardClickMode.allCases {
-            for isDouble in [false, true] {
+            for selected in [false, true] {
                 XCTAssertEqual(
                     OverlayInteractionModel.cardClickAction(
-                        mode: mode, isDoubleClick: isDouble, commandOrShift: true
+                        mode: mode, isSelected: selected, commandOrShift: true
                     ),
                     .select,
-                    "⌘/⇧ 在 \(mode) 模式双击=\(isDouble) 时应多选"
+                    "⌘/⇧ 在 \(mode) 模式 isSelected=\(selected) 时应多选"
                 )
             }
         }
