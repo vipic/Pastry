@@ -220,40 +220,24 @@ enum OverlayInteractionModel {
         return abs(bestX) > 0.01 ? bestX : nil
     }
 
-    /// 累计滚轮位移 → 卡片步进数（与 AppKit 符号一致：正 delta 往索引更小方向）。
-    /// - Returns: 本帧应应用的步数（可正可负）；accumulator 原地更新余量。
-    static func consumeStripScrollSteps(
-        accumulator: inout CGFloat,
+    /// 像素级侧滚：把滚轮 delta 应用到 clip origin（跟手，非按卡步进）。
+    ///
+    /// AppKit 符号：正 `delta` → 内容右移 → `origin.x` 减小（看见更靠前的卡）。
+    /// - Returns: 钳制后的 origin；若本帧试图越过边界则对应 hit* 为 true。
+    static func applyStripPixelScroll(
+        originX: CGFloat,
         delta: CGFloat,
-        threshold: CGFloat = 4
-    ) -> Int {
-        guard threshold > 0 else { return 0 }
-        accumulator += delta
-        var steps = 0
-        while accumulator <= -threshold {
-            accumulator += threshold
-            steps += 1
-        }
-        while accumulator >= threshold {
-            accumulator -= threshold
-            steps -= 1
-        }
-        return steps
-    }
-
-    /// 卡带视口索引步进。
-    /// **只用 strip 自身索引**，不得回落到 `selection.cursorIndex`——
-    /// 否则选中某卡后侧滚每次都从选中位起算，最多只能离开一步。
-    static func advanceStripScrollIndex(
-        current: Int,
-        steps: Int,
-        itemCount: Int
-    ) -> (index: Int, hitEdge: Bool) {
-        guard itemCount > 0 else { return (0, false) }
-        let base = min(max(0, current), itemCount - 1)
-        let unconstrained = base + steps
-        let index = min(max(0, unconstrained), itemCount - 1)
-        return (index, unconstrained != index)
+        minX: CGFloat = 0,
+        maxX: CGFloat
+    ) -> (originX: CGFloat, hitLeading: Bool, hitTrailing: Bool) {
+        let upper = max(minX, maxX)
+        let proposed = originX - delta
+        let clamped = min(max(proposed, minX), upper)
+        return (
+            originX: clamped,
+            hitLeading: proposed < minX - 0.01,
+            hitTrailing: proposed > upper + 0.01
+        )
     }
 
     /// 键盘已在边界再按同向时，光晕朝向是否为「索引增大侧」（trailing）。

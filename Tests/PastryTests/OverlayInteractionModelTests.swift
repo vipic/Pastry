@@ -446,50 +446,60 @@ final class OverlayInteractionModelTests: XCTestCase {
         XCTAssertEqual(delta, -9)
     }
 
-    // MARK: - 卡带视口步进（与选中无关）
+    // MARK: - 卡带像素侧滚（跟手）
 
-    func testConsumeStripScrollStepsAccumulatesAcrossEvents() {
-        var acc: CGFloat = 0
-        XCTAssertEqual(
-            OverlayInteractionModel.consumeStripScrollSteps(accumulator: &acc, delta: -2),
-            0
+    func testApplyStripPixelScrollFollowsDelta() {
+        let result = OverlayInteractionModel.applyStripPixelScroll(
+            originX: 100,
+            delta: -40,
+            maxX: 500
         )
-        XCTAssertEqual(
-            OverlayInteractionModel.consumeStripScrollSteps(accumulator: &acc, delta: -3),
-            1,
-            "累计越过 threshold 才步进"
-        )
+        XCTAssertEqual(result.originX, 140, accuracy: 0.01, "负 delta → origin 增大（看见更靠后的卡）")
+        XCTAssertFalse(result.hitLeading)
+        XCTAssertFalse(result.hitTrailing)
     }
 
-    func testAdvanceStripScrollIndexContinuesPastPreviousSelection() {
-        // 选中第 2 张后，视口已滚到 3；再滚应到 4，而不是又从 2 起算
-        let first = OverlayInteractionModel.advanceStripScrollIndex(
-            current: 2, steps: 1, itemCount: 10
+    func testApplyStripPixelScrollPositiveDeltaTowardLeading() {
+        let result = OverlayInteractionModel.applyStripPixelScroll(
+            originX: 50,
+            delta: 20,
+            maxX: 500
         )
-        XCTAssertEqual(first.index, 3)
-        XCTAssertFalse(first.hitEdge)
-
-        let second = OverlayInteractionModel.advanceStripScrollIndex(
-            current: first.index, steps: 1, itemCount: 10
-        )
-        XCTAssertEqual(second.index, 4, "连续侧滚必须基于 strip 索引，不能重置到选中位")
-        XCTAssertFalse(second.hitEdge)
+        XCTAssertEqual(result.originX, 30, accuracy: 0.01)
+        XCTAssertFalse(result.hitLeading)
+        XCTAssertFalse(result.hitTrailing)
     }
 
-    func testAdvanceStripScrollIndexHitsEdge() {
-        let result = OverlayInteractionModel.advanceStripScrollIndex(
-            current: 9, steps: 1, itemCount: 10
+    func testApplyStripPixelScrollHitsLeadingEdge() {
+        let result = OverlayInteractionModel.applyStripPixelScroll(
+            originX: 5,
+            delta: 20,
+            maxX: 500
         )
-        XCTAssertEqual(result.index, 9)
-        XCTAssertTrue(result.hitEdge)
+        XCTAssertEqual(result.originX, 0, accuracy: 0.01)
+        XCTAssertTrue(result.hitLeading)
+        XCTAssertFalse(result.hitTrailing)
     }
 
-    func testAdvanceStripScrollIndexEmptyList() {
-        let result = OverlayInteractionModel.advanceStripScrollIndex(
-            current: 3, steps: 1, itemCount: 0
+    func testApplyStripPixelScrollHitsTrailingEdge() {
+        let result = OverlayInteractionModel.applyStripPixelScroll(
+            originX: 480,
+            delta: -40,
+            maxX: 500
         )
-        XCTAssertEqual(result.index, 0)
-        XCTAssertFalse(result.hitEdge)
+        XCTAssertEqual(result.originX, 500, accuracy: 0.01)
+        XCTAssertFalse(result.hitLeading)
+        XCTAssertTrue(result.hitTrailing)
+    }
+
+    func testApplyStripPixelScrollClampsEmptyRange() {
+        let result = OverlayInteractionModel.applyStripPixelScroll(
+            originX: 0,
+            delta: -10,
+            maxX: 0
+        )
+        XCTAssertEqual(result.originX, 0, accuracy: 0.01)
+        XCTAssertTrue(result.hitTrailing, "内容不足以滚动时继续侧滚应撞 trailing")
     }
 
     func testKeyboardEdgeGlowDirectionFromDelta() {

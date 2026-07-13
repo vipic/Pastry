@@ -47,7 +47,7 @@ swift test --filter AppIconProviderTests
 | 测试类 | 覆盖场景 |
 |--------|----------|
 | `SelectionStateTests` | 键盘/鼠标选择、⌘ toggle、⇧ 区间、边界 |
-| `OverlayInteractionModelTests` | 修饰键合并、空白 clear 约定、**竖滚不映射横向**、⌘ 角标 |
+| `OverlayInteractionModelTests` | 修饰键合并、空白 clear 约定、**竖滚不映射横向**、卡带像素侧滚、⌘ 角标 |
 | `DragPayloadBuilderTests` | 多选文本/链接/文件载荷、http→https、混选链接规则 |
 | `UpdateInstallScriptBuilderTests` | 更新脚本 shell 引用与非法版本号 |
 | `DatabaseKeyManagerTests` | DEK 生成/持久化/0600 权限/路径隔离 |

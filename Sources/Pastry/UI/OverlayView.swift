@@ -36,8 +36,10 @@ extension Notification.Name {
     static let overlayToggleFavorite = Notification.Name("overlayToggleFavorite")
     /// 粘贴因缺少辅助功能权限被中止 — 刷新托盘 banner
     static let overlayAccessibilityDenied = Notification.Name("overlayAccessibilityDenied")
-    /// userInfo["delta"]: CGFloat — 横向卡带滚动量（已按侧滚轮/竖滚轮统一）
+    /// userInfo["delta"]: CGFloat — 横向卡带侧滚像素位移（仅水平轴；竖滚不映射）
     static let overlayCardStripScroll = Notification.Name("overlayCardStripScroll")
+    /// 将横向卡带滚回起点（筛选 / 重开面板）
+    static let overlayCardStripScrollToStart = Notification.Name("overlayCardStripScrollToStart")
 }
 
 // MARK: - 覆盖层主视图
@@ -68,9 +70,6 @@ struct OverlayView: View {
     @StateObject private var keyHandler = KeyboardEventHandler()
     @State private var iconPrefetchTask: Task<Void, Never>?
 
-    /// 横向卡带当前滚动锚点（键盘/滚轮共用）
-    @State private var stripScrollIndex = 0
-    @State private var stripScrollAccumulator: CGFloat = 0
     /// 滚到尽头时的边缘光晕（不移动卡片，避免抖动/内缩）
     @State private var stripEdgeGlow: StripEdgeSide? = nil
     @State private var stripEdgeGlowClearTask: Task<Void, Never>?
@@ -394,8 +393,7 @@ struct OverlayView: View {
     /// 当前可见列表的默认键盘落点：第一张卡片（空列表则清空选择）。
     private func selectFirstVisibleCard() {
         selection.selectFirst(visibleItems: store.filteredItems)
-        stripScrollIndex = 0
-        stripScrollAccumulator = 0
+        NotificationCenter.default.post(name: .overlayCardStripScrollToStart, object: nil)
     }
 
     // MARK: - 退场
@@ -753,10 +751,6 @@ struct OverlayView: View {
             }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.cardContainer)
-        .onChange(of: displayItems.count) { _, count in
-            stripScrollIndex = min(stripScrollIndex, max(0, count - 1))
-            stripScrollAccumulator = 0
-        }
     }
 
     private var panelTrayBackground: some View {
@@ -989,51 +983,7 @@ struct OverlayView: View {
         if useHorizontal != isHorizontalLayout {
             isHorizontalLayout = useHorizontal
             OverlayPanelManager.shared.isHorizontalCardLayout = useHorizontal
-            stripScrollAccumulator = 0
-        }
-    }
-
-    /// 横向卡带：侧滚轮 → 按卡片步进滚动视口（不改动选中项）。
-    /// 视口位置只跟 `stripScrollIndex`；选中变化时由 `onChange(cursorIndex)` 同步索引。
-    /// 切勿用 `selection.cursorIndex` 做每帧 base——选中后侧滚会永远卡在选中±1。
-    private func handleHorizontalStripScroll(
-        delta: CGFloat,
-        items: [ClipboardItem],
-        proxy: ScrollViewProxy
-    ) {
-        guard !items.isEmpty else { return }
-        let steps = OverlayInteractionModel.consumeStripScrollSteps(
-            accumulator: &stripScrollAccumulator,
-            delta: delta
-        )
-        guard steps != 0 else { return }
-
-        let previous = stripScrollIndex
-        let result = OverlayInteractionModel.advanceStripScrollIndex(
-            current: previous,
-            steps: steps,
-            itemCount: items.count
-        )
-
-        if result.index != previous {
-            stripScrollIndex = result.index
-            let anchor: UnitPoint
-            if result.index == 0 {
-                anchor = .leading
-            } else if result.index == items.count - 1 {
-                anchor = .trailing
-            } else {
-                anchor = steps > 0 ? .trailing : .leading
-            }
-            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
-                proxy.scrollTo(items[result.index].id, anchor: anchor)
-            }
-        }
-
-        // 越过尽头：边缘光晕 + 限频触感（不移动卡片）
-        if result.hitEdge {
-            showStripEdgeGlow(towardHigherIndex: steps > 0)
-            stripScrollAccumulator = 0
+            NotificationCenter.default.post(name: .overlayCardStripScrollToStart, object: nil)
         }
     }
 
@@ -1091,6 +1041,11 @@ struct OverlayView: View {
                     }
                     .padding(.vertical, 3)
                     // 无左右 padding：首尾卡贴视口边，尽头指示不会落在虚空留白上
+                    .background {
+                        CardStripScrollDriver { towardHigher in
+                            showStripEdgeGlow(towardHigherIndex: towardHigher)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .leading) { stripEdgeGlowOverlay(side: .leading) }
@@ -1099,16 +1054,8 @@ struct OverlayView: View {
                 .onAppear {
                     OverlayPanelManager.shared.isHorizontalCardLayout = true
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .overlayCardStripScroll)) { note in
-                    let delta = (note.userInfo?["delta"] as? CGFloat)
-                        ?? (note.userInfo?["delta"] as? Double).map { CGFloat($0) }
-                        ?? 0
-                    guard abs(delta) > 0.01 else { return }
-                    handleHorizontalStripScroll(delta: delta, items: items, proxy: proxy)
-                }
                 .onChange(of: selection.cursorIndex) { oldIdx, newIdx in
                     guard let idx = newIdx, idx < items.count else { return }
-                    stripScrollIndex = idx
                     let rendered = renderedIds.contains(items[idx].id)
                     let downward = (oldIdx ?? 0) < idx
                     let neighborIdx = downward ? idx + 1 : idx - 1
