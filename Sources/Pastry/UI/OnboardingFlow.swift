@@ -19,7 +19,12 @@ enum OnboardingPreferences {
     static let currentVersion = 1
 
     static func needsPresentation(defaults: UserDefaults = .standard) -> Bool {
-        defaults.integer(forKey: UserDefaultsKeys.onboardingCompletedVersion) < currentVersion
+        #if DEBUG
+        if defaults.bool(forKey: UserDefaultsKeys.developmentShowOnboarding) {
+            return true
+        }
+        #endif
+        return defaults.integer(forKey: UserDefaultsKeys.onboardingCompletedVersion) < currentVersion
     }
 
     static func markCompleted(defaults: UserDefaults = .standard) {

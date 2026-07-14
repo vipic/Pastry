@@ -41,6 +41,22 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(OnboardingPreferences.needsPresentation(defaults: defaults))
     }
 
+    #if DEBUG
+    func testDevelopmentOverridePresentsEvenAfterCompletion() {
+        OnboardingPreferences.markCompleted(defaults: defaults)
+        defaults.set(true, forKey: UserDefaultsKeys.developmentShowOnboarding)
+
+        XCTAssertTrue(OnboardingPreferences.needsPresentation(defaults: defaults))
+    }
+
+    func testDisabledDevelopmentOverrideRespectsCompletion() {
+        OnboardingPreferences.markCompleted(defaults: defaults)
+        defaults.set(false, forKey: UserDefaultsKeys.developmentShowOnboarding)
+
+        XCTAssertFalse(OnboardingPreferences.needsPresentation(defaults: defaults))
+    }
+    #endif
+
     func testStepsHaveStableForwardAndBackwardOrder() {
         XCTAssertEqual(OnboardingStep.welcome.next, .shortcut)
         XCTAssertEqual(OnboardingStep.shortcut.next, .copy)
@@ -66,5 +82,12 @@ final class OnboardingFlowTests: XCTestCase {
         var detection = OnboardingCopyDetection(baselineItemIDs: [])
 
         XCTAssertTrue(detection.observe(itemIDs: [UUID()]))
+    }
+
+    func testShortcutFeedbackNotificationNameIsStable() {
+        XCTAssertEqual(
+            Notification.Name.onboardingShortcutDetected.rawValue,
+            "onboardingShortcutDetected"
+        )
     }
 }

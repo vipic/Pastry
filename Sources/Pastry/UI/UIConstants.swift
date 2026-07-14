@@ -75,6 +75,7 @@ enum UIConstants {
         static let featureMinHeight: CGFloat = 118
         static let shortcutHorizontalPadding: CGFloat = 22
         static let shortcutHeight: CGFloat = 58
+        static let shortcutFeedbackHeight: CGFloat = 24
         static let cardPadding: CGFloat = 18
         static let sampleCardWidth: CGFloat = 430
         static let sampleCardMinHeight: CGFloat = 74

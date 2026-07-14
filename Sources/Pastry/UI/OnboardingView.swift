@@ -231,12 +231,25 @@ struct OnboardingView: View {
                 .frame(height: UIConstants.Onboarding.shortcutHeight)
                 .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
 
-            Label(
-                L10n["onboarding.shortcut.menubar_hint"],
-                systemImage: "menubar.rectangle"
-            )
-            .font(.system(size: UIConstants.TypeSize.callout))
-            .foregroundStyle(PastryPalette.muted)
+            Group {
+                if shortcutDetected {
+                    Label(
+                        L10n["onboarding.shortcut.success_badge"],
+                        systemImage: "checkmark.circle.fill"
+                    )
+                    .font(.system(size: UIConstants.TypeSize.callout, weight: .semibold))
+                    .foregroundStyle(PastryPalette.successDeep)
+                } else {
+                    Label(
+                        L10n["onboarding.shortcut.menubar_hint"],
+                        systemImage: "menubar.rectangle"
+                    )
+                    .font(.system(size: UIConstants.TypeSize.callout))
+                    .foregroundStyle(PastryPalette.muted)
+                }
+            }
+            .frame(height: UIConstants.Onboarding.shortcutFeedbackHeight)
+            .contentTransition(.opacity)
         }
         .padding(.horizontal, UIConstants.Onboarding.contentHorizontalPadding)
     }

@@ -16,6 +16,10 @@ final class AccessibilityIdentifiersTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.Settings.root, "settings.root")
         XCTAssertEqual(AccessibilityIdentifiers.Settings.clearAllButton, "settings.clear-all-button")
         XCTAssertEqual(AccessibilityIdentifiers.Settings.excludedAddButton, "settings.excluded-add-button")
+        XCTAssertEqual(
+            AccessibilityIdentifiers.Settings.developmentOnboardingToggle,
+            "settings.development-onboarding-toggle"
+        )
     }
 
     func testCardIdentifierEmbedsId() {
@@ -48,6 +52,7 @@ final class AccessibilityIdentifiersTests: XCTestCase {
             AccessibilityIdentifiers.Settings.soundToggle,
             AccessibilityIdentifiers.Settings.linkPreviewNetworkToggle,
             AccessibilityIdentifiers.Settings.performanceLoggingToggle,
+            AccessibilityIdentifiers.Settings.developmentOnboardingToggle,
             AccessibilityIdentifiers.Settings.clearAllButton,
             AccessibilityIdentifiers.Settings.accessibilityRow,
             AccessibilityIdentifiers.Settings.accessibilityGrantButton,

@@ -7,6 +7,7 @@ extension Notification.Name {
     static let settingsSelectTab = Notification.Name("settingsSelectTab")
 }
 
+
 // MARK: - 设置视图
 
 struct SettingsSceneView: View {
@@ -27,6 +28,10 @@ struct SettingsSceneView: View {
     var linkPreviewNetworkEnabled = false
     @AppStorage(UserDefaultsKeys.performanceLoggingEnabled)
     var performanceLoggingEnabled = false
+    #if DEBUG
+    @AppStorage(UserDefaultsKeys.developmentShowOnboarding)
+    var developmentShowOnboarding = false
+    #endif
     @AppStorage(UserDefaultsKeys.historyMaxItems)
     var historyMaxItems = HistoryRetentionPolicy.defaultMaxItems
     @AppStorage(UserDefaultsKeys.historyMaxAgeDays)
@@ -363,4 +368,3 @@ struct SettingsSceneView: View {
             .padding(.horizontal, 14)
     }
 }
-

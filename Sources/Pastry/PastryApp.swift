@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var helpWindow: NSWindow?
     private var updateWindow: NSWindow?
     private var onboardingWindow: NSWindow?
+    private var onboardingKeyMonitor: Any?
     private let updateErrorPath = "/tmp/pastry_update_error.txt"
 
     override init() {
@@ -167,10 +168,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy) { [weak self] in
             OnboardingPreferences.markCompleted()
             self?.onboardingWindow = nil
+            self?.stopOnboardingShortcutMonitor()
         }
         window.delegate = delegate
         delegate.selfRetain()
         onboardingWindow = window
+        startOnboardingShortcutMonitor()
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -183,6 +186,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         return true
+    }
+
+    @MainActor
+    private func startOnboardingShortcutMonitor() {
+        stopOnboardingShortcutMonitor()
+        onboardingKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self,
+                  self.onboardingWindow?.isVisible == true,
+                  GlobalHotkeyManager.shared.matchesCurrentShortcut(event)
+            else { return event }
+
+            _ = self.consumeOnboardingHotkey()
+            return nil
+        }
+    }
+
+    @MainActor
+    private func stopOnboardingShortcutMonitor() {
+        guard let onboardingKeyMonitor else { return }
+        NSEvent.removeMonitor(onboardingKeyMonitor)
+        self.onboardingKeyMonitor = nil
     }
 
     @MainActor

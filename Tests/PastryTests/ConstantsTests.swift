@@ -79,6 +79,10 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(UserDefaultsKeys.performanceLoggingEnabled, "performance_logging_enabled")
     }
 
+    func testDevelopmentShowOnboardingKey() {
+        XCTAssertEqual(UserDefaultsKeys.developmentShowOnboarding, "development_show_onboarding")
+    }
+
     func testSettingsAccessibilityIdentifiers() {
         XCTAssertEqual(AccessibilityIdentifiers.Settings.performanceLoggingToggle, "settings.performance-logging-toggle")
     }

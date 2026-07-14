@@ -46,6 +46,28 @@ final class GlobalHotkeyManager {
         )
     }
 
+    func matchesCurrentShortcut(_ event: NSEvent) -> Bool {
+        let eventModifiers = nseventModifiersToCarbon(
+            event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        )
+        return Self.matchesConfiguredShortcut(
+            keyCode: Int(event.keyCode),
+            modifiers: eventModifiers,
+            configuredKeyCode: currentKeyCode,
+            configuredModifiers: currentModifiers
+        )
+    }
+
+    static func matchesConfiguredShortcut(
+        keyCode: Int,
+        modifiers: UInt32,
+        configuredKeyCode: Int32,
+        configuredModifiers: UInt32
+    ) -> Bool {
+        guard configuredKeyCode >= 0 else { return false }
+        return keyCode == Int(configuredKeyCode) && modifiers == configuredModifiers
+    }
+
     private init() {
         // 监听 UserDefaults 变化，快捷键改变后自动重注册
         NotificationCenter.default.addObserver(

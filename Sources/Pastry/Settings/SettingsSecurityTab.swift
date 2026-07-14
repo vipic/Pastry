@@ -39,6 +39,22 @@ extension SettingsSceneView {
                                 .toggleStyle(SettingsSwitchStyle())
                                 .accessibilityIdentifier(AccessibilityIdentifiers.Settings.performanceLoggingToggle)
                         }
+
+                        #if DEBUG
+                        settingsDivider
+
+                        settingsRow(
+                            title: L10n["settings.development_onboarding"],
+                            help: L10n["settings.development_onboarding_hint"]
+                        ) {
+                            Toggle("", isOn: $developmentShowOnboarding)
+                                .labelsHidden()
+                                .toggleStyle(SettingsSwitchStyle())
+                                .accessibilityIdentifier(
+                                    AccessibilityIdentifiers.Settings.developmentOnboardingToggle
+                                )
+                        }
+                        #endif
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
 

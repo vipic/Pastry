@@ -58,6 +58,38 @@ final class HotkeyUtilsTests: XCTestCase {
         XCTAssertEqual(carbon, 0)
     }
 
+    func testConfiguredShortcutMatchRequiresKeyAndModifiers() {
+        let configuredModifiers = UInt32(cmdKey) | UInt32(shiftKey)
+
+        XCTAssertTrue(GlobalHotkeyManager.matchesConfiguredShortcut(
+            keyCode: 9,
+            modifiers: configuredModifiers,
+            configuredKeyCode: 9,
+            configuredModifiers: configuredModifiers
+        ))
+        XCTAssertFalse(GlobalHotkeyManager.matchesConfiguredShortcut(
+            keyCode: 8,
+            modifiers: configuredModifiers,
+            configuredKeyCode: 9,
+            configuredModifiers: configuredModifiers
+        ))
+        XCTAssertFalse(GlobalHotkeyManager.matchesConfiguredShortcut(
+            keyCode: 9,
+            modifiers: UInt32(cmdKey),
+            configuredKeyCode: 9,
+            configuredModifiers: configuredModifiers
+        ))
+    }
+
+    func testDisabledConfiguredShortcutNeverMatches() {
+        XCTAssertFalse(GlobalHotkeyManager.matchesConfiguredShortcut(
+            keyCode: 9,
+            modifiers: UInt32(cmdKey) | UInt32(shiftKey),
+            configuredKeyCode: GlobalHotkeyManager.disabledSentinel,
+            configuredModifiers: UInt32(cmdKey) | UInt32(shiftKey)
+        ))
+    }
+
     // MARK: - NSEvent vs Carbon 编码差异验证（关键测试）
 
     func testNSEventCommandNotEqualToCarbonCmdKey() {

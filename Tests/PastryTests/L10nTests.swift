@@ -33,11 +33,13 @@ final class L10nTests: XCTestCase {
             "onboarding.shortcut.title", "onboarding.shortcut.subtitle",
             "onboarding.shortcut.detected_title", "onboarding.shortcut.detected_subtitle",
             "onboarding.shortcut.menubar_hint", "onboarding.shortcut.not_set",
+            "onboarding.shortcut.success_badge",
             "onboarding.copy.title", "onboarding.copy.subtitle",
             "onboarding.copy.detected_title", "onboarding.copy.detected_subtitle",
             "onboarding.copy.sample_text", "onboarding.copy.anywhere_hint",
             "onboarding.permission.title", "onboarding.permission.subtitle",
-            "onboarding.permission.optional_hint"
+            "onboarding.permission.optional_hint",
+            "settings.development_onboarding", "settings.development_onboarding_hint"
         ]
         for key in keys {
             XCTAssertNotEqual(L10n[key], key, "\(key) 应有翻译")

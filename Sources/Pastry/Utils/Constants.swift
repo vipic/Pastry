@@ -51,6 +51,8 @@ enum UserDefaultsKeys {
     static let performanceLoggingEnabled = "performance_logging_enabled"
     /// 已完成的新手引导版本。使用版本号而非布尔值，便于未来只补充重大新增步骤。
     static let onboardingCompletedVersion = "onboarding_completed_version"
+    /// 仅 Dev 版读取：开启后忽略完成版本，每次启动都展示新手引导。
+    static let developmentShowOnboarding = "development_show_onboarding"
 }
 
 /// 删除确认偏好。缺省键时视为开启，避免 `bool(forKey:)` 对缺失键返回 false。
