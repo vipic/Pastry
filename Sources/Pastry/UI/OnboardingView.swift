@@ -334,7 +334,7 @@ struct OnboardingView: View {
 
     private var permissionStep: some View {
         stepLayout(
-            icon: accessibilityTrusted ? "checkmark.shield.fill" : "hand.raised.fill",
+            icon: accessibilityTrusted ? "checkmark.circle.fill" : "hand.raised.fill",
             title: L10n["onboarding.permission.title"],
             subtitle: L10n["onboarding.permission.subtitle"]
         ) {
