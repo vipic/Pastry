@@ -19,6 +19,11 @@ cd Pastry
 ```
 
 `deploy.sh` 会编译 debug 版本、组装并签名 `~/Applications/Pastry Dev.app`，然后启动应用。
+每次执行都会把完整输出、每个阶段和子命令耗时、退出码写入 `.local/logs/deploy/`。查看最近一次摘要：
+
+```bash
+scripts/diagnostics.sh command deploy
+```
 
 ## 代码签名
 
@@ -92,3 +97,4 @@ Sources/Pastry/
 ```
 
 更完整的架构、历史坑点和 Agent 约定见 [AGENTS.md](../AGENTS.md)。
+运行时和本地命令日志的字段、隐私边界及排查方法见 [DIAGNOSTICS.md](DIAGNOSTICS.md)。

@@ -4,6 +4,7 @@
 # 用法: ./release.sh [version] [--publish]
 #   ./release.sh 1.0.1              # 仅构建 DMG
 #   ./release.sh 1.0.1 --publish    # 构建 + 推 tag + 创建 GitHub Release
+#   ./release.sh --auto-version     # 按 Conventional Commits 计算下一版本
 #   ./release.sh                    # 自动取 git tag，没有则用 1.0
 set -e
 set -o pipefail
@@ -19,20 +20,39 @@ IDENTITY="${CODESIGN_IDENTITY:-Nekutai}"
 # 解析参数
 PUBLISH=false
 FORCE=false
+AUTO_VERSION=false
 VERSION=""
 for arg in "$@"; do
     case "$arg" in
         --publish) PUBLISH=true ;;
         --force) FORCE=true ;;
+        --auto-version) AUTO_VERSION=true ;;
         --*) ;;
         *) VERSION="$arg" ;;
     esac
 done
+source "$PROJECT_DIR/scripts/lib/command_log.sh"
+COMMAND_WORKFLOW="release"
+$PUBLISH && COMMAND_WORKFLOW="publish"
+command_log_init "$COMMAND_WORKFLOW" "${VERSION:-auto}"
+trap 'command_log_finish $?' EXIT
+
+if $AUTO_VERSION; then
+    command_log_stage "0-计算下一版本号"
+    VERSION_FILE="$(mktemp "${TMPDIR:-/tmp}/pastry-version.XXXXXX")"
+    command_log_run_tail version_next 3 /bin/bash -c \
+        '"$1" > "$2" || exit $?; cat "$2"' \
+        _ "$PROJECT_DIR/scripts/next_version.sh" "$VERSION_FILE"
+    VERSION="$(cat "$VERSION_FILE")"
+    rm -f "$VERSION_FILE"
+fi
+
 VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0')}"
 VERSION="${VERSION#v}"   # 统一剥掉 v 前缀，内部只用裸版本号
 TAG="v$VERSION"
 BUILD=$(git rev-list --count HEAD)
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
+command_log_write INFO workflow.version "version=$(command_log_value "$VERSION") auto=$AUTO_VERSION"
 
 echo "🏭 Building $APP_NAME $VERSION (release)..."
 echo ""
@@ -40,6 +60,7 @@ echo ""
 step() {
     echo ""
     echo "━━━ $1/8 $2 ━━━"
+    command_log_stage "$1-$2"
 }
 
 # ── 检查：发布输入状态（--force 跳过）───
@@ -65,6 +86,7 @@ fi
 cd "$PROJECT_DIR"
 
 cleanup() {
+    local status=$?
     if [ -n "${DMG_DEVICE:-}" ]; then
         hdiutil detach "$DMG_DEVICE" -quiet 2>/dev/null || true
     elif [ -n "${DMG_VOLUME:-}" ] && [ -d "$DMG_VOLUME" ]; then
@@ -81,6 +103,7 @@ enum AppVersion {
     static let build = "0"
 }
 SWIFT
+    command_log_finish "$status"
 }
 
 step 1 "测试"
@@ -95,7 +118,7 @@ if [ "$RUN_TESTS" = "" ]; then
     fi
 fi
 if [ "$RUN_TESTS" = "true" ]; then
-    swift test 2>&1 | tail -5
+    command_log_run_tail swift_test 5 swift test
 else
     echo "⚠️  跳过测试"
 fi
@@ -114,14 +137,14 @@ SWIFT
 echo "✅ 版本号已注入: $VERSION (build $BUILD)"
 
 step 3 "Release 编译"
-swift build -c release -Xswiftc -Osize 2>&1 | tail -3
+command_log_run_tail swift_release_build 3 swift build -c release -Xswiftc -Osize
 
 BIN="$BUILD_DIR/$APP_NAME"
 test -f "$BIN" || { echo "❌ 构建失败"; exit 1; }
 
 step 4 "去除调试符号"
 BIN_SIZE_BEFORE=$(stat -f%z "$BIN")
-strip -S "$BIN" 2>/dev/null || true
+command_log_run_tail strip_binary 3 strip -S "$BIN" || true
 BIN_SIZE_AFTER=$(stat -f%z "$BIN")
 echo "✅ 二进制已去除调试符号: $(numfmt --to=iec $BIN_SIZE_BEFORE 2>/dev/null || echo "${BIN_SIZE_BEFORE}") → $(numfmt --to=iec $BIN_SIZE_AFTER 2>/dev/null || echo "${BIN_SIZE_AFTER}")"
 
@@ -189,7 +212,7 @@ echo "🔐 签名身份: $IDENTITY"
 # 有账号后加一行：
 #   xcrun notarytool submit "$DMG_PATH" --keychain-profile "AC_PASSWORD" --wait
 
-if ! codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app" 2>&1; then
+if ! command_log_run codesign_app codesign --force --deep --sign "$IDENTITY" "$STAGING/$APP_NAME.app"; then
     echo "❌ \"$IDENTITY\" 签名失败。Pastry 不会改用 ad-hoc，因为这会破坏辅助功能授权体验。"
     echo "   请检查钥匙串中是否存在该代码签名证书，或通过 CODESIGN_IDENTITY 指定稳定证书。"
     exit 1
@@ -210,18 +233,20 @@ ln -s /Applications "$DMG_SRC/Applications" 2>/dev/null || true
 APP_SIZE_KB=$(du -sk "$DMG_SRC/$APP_NAME.app" | cut -f1)
 DMG_SIZE_MB=$(( (APP_SIZE_KB / 1024) + 4 ))
 
-hdiutil create -volname "$APP_NAME" \
+command_log_run_tail hdiutil_create 1 hdiutil create -volname "$APP_NAME" \
     -srcfolder "$DMG_SRC" \
     -ov -format UDRW \
     -size ${DMG_SIZE_MB}m \
-    "$STAGING/tmp.dmg" 2>&1 | tail -1
+    "$STAGING/tmp.dmg"
 
 # DMG 美化（静默：挂载→拷背景+DS_Store→卸载，无 Finder 闪现）
 echo "🎨 美化 DMG..."
 
 # 挂载（-noautoopen 不打开 Finder 窗口）
 DMG_ATTACH_LOG="$STAGING/dmg-attach.log"
-if ! hdiutil attach -readwrite -noverify -noautoopen "$STAGING/tmp.dmg" > "$DMG_ATTACH_LOG" 2>&1; then
+if ! command_log_run_tail hdiutil_attach_writable 3 /bin/bash -c \
+    'hdiutil attach -readwrite -noverify -noautoopen "$1" > "$2" 2>&1' \
+    _ "$STAGING/tmp.dmg" "$DMG_ATTACH_LOG"; then
     echo "❌ DMG 美化挂载失败"
     cat "$DMG_ATTACH_LOG"
     exit 1
@@ -247,7 +272,7 @@ fi
 cp "$PROJECT_DIR/Resources/dmg-dsstore" "$VOLUME/.DS_Store" || { echo "❌ 复制 DMG .DS_Store 模板失败"; exit 1; }
 
 # 卸载
-if ! hdiutil detach "${DMG_DEVICE:-$VOLUME}" -quiet; then
+if ! command_log_run_tail hdiutil_detach_writable 3 hdiutil detach "${DMG_DEVICE:-$VOLUME}" -quiet; then
     echo "❌ DMG 美化后卸载失败: ${DMG_DEVICE:-$VOLUME}"
     exit 1
 fi
@@ -257,7 +282,9 @@ echo "✅ DMG 背景和窗口布局已写入"
 
 # 转换为只读压缩 DMG
 CONVERT_LOG="$STAGING/dmg-convert.log"
-if ! hdiutil convert "$STAGING/tmp.dmg" -format UDZO -o "$DMG_PATH" > "$CONVERT_LOG" 2>&1; then
+if ! command_log_run_tail hdiutil_convert 3 /bin/bash -c \
+    'hdiutil convert "$1" -format UDZO -o "$2" > "$3" 2>&1' \
+    _ "$STAGING/tmp.dmg" "$DMG_PATH" "$CONVERT_LOG"; then
     echo "❌ DMG 压缩转换失败"
     cat "$CONVERT_LOG"
     exit 1
@@ -265,10 +292,13 @@ fi
 tail -1 "$CONVERT_LOG"
 rm -f "$STAGING/tmp.dmg"
 echo "✅ DMG 已生成: $DMG_PATH"
+command_log_artifact dmg "$DMG_PATH"
 
 echo "🧪 烟测 DMG..."
 SMOKE_ATTACH_LOG="$STAGING/smoke-attach.log"
-if ! hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH" > "$SMOKE_ATTACH_LOG" 2>&1; then
+if ! command_log_run_tail hdiutil_attach_smoke 3 /bin/bash -c \
+    'hdiutil attach -readonly -noverify -noautoopen "$1" > "$2" 2>&1' \
+    _ "$DMG_PATH" "$SMOKE_ATTACH_LOG"; then
     echo "❌ DMG 烟测挂载失败"
     cat "$SMOKE_ATTACH_LOG"
     exit 1
@@ -283,9 +313,10 @@ fi
 
 SMOKE_APP="$SMOKE_VOLUME/$APP_NAME.app"
 test -d "$SMOKE_APP" || { echo "❌ DMG 内缺少 $APP_NAME.app"; exit 1; }
-codesign --verify --deep --strict "$SMOKE_APP" 2>&1
-spctl --assess --type execute "$SMOKE_APP" 2>/dev/null || echo "⚠️  Gatekeeper 评估未通过（自签名或未公证签名时预期可能失败）"
-hdiutil detach "${SMOKE_DEVICE:-$SMOKE_VOLUME}" -quiet
+command_log_run codesign_verify codesign --verify --deep --strict "$SMOKE_APP"
+COMMAND_LOG_FAILURE_LEVEL=WARN command_log_run_tail gatekeeper_assess 3 spctl --assess --type execute "$SMOKE_APP" \
+    || echo "⚠️  Gatekeeper 评估未通过（自签名或未公证签名时预期可能失败）"
+command_log_run_tail hdiutil_detach_smoke 3 hdiutil detach "${SMOKE_DEVICE:-$SMOKE_VOLUME}" -quiet
 SMOKE_VOLUME=""
 
 if $PUBLISH; then
@@ -296,7 +327,7 @@ if $PUBLISH; then
         exit 1
     fi
     
-    if ! gh auth status &>/dev/null; then
+    if ! command_log_run_tail gh_auth_status 5 gh auth status; then
         echo "❌ gh 未登录，请先运行: gh auth login"
         exit 1
     fi
@@ -309,12 +340,12 @@ if $PUBLISH; then
         git tag "$TAG"
     fi
     
-    git push origin main "$TAG" 2>&1 | tail -2
+    command_log_run_tail git_push 5 git push origin main "$TAG"
     
     # 检查是否已有同名 Release
-    if gh release view "$TAG" &>/dev/null 2>&1; then
+    if COMMAND_LOG_FAILURE_LEVEL=WARN command_log_run_tail gh_release_view 5 gh release view "$TAG"; then
         echo "⚠️  Release $TAG 已存在，仅上传资产..."
-        gh release upload "$TAG" "$DMG_PATH" --clobber
+        command_log_run gh_release_upload gh release upload "$TAG" "$DMG_PATH" --clobber
     else
         echo "📦 创建 Release $TAG..."
 
@@ -329,14 +360,18 @@ if $PUBLISH; then
             changelog="- $APP_NAME $VERSION 发布"
         fi
 
-        gh release create "$TAG" \
+        command_log_run gh_release_create gh release create "$TAG" \
             --title "$APP_NAME $VERSION" \
             --notes "$changelog" \
             "$DMG_PATH"
     fi
     
     echo "✅ 发布完成"
-    echo "🔗 $(gh release view "$TAG" --json url -q '.url')"
+    RELEASE_URL_FILE="$STAGING/release-url.txt"
+    command_log_run_tail gh_release_url 3 /bin/bash -c \
+        'gh release view "$1" --json url -q '\''.url'\'' > "$2"' \
+        _ "$TAG" "$RELEASE_URL_FILE"
+    echo "🔗 $(cat "$RELEASE_URL_FILE")"
 else
     step 8 "跳过 GitHub Releases 发布"
     echo "ℹ️  未传入 --publish，仅生成本地 DMG。"

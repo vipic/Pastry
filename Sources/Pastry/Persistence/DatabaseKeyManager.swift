@@ -11,6 +11,7 @@ struct DatabaseKeyManager {
 
     private let dbPath: String
     private let log: Logger
+    private let diagnosticsLog = PastryLogger(category: "database-key")
 
     private var keyFilePath: String { dbPath + ".key" }
 
@@ -55,12 +56,21 @@ struct DatabaseKeyManager {
             let box = try AES.GCM.seal(key, using: Self.deviceKEK())
             guard let sealed = box.combined else {
                 log.error("AES-GCM seal 失败")
+                diagnosticsLog.critical(
+                    "数据库密钥加密失败",
+                    event: "database_key.seal.failed"
+                )
                 return
             }
             try sealed.write(to: URL(fileURLWithPath: keyFilePath), options: .atomic)
             chmod(keyFilePath, 0o600)
         } catch {
             log.error("密钥文件写入失败: \(error.localizedDescription)")
+            diagnosticsLog.critical(
+                "数据库密钥文件写入失败",
+                event: "database_key.write.failed",
+                metadata: ["error": error.localizedDescription]
+            )
         }
     }
 

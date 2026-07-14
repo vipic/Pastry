@@ -5,7 +5,7 @@ enum NetworkAccessPolicy {
     static let maxHTMLBytes = 2_000_000
     static let maxImageBytes = 5_000_000
 
-    private static let log = Logger(subsystem: "com.nekutai.pastry", category: "netpolicy")
+    private static let log = PastryLogger(category: "netpolicy")
 
     static var isLinkPreviewEnabled: Bool {
         UserDefaults.standard.bool(forKey: UserDefaultsKeys.linkPreviewNetworkEnabled)
@@ -33,7 +33,11 @@ enum NetworkAccessPolicy {
         // 否则链接预览 HTML/缩略图会对所有公网域名直接失败。
         if let resolvedIP = Self.firstResolvedIPv4(for: normalized),
            isDNSRebindingTargetIPv4(resolvedIP) {
-            log.warning("拒绝 DNS 重绑定: \(normalized, privacy: .public) → \(resolvedIP, privacy: .public)")
+            log.warning(
+                "拒绝疑似 DNS 重绑定的远程资源",
+                event: "network_policy.dns_rebinding.blocked",
+                metadata: ["resolved_ip": resolvedIP]
+            )
             return false
         }
         return true

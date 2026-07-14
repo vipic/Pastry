@@ -22,12 +22,15 @@ final class ClipboardMonitor: ObservableObject {
     private var ignoredChangeCounts: Set<Int> = []
     private var timer: Timer?
     private let pollInterval: TimeInterval = 0.05   // 50ms，人耳无法感知延迟
-    private let log = Logger(subsystem: "com.nekutai.pastry", category: "monitor")
+    private let log = PastryLogger(category: "monitor")
 
     /// 自定义复制提示音
     private static let copySound: NSSound? = {
         guard let path = Bundle.main.path(forResource: "Copy", ofType: "aiff") else {
-            Logger(subsystem: "com.nekutai.pastry", category: "monitor").warning("找不到 Copy.aiff")
+            PastryLogger(category: "monitor").warning(
+                "找不到复制提示音资源",
+                event: "monitor.copy_sound.missing"
+            )
             return nil
         }
         return NSSound(contentsOfFile: path, byReference: true)
@@ -79,14 +82,18 @@ final class ClipboardMonitor: ObservableObject {
         RunLoop.main.add(t, forMode: .common)
         timer = t
 
-        log.info("剪贴板监听已启动 (interval: \(self.pollInterval)s)")
+        log.info(
+            "剪贴板监听已启动",
+            event: "monitor.started",
+            metadata: ["poll_interval_ms": String(Int(pollInterval * 1_000))]
+        )
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
         isRunning = false
-        log.info("剪贴板监听已停止")
+        log.info("剪贴板监听已停止", event: "monitor.stopped")
     }
 
     // MARK: - 轮询
@@ -272,7 +279,7 @@ final class ClipboardMonitor: ObservableObject {
         Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
             guard let savedPath = ImageCacheManager.shared.save(image: image, data: data) else {
-                self.log.error("图片缓存写入失败")
+                self.log.error("图片缓存写入失败", event: "monitor.image_cache_write.failed")
                 return
             }
             let item = ClipboardItem(

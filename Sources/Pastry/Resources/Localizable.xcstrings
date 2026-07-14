@@ -823,13 +823,30 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地写入性能计时与功能使用次数（~/Library/Logs/Pastry/），用于后续优化，不上报。"
+            "value": "本地写入结构化运行日志、性能计时与功能使用次数（~/Library/Logs/Pastry/），用于排查问题，不上报。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Write local timing and feature-usage counts to ~/Library/Logs/Pastry/ for product insights. Nothing is uploaded."
+            "value": "Write structured runtime logs, timing data, and feature-usage counts to ~/Library/Logs/Pastry/ for troubleshooting. Nothing is uploaded."
+          }
+        }
+      }
+    },
+    "settings.open_diagnostics_folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开诊断日志文件夹"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Diagnostics Folder"
           }
         }
       }

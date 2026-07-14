@@ -75,6 +75,8 @@ bash -n smoke.sh
 bash -n populate_clipboard.sh
 bash -n bench.sh
 bash -n scripts/check_coverage.sh
+bash -n scripts/diagnostics.sh
+bash -n scripts/lib/command_log.sh
 bash -n scripts/next_version.sh
 bash -n .mise/tasks/release
 bash -n .mise/tasks/release-auto
@@ -199,6 +201,16 @@ dist/smoke/<timestamp>/
 
 - `perf.log`：面板打开 / 粘贴计时
 - `usage.json`：功能使用次数累加（收藏、删除、预览、筛选等）
+- `runtime.jsonl`：按会话记录启动、数据库、热键、面板、粘贴、更新与 watchdog 等结构化事件
+
+`runtime.jsonl` 达到 5 MB 后自动轮转，最多保留当前文件和三个历史文件。日志不会记录剪贴板内容、搜索词或完整 URL。查看最近日志：
+
+```bash
+scripts/diagnostics.sh app "Pastry Dev" 80
+scripts/diagnostics.sh summary
+```
+
+完整说明见 [DIAGNOSTICS.md](DIAGNOSTICS.md)。
 
 或在手动启动二进制时使用：
 
@@ -235,6 +247,12 @@ PASTRY_PERF_LOG=1 .build/release/Pastry
 ```
 
 `release.sh` 会执行测试、release 构建、签名、DMG 打包和烟测。`--publish` 还会推 tag 并创建 GitHub Release。
+两种模式都会在 `.local/logs/release/` 或 `.local/logs/publish/` 保存完整命令输出、阶段耗时和退出码：
+
+```bash
+scripts/diagnostics.sh command release
+scripts/diagnostics.sh command publish --full
+```
 
 ## CI Commands
 
@@ -247,6 +265,8 @@ bash -n smoke.sh
 bash -n populate_clipboard.sh
 bash -n bench.sh
 bash -n scripts/check_coverage.sh
+bash -n scripts/diagnostics.sh
+bash -n scripts/lib/command_log.sh
 bash -n scripts/next_version.sh
 bash -n .mise/tasks/release
 bash -n .mise/tasks/release-auto
@@ -290,6 +310,8 @@ bash -n smoke.sh
 bash -n populate_clipboard.sh
 bash -n bench.sh
 bash -n scripts/check_coverage.sh
+bash -n scripts/diagnostics.sh
+bash -n scripts/lib/command_log.sh
 bash -n scripts/next_version.sh
 bash -n .mise/tasks/release
 bash -n .mise/tasks/release-auto

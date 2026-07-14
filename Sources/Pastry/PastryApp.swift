@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingOverlayHandoff: OnboardingOverlayHandoff?
     private var shouldOpenOverlayAfterOnboarding = false
     private let updateErrorPath = "/tmp/pastry_update_error.txt"
+    private let diagnosticsLog = PastryLogger(category: "app")
 
     override init() {
         super.init()
@@ -70,6 +71,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         seedDefaultExcludedApps()
         showPendingUpdateErrorIfNeeded()
         showOnboardingIfNeeded()
+        diagnosticsLog.info(
+            "应用完成启动",
+            event: "app.did_finish_launching",
+            metadata: ["onboarding_required": String(OnboardingPreferences.needsPresentation())]
+        )
     }
 
     private func configureApplicationIcon() {
@@ -79,7 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        diagnosticsLog.info("应用即将退出", event: "app.will_terminate")
         MainThreadWatchdog.shared.stop()
+        DeveloperDiagnostics.flush()
     }
 
     @MainActor
@@ -423,6 +431,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             let log = Logger(subsystem: "com.nekutai.pastry", category: "update")
             log.error("更新失败: \(error.localizedDescription)")
+            diagnosticsLog.error(
+                "更新安装失败",
+                event: "update.install.failed",
+                metadata: ["error": error.localizedDescription]
+            )
             hostingView.rootView = UpdateView(
                 state: .error(error.localizedDescription),
                 releaseNotes: nil,
@@ -573,13 +586,13 @@ struct PastryApp: App {
     @AppStorage(UserDefaultsKeys.launchAtLogin)
     private var launchAtLogin = false
 
-    private let log = Logger(subsystem: "com.nekutai.pastry", category: "app")
+    private let log = PastryLogger(category: "app")
 
     /// 性能基准模式：`Pastry --bench` 跑完初始化输出耗时后退出
     private static let isBenchmark = CommandLine.arguments.contains("--bench")
 
     init() {
-        let benchStart = Self.isBenchmark ? CFAbsoluteTimeGetCurrent() : 0
+        let initializationStart = CFAbsoluteTimeGetCurrent()
 
         store.start()
 
@@ -587,8 +600,13 @@ struct PastryApp: App {
         ImageCacheManager.shared.cleanupOrphans(activePaths: DatabaseManager.shared.allImageContentPaths())
 
         if Self.isBenchmark {
-            let elapsed = Int((CFAbsoluteTimeGetCurrent() - benchStart) * 1000)
-            log.info("启动耗时: \(elapsed)ms")
+            let elapsed = Int((CFAbsoluteTimeGetCurrent() - initializationStart) * 1000)
+            log.info(
+                "启动基准完成",
+                event: "app.benchmark.completed",
+                durationMilliseconds: elapsed
+            )
+            DeveloperDiagnostics.flush()
             exit(0)
         }
 
@@ -610,7 +628,12 @@ struct PastryApp: App {
             OverlayPanelManager.shared.warmupPipelineIfNeeded()
         }
 
-        log.info("Pastry 初始化完成")
+        log.info(
+            "Pastry 初始化完成",
+            event: "app.initialization.completed",
+            metadata: ["item_count": String(store.items.count)],
+            durationMilliseconds: Int((CFAbsoluteTimeGetCurrent() - initializationStart) * 1000)
+        )
     }
 
     var body: some Scene {

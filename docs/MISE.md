@@ -79,6 +79,25 @@ mise run bench -- --report
 
 `bench.sh` 的参数同样放在 `--` 后面。
 
+## 日志与诊断
+
+```bash
+mise run logs
+mise run logs:app
+mise run logs:app -- "Pastry Dev" 80
+mise run logs:deploy
+mise run logs:release
+mise run logs:release -- --full
+mise run logs:publish
+mise run logs:publish -- --full
+```
+
+- `logs`：列出正式版、开发版应用日志，以及最近一次 deploy/release/publish 的结果。
+- `logs:app`：查看结构化应用运行事件，默认读取正式版最近 50 条；可传应用名和行数，并自动跨越轮转文件。
+- `logs:deploy`、`logs:release`、`logs:publish`：查看对应工作流最近一次阶段与命令耗时；传 `--full` 查看完整命令输出。
+
+底层仍由 `scripts/diagnostics.sh` 读取本地日志。应用日志受「开发诊断记录」开关控制，本地命令日志始终写入 `.local/logs/`。字段和隐私边界见 [DIAGNOSTICS.md](DIAGNOSTICS.md)。
+
 ## 版本号
 
 ```bash

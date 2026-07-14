@@ -20,7 +20,7 @@ run = "scripts/check_coverage.sh"
 
 [tasks."lint:scripts"]
 description = "Check shell scripts for syntax errors"
-run = "bash -n deploy.sh && bash -n release.sh && bash -n smoke.sh && bash -n populate_clipboard.sh && bash -n bench.sh && bash -n scripts/check_coverage.sh && bash -n scripts/next_version.sh && bash -n .mise/tasks/release && bash -n .mise/tasks/release-auto && bash -n .mise/tasks/publish"
+run = "bash -n deploy.sh && bash -n release.sh && bash -n smoke.sh && bash -n populate_clipboard.sh && bash -n bench.sh && bash -n scripts/check_coverage.sh && bash -n scripts/diagnostics.sh && bash -n scripts/lib/command_log.sh && bash -n scripts/next_version.sh && bash -n .mise/tasks/release && bash -n .mise/tasks/release-auto && bash -n .mise/tasks/publish"
 
 [tasks.check]
 description = "Run the standard local validation suite"
@@ -49,6 +49,26 @@ run = "./populate_clipboard.sh"
 [tasks.bench]
 description = "Run the local performance benchmark; pass bench flags after --"
 run = "./bench.sh"
+
+[tasks.logs]
+description = "List Pastry runtime logs and latest local workflow logs"
+run = "scripts/diagnostics.sh summary"
+
+[tasks."logs:app"]
+description = "Show recent app runtime events; pass app name and line count after --"
+run = "scripts/diagnostics.sh app"
+
+[tasks."logs:deploy"]
+description = "Show the latest deploy timing summary; pass --full after -- for complete output"
+run = "scripts/diagnostics.sh command deploy"
+
+[tasks."logs:release"]
+description = "Show the latest release timing summary; pass --full after -- for complete output"
+run = "scripts/diagnostics.sh command release"
+
+[tasks."logs:publish"]
+description = "Show the latest publish timing summary; pass --full after -- for complete output"
+run = "scripts/diagnostics.sh command publish"
 
 [tasks."snapshot:test"]
 description = "Run clipboard card snapshot tests"

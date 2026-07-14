@@ -8,7 +8,7 @@ import OSLog
 final class GlobalHotkeyManager {
 
     nonisolated(unsafe) static let shared = GlobalHotkeyManager()
-    private let log = Logger(subsystem: "com.nekutai.pastry", category: "hotkey")
+    private let log = PastryLogger(category: "hotkey")
 
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
@@ -91,7 +91,7 @@ final class GlobalHotkeyManager {
 
         // 禁用状态 — 不注册任何热键
         guard code >= 0 else {
-            log.info("全局快捷键未配置，跳过注册")
+            log.info("全局快捷键未配置，跳过注册", event: "hotkey.registration.skipped")
             return
         }
 
@@ -109,7 +109,15 @@ final class GlobalHotkeyManager {
         )
 
         guard status == noErr else {
-            log.error("全局快捷键注册失败: \(status) (keyCode=\(code), modifiers=\(mods))")
+            log.error(
+                "全局快捷键注册失败",
+                event: "hotkey.registration.failed",
+                metadata: [
+                    "status": String(status),
+                    "key_code": String(code),
+                    "modifiers": String(mods)
+                ]
+            )
             return
         }
 
@@ -129,7 +137,11 @@ final class GlobalHotkeyManager {
         )
 
         let display = shortcutDisplayString(keyCode: Int(code), modifiers: Int(mods))
-        log.info("全局快捷键 \(display) 已注册")
+        log.info(
+            "全局快捷键已注册",
+            event: "hotkey.registration.succeeded",
+            metadata: ["shortcut": display]
+        )
     }
 
     func unregister() {
@@ -141,7 +153,7 @@ final class GlobalHotkeyManager {
             RemoveEventHandler(handler)
             eventHandler = nil
         }
-        log.info("全局快捷键已注销")
+        log.info("全局快捷键已注销", event: "hotkey.unregistered")
     }
 
     /// 先注销再注册 — 快捷键配置变更时调用

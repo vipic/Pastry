@@ -6,6 +6,7 @@ final class ImageCacheManager {
     nonisolated(unsafe) static let shared = ImageCacheManager()
 
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "image-cache")
+    private let diagnosticsLog = PastryLogger(category: "image-cache")
     private let evictionQueue = DispatchQueue(label: "com.nekutai.pastry.image-cache.eviction", qos: .utility)
 
     /// 缓存磁盘用量上限（超过触发淘汰）
@@ -41,6 +42,11 @@ final class ImageCacheManager {
             try data.write(to: origURL)
         } catch {
             log.error("原始图片写入失败: \(error.localizedDescription)")
+            diagnosticsLog.error(
+                "原始图片缓存写入失败",
+                event: "image_cache.original_write.failed",
+                metadata: ["error": error.localizedDescription]
+            )
             return nil
         }
 
@@ -51,12 +57,21 @@ final class ImageCacheManager {
               let pngData = bitmap.representation(using: .png, properties: [:])
         else {
             try? FileManager.default.removeItem(at: origURL)
+            diagnosticsLog.error(
+                "无法生成图片缩略图",
+                event: "image_cache.thumbnail_encode.failed"
+            )
             return nil
         }
         do {
             try pngData.write(to: thumbURL)
         } catch {
             try? FileManager.default.removeItem(at: origURL)
+            diagnosticsLog.error(
+                "图片缩略图写入失败",
+                event: "image_cache.thumbnail_write.failed",
+                metadata: ["error": error.localizedDescription]
+            )
             return nil
         }
 
@@ -171,6 +186,11 @@ final class ImageCacheManager {
         }
         if removed > 0 {
             log.info("清理了 \(removed) 个孤儿图片缓存")
+            diagnosticsLog.info(
+                "孤儿图片缓存清理完成",
+                event: "image_cache.orphans.cleaned",
+                metadata: ["removed_count": String(removed)]
+            )
         }
     }
 

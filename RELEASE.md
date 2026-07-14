@@ -75,6 +75,27 @@ dist/Pastry-1.2.3.dmg
 
 脚本会推送 tag `v1.2.3` 并创建 GitHub Release。
 
+## 发布耗时与本地日志
+
+`release.sh` 会为每次执行创建独立日志，记录 workflow、stage、command 的开始时间、耗时和退出码，并保留构建工具的完整输出：
+
+```text
+.local/logs/release/<run-id>.log
+.local/logs/publish/<run-id>.log
+```
+
+`latest.log` 指向最近一次执行。快速查看耗时摘要或完整输出：
+
+```bash
+scripts/diagnostics.sh command release
+scripts/diagnostics.sh command publish
+scripts/diagnostics.sh command publish --full
+```
+
+一次本机基线中，本地 release 总计约 36 秒：测试约 5 秒、release 编译约 20 秒、DMG 约 11 秒，签名与组装不足 1 秒。历史 GitHub asset 时间戳曾显示约 132 秒的创建到更新间隔，这只能说明远端上传或处理可能是 publish 变慢的主要部分；新的命令日志会直接记录 `git push`、`gh release create/upload` 的真实耗时，后续无需再靠时间戳推断。
+
+日志只保存在本机 `.local/logs/`，该目录已被 Git 忽略，不会自动上传。应用运行日志的隐私边界和联合排查方式见 [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md)。
+
 ## GitHub Actions 构建 Artifact
 
 仓库里有两个 workflow：

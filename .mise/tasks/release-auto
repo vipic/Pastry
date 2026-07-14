@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="$(scripts/next_version.sh)"
-echo "Next release version: $VERSION"
-exec ./release.sh "$VERSION" "$@"
+echo "Calculating the next release version from Conventional Commits"
+exec ./release.sh --auto-version "$@"

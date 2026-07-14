@@ -7,7 +7,7 @@ final class MainThreadWatchdog {
 
     static let shared = MainThreadWatchdog()
 
-    private let log = Logger(subsystem: "com.nekutai.pastry", category: "watchdog")
+    private let log = PastryLogger(category: "watchdog")
     private let pingInterval: TimeInterval = 2.0    // 每 2s 发一次 ping
     private let hangThreshold: TimeInterval = 5.0    // 5s 无响应视为卡死
     private let dumpDir: URL
@@ -35,7 +35,14 @@ final class MainThreadWatchdog {
         }
         timer?.resume()
 
-        log.info("看门狗已启动 (interval: \(self.pingInterval)s, threshold: \(self.hangThreshold)s)")
+        log.info(
+            "主线程看门狗已启动",
+            event: "watchdog.started",
+            metadata: [
+                "ping_interval_ms": String(Int(pingInterval * 1_000)),
+                "hang_threshold_ms": String(Int(hangThreshold * 1_000))
+            ]
+        )
     }
 
     func stop() {
@@ -72,7 +79,7 @@ final class MainThreadWatchdog {
     /// 强制恢复事件系统（可在任意线程调用，不依赖主线程）。
     /// 关闭 overlay 面板，解除全屏遮罩。
     private func recoverEventSystem() {
-        log.warning("⚠️ 看门狗自救：关闭面板")
+        log.warning("看门狗检测到主线程无响应，关闭面板自救", event: "watchdog.recovery.started")
         DispatchQueue.main.async {
             OverlayPanelManager.shared.hide()
         }
@@ -98,12 +105,24 @@ final class MainThreadWatchdog {
             task.waitUntilExit()
 
             if FileManager.default.fileExists(atPath: fileURL.path) {
-                log.error("⚠️ 看门狗：\(reason)，sample 已写入 \(fileURL.path, privacy: .public)")
+                log.critical(
+                    "主线程无响应，sample 已写入",
+                    event: "watchdog.sample.succeeded",
+                    metadata: ["reason": reason, "report_path": fileURL.path]
+                )
             } else {
-                log.error("⚠️ 看门狗：\(reason)，sample 命令执行失败")
+                log.critical(
+                    "主线程无响应，sample 命令执行失败",
+                    event: "watchdog.sample.failed",
+                    metadata: ["reason": reason]
+                )
             }
         } catch {
-            log.error("看门狗 sample 启动失败: \(error.localizedDescription)")
+            log.error(
+                "看门狗 sample 启动失败",
+                event: "watchdog.sample.launch_failed",
+                metadata: ["error": error.localizedDescription]
+            )
         }
     }
 }

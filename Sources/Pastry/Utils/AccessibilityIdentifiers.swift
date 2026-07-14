@@ -28,6 +28,7 @@ enum AccessibilityIdentifiers {
         static let deleteRequiresConfirmationToggle = "settings.delete-requires-confirmation-toggle"
         static let linkPreviewNetworkToggle = "settings.link-preview-network-toggle"
         static let performanceLoggingToggle = "settings.performance-logging-toggle"
+        static let diagnosticsFolderButton = "settings.diagnostics-folder-button"
         static let clearAllButton = "settings.clear-all-button"
         static let accessibilityRow = "settings.accessibility-row"
         static let accessibilityGrantButton = "settings.accessibility-grant-button"

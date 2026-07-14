@@ -12,6 +12,7 @@ final class DatabaseManager {
 
     nonisolated(unsafe) static let shared = DatabaseManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "database")
+    private let diagnosticsLog = PastryLogger(category: "database")
     private let lock = NSRecursiveLock()
 
     private var db: OpaquePointer?
@@ -27,6 +28,7 @@ final class DatabaseManager {
     }
 
     private init() {
+        let startedAt = CFAbsoluteTimeGetCurrent()
         let dir = AppDirectories.applicationSupportDirectory()
         AppDirectories.ensureDirectory(dir, logCategory: "database")
 
@@ -36,6 +38,12 @@ final class DatabaseManager {
         runMigrations()
         // 启动时立即执行一次保留策略清理，避免闲置期间旧数据越过保留期而不清理
         enforceHistoryRetention()
+        diagnosticsLog.info(
+            "数据库初始化完成",
+            event: "database.initialization.completed",
+            metadata: ["encrypted": "true"],
+            durationMilliseconds: Int((CFAbsoluteTimeGetCurrent() - startedAt) * 1_000)
+        )
     }
 
     /// 测试专用：使用临时数据库，不污染生产数据（跳过加密，无需 Keychain）
@@ -93,12 +101,21 @@ final class DatabaseManager {
 
     private func openDatabase(useEncryption: Bool = true) {
         if sqlite3_open(dbPath, &db) != SQLITE_OK {
+            diagnosticsLog.error(
+                "无法打开数据库",
+                event: "database.open.failed",
+                metadata: ["error": lastError]
+            )
             log.error("无法打开数据库: \(self.dbPath)")
             db = nil
         } else {
             if useEncryption {
                 applyEncryptionKey()
                 guard db != nil else {
+                    diagnosticsLog.critical(
+                        "数据库加密初始化失败",
+                        event: "database.encryption.failed"
+                    )
                     log.error("数据库加密初始化失败，跳过后续初始化以保留原文件")
                     return
                 }
@@ -107,6 +124,11 @@ final class DatabaseManager {
             execute("PRAGMA journal_mode=WAL")
             execute("PRAGMA synchronous=NORMAL")
             execute("PRAGMA cache_size=-8000")  // 8MB 缓存
+            diagnosticsLog.info(
+                "数据库已打开",
+                event: "database.open.succeeded",
+                metadata: ["encrypted": String(useEncryption)]
+            )
             log.info("数据库已打开: \(self.dbPath)")
         }
     }
@@ -171,12 +193,22 @@ final class DatabaseManager {
     private func runMigrationInTransaction(_ label: String, _ block: () -> Bool) -> Bool {
         guard execute("BEGIN IMMEDIATE;") else {
             log.error("迁移 [\(label, privacy: .public)] 开启事务失败: \(self.lastError)")
+            diagnosticsLog.error(
+                "数据库迁移事务启动失败",
+                event: "database.migration_transaction.begin_failed",
+                metadata: ["migration": label, "error": lastError]
+            )
             return false
         }
         let ok = block()
         if ok {
             guard execute("COMMIT;") else {
                 log.error("迁移 [\(label, privacy: .public)] 提交失败: \(self.lastError)")
+                diagnosticsLog.error(
+                    "数据库迁移事务提交失败",
+                    event: "database.migration_transaction.commit_failed",
+                    metadata: ["migration": label, "error": lastError]
+                )
                 _ = execute("ROLLBACK;")
                 return false
             }
@@ -184,6 +216,11 @@ final class DatabaseManager {
         } else {
             _ = execute("ROLLBACK;")
             log.error("迁移 [\(label, privacy: .public)] 失败已回滚")
+            diagnosticsLog.error(
+                "数据库迁移失败并已回滚",
+                event: "database.migration_transaction.rolled_back",
+                metadata: ["migration": label]
+            )
             return false
         }
     }
@@ -406,6 +443,11 @@ final class DatabaseManager {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             log.error("INSERT prepare 失败: \(self.lastError)")
+            diagnosticsLog.error(
+                "剪贴板记录写入准备失败",
+                event: "database.clip_insert.prepare_failed",
+                metadata: ["error": lastError]
+            )
             return .skipped
         }
 
@@ -999,6 +1041,11 @@ final class DatabaseManager {
         if rc != SQLITE_OK {
             let err = errMsg.map { String(cString: $0) } ?? "unknown"
             log.error("SQLite 错误: \(err)\nSQL: \(sql)")
+            diagnosticsLog.error(
+                "SQLite 执行失败",
+                event: "database.execute.failed",
+                metadata: ["result_code": String(rc), "error": err]
+            )
             sqlite3_free(errMsg)
             return false
         }

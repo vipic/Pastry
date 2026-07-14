@@ -264,6 +264,7 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     static let shared = OverlayPanelManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "overlay")
+    private let diagnosticsLog = PastryLogger(category: "overlay")
 
     /// 粘贴提示音（预加载避免每次读磁盘阻塞主线程）
     private static let pasteSound: NSSound? = {
@@ -372,6 +373,12 @@ final class OverlayPanelManager: @unchecked Sendable {
             let ms = Int(((CFAbsoluteTimeGetCurrent() - t0) * 1000).rounded())
             Self.writePerfLog("\(Date()) | type: warmup | total: \(ms)ms | items: \(StoreManager.shared.items.count)")
         }
+        diagnosticsLog.info(
+            "覆盖层管线预热完成",
+            event: "overlay.warmup.completed",
+            metadata: ["item_count": String(StoreManager.shared.items.count)],
+            durationMilliseconds: Int(((CFAbsoluteTimeGetCurrent() - t0) * 1_000).rounded())
+        )
         log.info("覆盖层管线预热完成")
     }
 
@@ -380,6 +387,7 @@ final class OverlayPanelManager: @unchecked Sendable {
         cleanup()
         NotificationCenter.default.post(name: .overlayDidHide, object: nil)
         DeveloperDiagnostics.record(DiagnosticsEvent.overlayDismiss)
+        diagnosticsLog.info("覆盖层已关闭", event: "overlay.hidden")
         log.info("覆盖层已关闭")
     }
 
@@ -464,6 +472,11 @@ final class OverlayPanelManager: @unchecked Sendable {
         let t2 = CFAbsoluteTimeGetCurrent()
         guard result == .written else {
             // 文件全部缺失或图片读取失败时，静默取消粘贴。
+            diagnosticsLog.warning(
+                "写入剪贴板失败，取消粘贴",
+                event: "paste.single.clipboard_write_failed",
+                metadata: ["source_format": fmt.rawValue]
+            )
             ClipboardMonitor.shared.resume()
             isPasting = false
             return
@@ -483,6 +496,15 @@ final class OverlayPanelManager: @unchecked Sendable {
         StoreManager.shared.refresh()
         isPasting = false
         DeveloperDiagnostics.record(DiagnosticsEvent.pasteSingle)
+        diagnosticsLog.info(
+            "单条粘贴完成",
+            event: "paste.single.completed",
+            metadata: [
+                "source_format": fmt.rawValue,
+                "event_posted": String(didPostPaste)
+            ],
+            durationMilliseconds: Int(((t3 - t0) * 1_000).rounded())
+        )
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
@@ -543,6 +565,16 @@ final class OverlayPanelManager: @unchecked Sendable {
         StoreManager.shared.refresh()
         isPasting = false
         DeveloperDiagnostics.record(DiagnosticsEvent.pasteMulti)
+        diagnosticsLog.info(
+            "多选粘贴完成",
+            event: "paste.multi.completed",
+            metadata: [
+                "item_count": String(items.count),
+                "text_item_count": String(lines.count),
+                "event_posted": String(didPostPaste)
+            ],
+            durationMilliseconds: Int(((t3 - t0) * 1_000).rounded())
+        )
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
@@ -619,6 +651,7 @@ final class OverlayPanelManager: @unchecked Sendable {
 
         let mouseLocation = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) ?? NSScreen.main ?? NSScreen.screens.first else {
+            diagnosticsLog.error("无法获取显示器", event: "overlay.show.no_screen")
             log.error("无法获取屏幕")
             return
         }
@@ -703,6 +736,11 @@ final class OverlayPanelManager: @unchecked Sendable {
                 if QLPreviewHelper.shared.isShowing {
                     QLPreviewHelper.shared.dismiss()
                 }
+                self.diagnosticsLog.info(
+                    "覆盖层因失去焦点关闭",
+                    event: "overlay.resign_key.hidden",
+                    metadata: ["application_active": String(NSApp.isActive)]
+                )
                 self.hide()
             }
         }
@@ -710,6 +748,15 @@ final class OverlayPanelManager: @unchecked Sendable {
         self.panel = newPanel
         DeveloperDiagnostics.record(DiagnosticsEvent.overlayOpen)
         installKeyboardMonitor()
+        diagnosticsLog.info(
+            "覆盖层已显示",
+            event: "overlay.show.completed",
+            metadata: [
+                "item_count": String(StoreManager.shared.items.count),
+                "layout": isHorizontalCardLayout ? "horizontal" : "vertical"
+            ],
+            durationMilliseconds: Int(((t4 - t0) * 1_000).rounded())
+        )
 
         log.info("覆盖层已显示")
     }

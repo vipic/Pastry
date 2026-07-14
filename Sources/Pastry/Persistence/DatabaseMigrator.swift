@@ -8,6 +8,7 @@ struct DatabaseMigrator {
     private let dbPath: String
     private let key: Data
     private let log: Logger
+    private let diagnosticsLog = PastryLogger(category: "database-migration")
 
     init(dbPath: String, key: Data, log: Logger) {
         self.dbPath = dbPath
@@ -32,12 +33,20 @@ struct DatabaseMigrator {
         guard sqlite3_open_v2(plainPath, &plainDB, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
               let plain = plainDB else {
             log.error("迁移跳过：无法按明文打开数据库，原文件已保留")
+            diagnosticsLog.error(
+                "无法按明文打开旧数据库",
+                event: "database_migration.plaintext_open.failed"
+            )
             return preserveUnreadableDatabaseAndCreateFresh()
         }
 
         guard validateReadable(plain) else {
             sqlite3_close(plain)
             log.error("迁移跳过：数据库不是可读明文库，原文件已保留")
+            diagnosticsLog.error(
+                "旧数据库不可读",
+                event: "database_migration.plaintext_validation.failed"
+            )
             return preserveUnreadableDatabaseAndCreateFresh()
         }
         sqlite3_close(plain)
@@ -48,6 +57,10 @@ struct DatabaseMigrator {
 
         guard validateEncryptedDatabase(at: tempEncPath) else {
             log.error("迁移失败：临时加密数据库不可读，原文件已保留")
+            diagnosticsLog.critical(
+                "迁移后的临时加密数据库不可读",
+                event: "database_migration.encrypted_validation.failed"
+            )
             return preserveUnreadableDatabaseAndCreateFresh()
         }
 
@@ -57,6 +70,11 @@ struct DatabaseMigrator {
             try FileManager.default.moveItem(atPath: tempEncPath, toPath: plainPath)
         } catch {
             log.error("迁移失败：替换数据库文件失败: \(error.localizedDescription)")
+            diagnosticsLog.critical(
+                "迁移数据库替换失败",
+                event: "database_migration.replace.failed",
+                metadata: ["error": error.localizedDescription]
+            )
             if !FileManager.default.fileExists(atPath: plainPath),
                FileManager.default.fileExists(atPath: backupPath) {
                 try? FileManager.default.moveItem(atPath: backupPath, toPath: plainPath)
@@ -69,8 +87,16 @@ struct DatabaseMigrator {
             // 迁移成功后立刻删除明文备份，避免历史内容明文滞留磁盘 / 被 Time Machine 快照
             try? FileManager.default.removeItem(atPath: backupPath)
             log.info("明文数据库迁移完成 → 加密，明文备份已删除")
+            diagnosticsLog.notice(
+                "明文数据库迁移完成",
+                event: "database_migration.completed"
+            )
         } else {
             log.error("迁移后无法打开加密数据库")
+            diagnosticsLog.critical(
+                "迁移后无法打开加密数据库",
+                event: "database_migration.reopen.failed"
+            )
         }
         return migrated
     }
@@ -91,6 +117,10 @@ struct DatabaseMigrator {
         var encDB: OpaquePointer?
         guard sqlite3_open(encPath, &encDB) == SQLITE_OK, let enc = encDB else {
             log.error("迁移失败：无法创建加密数据库")
+            diagnosticsLog.critical(
+                "无法创建迁移用加密数据库",
+                event: "database_migration.encrypted_create.failed"
+            )
             return false
         }
         defer { sqlite3_close(enc) }
@@ -101,6 +131,10 @@ struct DatabaseMigrator {
         let attachSQL = "ATTACH DATABASE '\(escapedSQLLiteral(plainPath))' AS plaintext KEY '';"
         if sqlite3_exec(enc, attachSQL, nil, nil, nil) != SQLITE_OK {
             log.error("迁移失败：ATTACH 明文库失败: \(String(cString: sqlite3_errmsg(enc)))")
+            diagnosticsLog.critical(
+                "迁移时挂载明文数据库失败",
+                event: "database_migration.attach.failed"
+            )
             return false
         }
 
@@ -113,6 +147,10 @@ struct DatabaseMigrator {
         """
         if sqlite3_exec(enc, exportSQL, nil, nil, nil) != SQLITE_OK {
             log.error("迁移失败：sqlcipher_export 失败: \(String(cString: sqlite3_errmsg(enc)))")
+            diagnosticsLog.critical(
+                "SQLCipher 数据导出失败",
+                event: "database_migration.export.failed"
+            )
             _ = sqlite3_exec(enc, "ROLLBACK;", nil, nil, nil)
             _ = sqlite3_exec(enc, "DETACH DATABASE plaintext;", nil, nil, nil)
             return false
@@ -151,11 +189,20 @@ struct DatabaseMigrator {
             }
             guard let fresh = openEncryptedDatabase(at: dbPath) else {
                 log.error("创建新加密数据库失败")
+                diagnosticsLog.critical(
+                    "保留不可读数据库后创建新库失败",
+                    event: "database_migration.fresh_create.failed"
+                )
                 return nil
             }
             return fresh
         } catch {
             log.error("保留不可读数据库失败: \(error.localizedDescription)")
+            diagnosticsLog.critical(
+                "保留不可读数据库失败",
+                event: "database_migration.preserve.failed",
+                metadata: ["error": error.localizedDescription]
+            )
             return nil
         }
     }

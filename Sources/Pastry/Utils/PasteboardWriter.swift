@@ -26,6 +26,7 @@ struct PasteboardWriter {
     }
 
     private static let log = Logger(subsystem: "com.nekutai.pastry", category: "pasteboard-writer")
+    private static let diagnosticsLog = PastryLogger(category: "pasteboard-writer")
 
     static func write(
         _ item: ClipboardItem,
@@ -79,6 +80,10 @@ struct PasteboardWriter {
             guard let image = await Task.detached(priority: .userInitiated, operation: { () -> NSImage? in
                 NSImage(contentsOfFile: imagePath)
             }).value else {
+                diagnosticsLog.warning(
+                    "无法读取待写入的图片",
+                    event: "pasteboard.image_load.failed"
+                )
                 return .noWritableContent
             }
 
@@ -120,6 +125,11 @@ struct PasteboardWriter {
             pasteboard.setData(rtfd, forType: .rtfd)
         } catch {
             log.error("RTFD 写入失败: \(error.localizedDescription)")
+            diagnosticsLog.error(
+                "RTFD 写入失败",
+                event: "pasteboard.rtfd_write.failed",
+                metadata: ["error": error.localizedDescription]
+            )
         }
 
         pasteboard.setData(image.tiffRepresentation, forType: .tiff)

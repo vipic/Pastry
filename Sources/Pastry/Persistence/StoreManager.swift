@@ -19,6 +19,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
 
     static let shared = StoreManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "store")
+    private let diagnosticsLog = PastryLogger(category: "store")
 
     // MARK: Published
 
@@ -219,6 +220,11 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         }
         RunLoop.main.add(retentionTimer, forMode: .common)
         log.info("Store 启动")
+        diagnosticsLog.info(
+            "存储桥接层已启动",
+            event: "store.started",
+            metadata: ["item_count": String(items.count)]
+        )
     }
 
     func pasteItem(_ item: ClipboardItem) async {
@@ -226,6 +232,10 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         guard AccessibilityPermissionChecker.shared.requestTrustedForPaste() else {
             Logger(subsystem: "com.nekutai.pastry", category: "store")
                 .warning("粘贴中止：缺少辅助功能权限")
+            diagnosticsLog.warning(
+                "粘贴中止：缺少辅助功能权限",
+                event: "store.paste.accessibility_denied"
+            )
             await MainActor.run {
                 NotificationCenter.default.post(name: .overlayAccessibilityDenied, object: nil)
             }
@@ -233,7 +243,14 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         }
 
         let result = await PasteboardWriter.write(item, options: .storeSingle)
-        guard result == .written else { return }
+        guard result == .written else {
+            diagnosticsLog.warning(
+                "粘贴中止：没有可写入内容",
+                event: "store.paste.no_writable_content",
+                metadata: ["source_format": item.sourceFormat.rawValue]
+            )
+            return
+        }
 
         DatabaseManager.shared.incrementDisplayCount(id: item.id.uuidString)
 

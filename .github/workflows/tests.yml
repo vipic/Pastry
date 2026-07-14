@@ -24,6 +24,8 @@ jobs:
           bash -n populate_clipboard.sh
           bash -n bench.sh
           bash -n scripts/check_coverage.sh
+          bash -n scripts/diagnostics.sh
+          bash -n scripts/lib/command_log.sh
           bash -n scripts/next_version.sh
           bash -n .mise/tasks/release
           bash -n .mise/tasks/release-auto

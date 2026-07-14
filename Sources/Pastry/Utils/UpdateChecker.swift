@@ -7,7 +7,7 @@ import OSLog
 final class UpdateChecker {
     static let shared = UpdateChecker()
 
-    private let log = Logger(subsystem: "com.nekutai.pastry", category: "update")
+    private let log = PastryLogger(category: "update")
     private let session: URLSession
     private let lastCheckKey = "PastryLastUpdateCheck"
     private let checkInterval: TimeInterval = 86_400 // 24 小时
@@ -66,8 +66,24 @@ final class UpdateChecker {
     /// 检查更新（dev 版本默认跳过；手动检查可通过 allowDevBuild 请求远端）
     /// 距上次检查不足 24 小时且 force=false 时跳过网络请求
     func checkForUpdate(force: Bool = false, allowDevBuild: Bool = false) async -> UpdateResult? {
+        let startedAt = CFAbsoluteTimeGetCurrent()
+        var outcome = "unknown"
+        defer {
+            log.info(
+                "更新检查结束",
+                event: "update.check.completed",
+                metadata: [
+                    "force": String(force),
+                    "allow_dev_build": String(allowDevBuild),
+                    "outcome": outcome
+                ],
+                durationMilliseconds: Int((CFAbsoluteTimeGetCurrent() - startedAt) * 1_000)
+            )
+        }
+
         guard !isDevBuild || allowDevBuild else {
-            log.info("开发版本，跳过更新检查")
+            outcome = "skipped_dev_build"
+            log.info("开发版本，跳过更新检查", event: "update.check.skipped_dev_build")
             return nil
         }
 
@@ -75,29 +91,40 @@ final class UpdateChecker {
         if !force {
             let lastCheck = UserDefaults.standard.object(forKey: lastCheckKey) as? Date ?? .distantPast
             if now.timeIntervalSince(lastCheck) < checkInterval {
-                log.info("距上次检查不足 24 小时，跳过")
+                outcome = "skipped_interval"
+                log.info("距上次检查不足 24 小时，跳过", event: "update.check.skipped_interval")
                 return nil
             }
         }
 
         guard let releases = await fetchRecentReleases(limit: 3),
-              let release = releases.first else { return nil }
+              let release = releases.first else {
+            outcome = "fetch_failed"
+            return nil
+        }
 
         UserDefaults.standard.set(now, forKey: lastCheckKey)
         cacheResult(releases)
 
         let currentVersion = currentVersionString()
         guard Self.isNewer(tag: release.tag_name, than: currentVersion) else {
-            log.info("已是最新版本: \(currentVersion)")
+            outcome = "up_to_date"
+            log.info(
+                "已是最新版本",
+                event: "update.check.up_to_date",
+                metadata: ["current_version": currentVersion]
+            )
             return nil
         }
 
         // 找 DMG asset（文件名以 .dmg 结尾）
         guard let dmg = release.assets.first(where: { $0.name.hasSuffix(".dmg") }) else {
-            log.error("Release 中没有找到 DMG 文件")
+            outcome = "missing_dmg"
+            log.error("Release 中没有找到 DMG 文件", event: "update.check.missing_dmg")
             return nil
         }
 
+        outcome = "update_available"
         return UpdateResult(
             currentVersion: currentVersion,
             latestVersion: Self.displayVersion(release.tag_name),
@@ -332,13 +359,23 @@ final class UpdateChecker {
             let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
-                log.error("GitHub Releases API 返回非 200: \(String(describing: (response as? HTTPURLResponse)?.statusCode))")
+                log.error(
+                    "GitHub Releases API 返回非成功状态",
+                    event: "update.releases.http_failed",
+                    metadata: [
+                        "status_code": String((response as? HTTPURLResponse)?.statusCode ?? -1)
+                    ]
+                )
                 return nil
             }
             let decoder = JSONDecoder()
             return try decoder.decode([ReleaseInfo].self, from: data)
         } catch {
-            log.error("获取 Releases 失败: \(error.localizedDescription)")
+            log.error(
+                "获取 Releases 失败",
+                event: "update.releases.failed",
+                metadata: ["error": error.localizedDescription]
+            )
             return nil
         }
     }
@@ -356,13 +393,23 @@ final class UpdateChecker {
             let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
-                log.error("GitHub API 返回非 200: \(String(describing: (response as? HTTPURLResponse)?.statusCode))")
+                log.error(
+                    "GitHub Release API 返回非成功状态",
+                    event: "update.release.http_failed",
+                    metadata: [
+                        "status_code": String((response as? HTTPURLResponse)?.statusCode ?? -1)
+                    ]
+                )
                 return nil
             }
             let decoder = JSONDecoder()
             return try decoder.decode(ReleaseInfo.self, from: data)
         } catch {
-            log.error("获取 Release 失败: \(error.localizedDescription)")
+            log.error(
+                "获取 Release 失败",
+                event: "update.release.failed",
+                metadata: ["error": error.localizedDescription]
+            )
             return nil
         }
     }

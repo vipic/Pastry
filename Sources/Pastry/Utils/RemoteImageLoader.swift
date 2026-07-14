@@ -1,12 +1,11 @@
 import Cocoa
-import OSLog
 
 // MARK: - 远程图片加载器
 // 异步拉取 HTML 中引用的远程图片，NSCache 内存缓存
 final class RemoteImageLoader {
     nonisolated(unsafe) static let shared = RemoteImageLoader()
 
-    private let log = Logger(subsystem: "com.nekutai.pastry", category: "remote-image")
+    private let diagnosticsLog = PastryLogger(category: "remote-image")
 
     private let cache = NSCache<NSString, NSImage>()
     private let session: URLSession = {
@@ -50,13 +49,27 @@ final class RemoteImageLoader {
         }
 
         session.dataTask(with: url) { [weak self] data, response, error in
-            guard let self,
-                  NetworkAccessPolicy.responseWithinLimit(response, maxBytes: NetworkAccessPolicy.maxImageBytes),
+            guard let self else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            guard NetworkAccessPolicy.responseWithinLimit(response, maxBytes: NetworkAccessPolicy.maxImageBytes),
                   let data = data,
                   data.count <= NetworkAccessPolicy.maxImageBytes,
                   error == nil,
                   let image = NSImage(data: data)
             else {
+                let nsError = error as NSError?
+                self.diagnosticsLog.warning(
+                    "远程缩略图加载失败",
+                    event: "remote_image.load.failed",
+                    metadata: [
+                        "status_code": String((response as? HTTPURLResponse)?.statusCode ?? -1),
+                        "received_bytes": String(data?.count ?? 0),
+                        "error_domain": nsError?.domain ?? "none",
+                        "error_code": String(nsError?.code ?? 0)
+                    ]
+                )
                 DispatchQueue.main.async { completion(nil) }
                 return
             }

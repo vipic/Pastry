@@ -132,6 +132,7 @@ final class L10nTests: XCTestCase {
             "settings.performance_logging_hint",
             "settings.developer_diagnostics",
             "settings.developer_diagnostics_hint",
+            "settings.open_diagnostics_folder",
             "settings.excluded_remove",
             "card.selected",
             "card.link_preview_enable_hint",
