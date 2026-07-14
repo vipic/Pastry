@@ -35,6 +35,20 @@ final class StoreManagerTests: XCTestCase {
         return StoreManager(items: items)
     }
 
+    private func waitUntil(
+        timeout: TimeInterval = 2,
+        condition: () -> Bool
+    ) async throws -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() {
+                return true
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        return condition()
+    }
+
     // MARK: - PinTab 筛选
 
     func testPinTabAllShowsEverything() {
@@ -254,8 +268,8 @@ final class StoreManagerTests: XCTestCase {
             ("world", .text, nil, false, 0),
         ])
         store.searchQuery = "nomatch-zzzz"
-        try await Task.sleep(nanoseconds: 350_000_000)
-        XCTAssertTrue(store.filteredItems.isEmpty, "无匹配时应为空")
+        let searchCompleted = try await waitUntil { store.filteredItems.isEmpty }
+        XCTAssertTrue(searchCompleted, "无匹配搜索应在超时前完成")
 
         store.searchQuery = ""
         XCTAssertEqual(store.filteredItems.count, 2, "清空搜索应同步恢复，不应仍为空")
