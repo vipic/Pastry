@@ -275,11 +275,11 @@ struct OnboardingView: View {
                 Spacer()
 
                 Button(action: copySampleText) {
-                    Image(systemName: actionFeedback.iconName)
-                        .font(.system(size: UIConstants.TypeSize.title, weight: .semibold))
-                        .foregroundStyle(
-                            sampleTextCopied ? PastryPalette.successDeep : PastryPalette.warmAccent
-                        )
+                    animatedSymbol(
+                        actionFeedback.iconName,
+                        size: UIConstants.TypeSize.title,
+                        color: sampleTextCopied ? PastryPalette.successDeep : PastryPalette.warmAccent
+                    )
                         .frame(
                             width: UIConstants.Onboarding.sampleCopyButtonSize,
                             height: UIConstants.Onboarding.sampleCopyButtonSize
@@ -291,8 +291,6 @@ struct OnboardingView: View {
                     cornerRadius: UIConstants.Radius.control,
                     fill: sampleCopyButtonHovered ? PastryPalette.cardFill : PastryPalette.cardFillSoft
                 )
-                .contentTransition(.symbolEffect(.replace))
-                .symbolEffect(.bounce, value: sampleTextCopied)
                 .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyButtonHovered)
                 .onHover { sampleCopyButtonHovered = $0 }
                 .help(L10n[actionFeedback.labelKey])
@@ -378,10 +376,11 @@ struct OnboardingView: View {
 
     private func stepHeading(icon: String, title: String, subtitle: String) -> some View {
         VStack(spacing: UIConstants.Onboarding.headingSpacing) {
-            Image(systemName: icon)
-                .font(.system(size: UIConstants.Onboarding.heroSymbolSize, weight: .semibold))
-                .foregroundStyle(PastryPalette.warmAccent)
-                .contentTransition(.symbolEffect(.replace))
+            animatedSymbol(
+                icon,
+                size: UIConstants.Onboarding.heroSymbolSize,
+                color: PastryPalette.warmAccent
+            )
 
             Text(title)
                 .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold))
@@ -394,6 +393,13 @@ struct OnboardingView: View {
                 .lineSpacing(UIConstants.Onboarding.headingLineSpacing)
                 .frame(maxWidth: UIConstants.Onboarding.headingMaxWidth)
         }
+    }
+
+    private func animatedSymbol(_ name: String, size: CGFloat, color: Color) -> some View {
+        Image(systemName: name)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(color)
+            .contentTransition(.symbolEffect(.replace))
     }
 
     private func welcomeFeature(icon: String, title: String, subtitle: String) -> some View {
