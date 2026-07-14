@@ -28,7 +28,6 @@ enum AccessibilityIdentifiers {
         static let deleteRequiresConfirmationToggle = "settings.delete-requires-confirmation-toggle"
         static let linkPreviewNetworkToggle = "settings.link-preview-network-toggle"
         static let performanceLoggingToggle = "settings.performance-logging-toggle"
-        static let developmentOnboardingToggle = "settings.development-onboarding-toggle"
         static let clearAllButton = "settings.clear-all-button"
         static let accessibilityRow = "settings.accessibility-row"
         static let accessibilityGrantButton = "settings.accessibility-grant-button"
@@ -41,5 +40,7 @@ enum AccessibilityIdentifiers {
         static let backButton = "onboarding.back-button"
         static let primaryButton = "onboarding.primary-button"
         static let permissionButton = "onboarding.permission-button"
+        static let copySampleButton = "onboarding.copy-sample-button"
+        static let skipStepButton = "onboarding.skip-step-button"
     }
 }

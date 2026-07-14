@@ -25,7 +25,7 @@ final class L10nTests: XCTestCase {
         let keys = [
             "onboarding.window_title", "onboarding.later", "onboarding.back",
             "onboarding.skip_step", "onboarding.start", "onboarding.continue",
-            "onboarding.finish_open", "onboarding.copy_sample",
+            "onboarding.finish_open",
             "onboarding.welcome.title", "onboarding.welcome.subtitle",
             "onboarding.welcome.local_title", "onboarding.welcome.local_subtitle",
             "onboarding.welcome.excluded_title", "onboarding.welcome.excluded_subtitle",
@@ -36,10 +36,10 @@ final class L10nTests: XCTestCase {
             "onboarding.shortcut.success_badge",
             "onboarding.copy.title", "onboarding.copy.subtitle",
             "onboarding.copy.detected_title", "onboarding.copy.detected_subtitle",
-            "onboarding.copy.sample_text", "onboarding.copy.anywhere_hint",
+            "onboarding.copy.sample_text", "onboarding.copy.click_hint",
+            "onboarding.copy.anywhere_hint",
             "onboarding.permission.title", "onboarding.permission.subtitle",
-            "onboarding.permission.optional_hint",
-            "settings.development_onboarding", "settings.development_onboarding_hint"
+            "onboarding.permission.optional_hint"
         ]
         for key in keys {
             XCTAssertNotEqual(L10n[key], key, "\(key) 应有翻译")

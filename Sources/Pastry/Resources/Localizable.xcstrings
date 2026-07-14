@@ -4149,23 +4149,6 @@
         }
       }
     },
-    "onboarding.copy_sample": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "复制示例文字"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copy Sample"
-          }
-        }
-      }
-    },
     "onboarding.welcome.title": {
       "extractionState": "manual",
       "localizations": {
@@ -4489,6 +4472,23 @@
         }
       }
     },
+    "onboarding.copy.click_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击这张卡片即可复制"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click this card to copy"
+          }
+        }
+      }
+    },
     "onboarding.copy.anywhere_hint": {
       "extractionState": "manual",
       "localizations": {
@@ -4570,40 +4570,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shortcut detected"
-          }
-        }
-      }
-    },
-    "settings.development_onboarding": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "启动时显示新手引导"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show onboarding at launch"
-          }
-        }
-      }
-    },
-    "settings.development_onboarding_hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开启后，Dev 版每次启动都会展示新手引导；正式版不受影响。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When enabled, the Dev build shows onboarding at every launch. Release builds are unaffected."
           }
         }
       }

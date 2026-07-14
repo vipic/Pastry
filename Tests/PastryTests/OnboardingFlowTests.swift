@@ -41,21 +41,12 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(OnboardingPreferences.needsPresentation(defaults: defaults))
     }
 
-    #if DEBUG
-    func testDevelopmentOverridePresentsEvenAfterCompletion() {
+    func testLegacyDevelopmentOverrideDoesNotForcePresentation() {
         OnboardingPreferences.markCompleted(defaults: defaults)
-        defaults.set(true, forKey: UserDefaultsKeys.developmentShowOnboarding)
-
-        XCTAssertTrue(OnboardingPreferences.needsPresentation(defaults: defaults))
-    }
-
-    func testDisabledDevelopmentOverrideRespectsCompletion() {
-        OnboardingPreferences.markCompleted(defaults: defaults)
-        defaults.set(false, forKey: UserDefaultsKeys.developmentShowOnboarding)
+        defaults.set(true, forKey: "development_show_onboarding")
 
         XCTAssertFalse(OnboardingPreferences.needsPresentation(defaults: defaults))
     }
-    #endif
 
     func testStepsHaveStableForwardAndBackwardOrder() {
         XCTAssertEqual(OnboardingStep.welcome.next, .shortcut)
@@ -67,6 +58,12 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(OnboardingStep.shortcut.previous, .welcome)
         XCTAssertEqual(OnboardingStep.copy.previous, .shortcut)
         XCTAssertEqual(OnboardingStep.permission.previous, .copy)
+    }
+
+    func testCopyStepRequiresCopyBeforeContinue() {
+        XCTAssertFalse(OnboardingStep.copy.canContinue(copyComplete: false))
+        XCTAssertTrue(OnboardingStep.copy.canContinue(copyComplete: true))
+        XCTAssertTrue(OnboardingStep.shortcut.canContinue(copyComplete: false))
     }
 
     func testCopyDetectionOnlyCompletesForItemAfterBaseline() {

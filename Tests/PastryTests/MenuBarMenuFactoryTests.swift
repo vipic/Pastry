@@ -32,9 +32,22 @@ final class MenuBarMenuFactoryTests: XCTestCase {
     }
 
     func testStatusItemClickRouting() {
-        XCTAssertTrue(MenuBarManager.shouldOpenMenu(for: .rightMouseUp))
-        XCTAssertFalse(MenuBarManager.shouldOpenMenu(for: .leftMouseUp))
-        XCTAssertFalse(MenuBarManager.shouldOpenMenu(for: nil))
+        XCTAssertEqual(
+            MenuBarManager.clickAction(for: .rightMouseUp, shortcutStepVisible: true),
+            .showMenu
+        )
+        XCTAssertEqual(
+            MenuBarManager.clickAction(for: .leftMouseUp, shortcutStepVisible: true),
+            .acknowledgeOnboarding
+        )
+        XCTAssertEqual(
+            MenuBarManager.clickAction(for: .leftMouseUp, shortcutStepVisible: false),
+            .toggleOverlay
+        )
+        XCTAssertEqual(
+            MenuBarManager.clickAction(for: nil, shortcutStepVisible: false),
+            .toggleOverlay
+        )
     }
 
     func testMenuHasTwoSeparatorsAndFiveActions() {

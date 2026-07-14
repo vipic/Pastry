@@ -2,6 +2,12 @@ import Cocoa
 import SwiftUI
 import OSLog
 
+enum MenuBarClickAction: Equatable {
+    case showMenu
+    case acknowledgeOnboarding
+    case toggleOverlay
+}
+
 // MARK: - 菜单栏管理器（左键打开面板，右键弹出菜单）
 final class MenuBarManager: NSObject {
 
@@ -42,15 +48,24 @@ final class MenuBarManager: NSObject {
 
     @MainActor
     @objc private func statusItemClicked() {
-        if Self.shouldOpenMenu(for: NSApp.currentEvent?.type) {
+        let shortcutStepVisible = AppDelegate.shared?.isOnboardingShortcutStepVisible == true
+        switch Self.clickAction(for: NSApp.currentEvent?.type, shortcutStepVisible: shortcutStepVisible) {
+        case .showMenu:
             showMenu()
-        } else {
+        case .acknowledgeOnboarding:
+            _ = AppDelegate.shared?.acknowledgeOnboardingActivation()
+        case .toggleOverlay:
             OverlayPanelManager.shared.toggle()
         }
     }
 
-    static func shouldOpenMenu(for eventType: NSEvent.EventType?) -> Bool {
-        eventType == .rightMouseUp
+    static func clickAction(
+        for eventType: NSEvent.EventType?,
+        shortcutStepVisible: Bool
+    ) -> MenuBarClickAction {
+        if eventType == .rightMouseUp { return .showMenu }
+        if shortcutStepVisible { return .acknowledgeOnboarding }
+        return .toggleOverlay
     }
 
 

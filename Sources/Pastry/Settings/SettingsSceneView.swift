@@ -28,10 +28,6 @@ struct SettingsSceneView: View {
     var linkPreviewNetworkEnabled = false
     @AppStorage(UserDefaultsKeys.performanceLoggingEnabled)
     var performanceLoggingEnabled = false
-    #if DEBUG
-    @AppStorage(UserDefaultsKeys.developmentShowOnboarding)
-    var developmentShowOnboarding = false
-    #endif
     @AppStorage(UserDefaultsKeys.historyMaxItems)
     var historyMaxItems = HistoryRetentionPolicy.defaultMaxItems
     @AppStorage(UserDefaultsKeys.historyMaxAgeDays)

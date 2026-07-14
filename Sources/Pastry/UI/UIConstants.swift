@@ -72,13 +72,16 @@ enum UIConstants {
         static let progressLabelWidth: CGFloat = 34
         static let featureRowMaxWidth: CGFloat = 540
         static let featurePadding: CGFloat = 14
-        static let featureMinHeight: CGFloat = 118
+        static let featureHeight: CGFloat = 144
+        static let featureTitleHeight: CGFloat = 36
         static let shortcutHorizontalPadding: CGFloat = 22
         static let shortcutHeight: CGFloat = 58
         static let shortcutFeedbackHeight: CGFloat = 24
         static let cardPadding: CGFloat = 18
         static let sampleCardWidth: CGFloat = 430
         static let sampleCardMinHeight: CGFloat = 74
+        static let copyStepActionHeight: CGFloat = 24
+        static let sampleCardHoverScale: CGFloat = 1.01
         static let permissionCardWidth: CGFloat = 480
         static let permissionCardMinHeight: CGFloat = 78
         static let permissionRowSpacing: CGFloat = 14

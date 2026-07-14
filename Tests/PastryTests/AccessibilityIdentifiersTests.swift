@@ -16,10 +16,6 @@ final class AccessibilityIdentifiersTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.Settings.root, "settings.root")
         XCTAssertEqual(AccessibilityIdentifiers.Settings.clearAllButton, "settings.clear-all-button")
         XCTAssertEqual(AccessibilityIdentifiers.Settings.excludedAddButton, "settings.excluded-add-button")
-        XCTAssertEqual(
-            AccessibilityIdentifiers.Settings.developmentOnboardingToggle,
-            "settings.development-onboarding-toggle"
-        )
     }
 
     func testCardIdentifierEmbedsId() {
@@ -31,6 +27,8 @@ final class AccessibilityIdentifiersTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.Onboarding.root, "onboarding.root")
         XCTAssertEqual(AccessibilityIdentifiers.Onboarding.primaryButton, "onboarding.primary-button")
         XCTAssertEqual(AccessibilityIdentifiers.Onboarding.permissionButton, "onboarding.permission-button")
+        XCTAssertEqual(AccessibilityIdentifiers.Onboarding.copySampleButton, "onboarding.copy-sample-button")
+        XCTAssertEqual(AccessibilityIdentifiers.Onboarding.skipStepButton, "onboarding.skip-step-button")
     }
 
     func testAllStaticIdentifiersAreUnique() {
@@ -52,7 +50,6 @@ final class AccessibilityIdentifiersTests: XCTestCase {
             AccessibilityIdentifiers.Settings.soundToggle,
             AccessibilityIdentifiers.Settings.linkPreviewNetworkToggle,
             AccessibilityIdentifiers.Settings.performanceLoggingToggle,
-            AccessibilityIdentifiers.Settings.developmentOnboardingToggle,
             AccessibilityIdentifiers.Settings.clearAllButton,
             AccessibilityIdentifiers.Settings.accessibilityRow,
             AccessibilityIdentifiers.Settings.accessibilityGrantButton,
@@ -62,6 +59,8 @@ final class AccessibilityIdentifiersTests: XCTestCase {
             AccessibilityIdentifiers.Onboarding.backButton,
             AccessibilityIdentifiers.Onboarding.primaryButton,
             AccessibilityIdentifiers.Onboarding.permissionButton,
+            AccessibilityIdentifiers.Onboarding.copySampleButton,
+            AccessibilityIdentifiers.Onboarding.skipStepButton,
         ]
         XCTAssertEqual(Set(ids).count, ids.count, "a11y id 不得重复")
         for id in ids {

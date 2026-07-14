@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var helpWindow: NSWindow?
     private var updateWindow: NSWindow?
     private var onboardingWindow: NSWindow?
+    private var onboardingStep: OnboardingStep?
     private var onboardingKeyMonitor: Any?
     private let updateErrorPath = "/tmp/pastry_update_error.txt"
 
@@ -156,18 +157,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: OnboardingView { [weak self, weak window] openOverlay in
-            window?.close()
-            self?.onboardingWindow = nil
-            guard openOverlay else { return }
-            DispatchQueue.main.async {
-                OverlayPanelManager.shared.show()
-            }
-        })
+        onboardingStep = .welcome
+        window.contentView = NSHostingView(
+            rootView: OnboardingView(
+                onStepChange: { [weak self] step in
+                    self?.onboardingStep = step
+                },
+                onFinish: { [weak self, weak window] openOverlay in
+                    window?.close()
+                    self?.onboardingWindow = nil
+                    self?.onboardingStep = nil
+                    guard openOverlay else { return }
+                    DispatchQueue.main.async {
+                        OverlayPanelManager.shared.show()
+                    }
+                }
+            )
+        )
 
         let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy) { [weak self] in
             OnboardingPreferences.markCompleted()
             self?.onboardingWindow = nil
+            self?.onboardingStep = nil
             self?.stopOnboardingShortcutMonitor()
         }
         window.delegate = delegate
@@ -180,8 +191,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    func consumeOnboardingHotkey() -> Bool {
-        guard let window = onboardingWindow, window.isVisible else { return false }
+    var isOnboardingShortcutStepVisible: Bool {
+        onboardingWindow?.isVisible == true && onboardingStep == .shortcut
+    }
+
+    @MainActor
+    func acknowledgeOnboardingActivation() -> Bool {
+        guard let window = onboardingWindow, isOnboardingShortcutStepVisible else { return false }
         NotificationCenter.default.post(name: .onboardingShortcutDetected, object: nil)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -197,8 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   GlobalHotkeyManager.shared.matchesCurrentShortcut(event)
             else { return event }
 
-            _ = self.consumeOnboardingHotkey()
-            return nil
+            return self.acknowledgeOnboardingActivation() ? nil : event
         }
     }
 

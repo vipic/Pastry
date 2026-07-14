@@ -13,17 +13,16 @@ enum OnboardingStep: Int, CaseIterable, Equatable {
     var previous: OnboardingStep? {
         OnboardingStep(rawValue: rawValue - 1)
     }
+
+    func canContinue(copyComplete: Bool) -> Bool {
+        self != .copy || copyComplete
+    }
 }
 
 enum OnboardingPreferences {
     static let currentVersion = 1
 
     static func needsPresentation(defaults: UserDefaults = .standard) -> Bool {
-        #if DEBUG
-        if defaults.bool(forKey: UserDefaultsKeys.developmentShowOnboarding) {
-            return true
-        }
-        #endif
         return defaults.integer(forKey: UserDefaultsKeys.onboardingCompletedVersion) < currentVersion
     }
 
