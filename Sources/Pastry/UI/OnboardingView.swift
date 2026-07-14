@@ -187,13 +187,11 @@ struct OnboardingView: View {
     }
 
     private var welcomeStep: some View {
-        VStack(spacing: UIConstants.Onboarding.contentSpacing) {
-            stepHeading(
-                icon: "doc.on.clipboard.fill",
-                title: L10n["onboarding.welcome.title"],
-                subtitle: L10n["onboarding.welcome.subtitle"]
-            )
-
+        stepLayout(
+            icon: "doc.on.clipboard.fill",
+            title: L10n["onboarding.welcome.title"],
+            subtitle: L10n["onboarding.welcome.subtitle"]
+        ) {
             HStack(spacing: UIConstants.Onboarding.featureSpacing) {
                 welcomeFeature(
                     icon: "lock.shield.fill",
@@ -213,49 +211,47 @@ struct OnboardingView: View {
             }
             .frame(maxWidth: UIConstants.Onboarding.featureRowMaxWidth)
         }
-        .padding(.horizontal, UIConstants.Onboarding.contentHorizontalPadding)
     }
 
     private var shortcutStep: some View {
         let feedback = OnboardingActivationFeedback(source: activationSource)
-        return VStack(spacing: UIConstants.Onboarding.shortcutContentSpacing) {
-            stepHeading(
-                icon: activationSource == nil ? "command" : "checkmark.circle.fill",
-                title: L10n[feedback.titleKey],
-                subtitle: L10n[feedback.subtitleKey]
-            )
+        return stepLayout(
+            icon: activationSource == nil ? "command" : "checkmark.circle.fill",
+            title: L10n[feedback.titleKey],
+            subtitle: L10n[feedback.subtitleKey]
+        ) {
+            VStack(spacing: UIConstants.Onboarding.shortcutContentSpacing) {
+                Text(GlobalHotkeyManager.shared.currentShortcutDisplay)
+                    .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold, design: .rounded))
+                    .foregroundStyle(feedback.highlightsShortcut ? PastryPalette.successDeep : PastryPalette.ink)
+                    .padding(.horizontal, UIConstants.Onboarding.shortcutHorizontalPadding)
+                    .frame(height: UIConstants.Onboarding.shortcutHeight)
+                    .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
 
-            Text(GlobalHotkeyManager.shared.currentShortcutDisplay)
-                .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold, design: .rounded))
-                .foregroundStyle(feedback.highlightsShortcut ? PastryPalette.successDeep : PastryPalette.ink)
-                .padding(.horizontal, UIConstants.Onboarding.shortcutHorizontalPadding)
-                .frame(height: UIConstants.Onboarding.shortcutHeight)
-                .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
-
-            Group {
-                if activationSource == nil {
-                    Label(
-                        L10n["onboarding.shortcut.menubar_hint"],
-                        systemImage: "menubar.rectangle"
-                    )
-                        .font(.system(size: UIConstants.TypeSize.callout))
-                        .foregroundStyle(PastryPalette.muted)
-                } else {
-                    Color.clear
+                Group {
+                    if activationSource == nil {
+                        Label(
+                            L10n["onboarding.shortcut.menubar_hint"],
+                            systemImage: "menubar.rectangle"
+                        )
+                            .font(.system(size: UIConstants.TypeSize.callout))
+                            .foregroundStyle(PastryPalette.muted)
+                    } else {
+                        Color.clear
+                    }
                 }
+                .frame(height: UIConstants.Onboarding.shortcutFeedbackHeight)
+                .contentTransition(.opacity)
             }
-            .frame(height: UIConstants.Onboarding.shortcutFeedbackHeight)
-            .contentTransition(.opacity)
         }
-        .padding(.horizontal, UIConstants.Onboarding.contentHorizontalPadding)
     }
 
     private var copyStep: some View {
         let sampleWasUsed = sampleTextCopied || copyDetection.outcome == .sampleText
         let usedOtherContent = copyDetection.outcome == .otherContent
         let actionFeedback = OnboardingCopyActionFeedback(isComplete: sampleWasUsed)
-        return VStack(spacing: UIConstants.Onboarding.contentSpacing) {
-            stepHeading(
+        return ZStack(alignment: .bottomTrailing) {
+            stepLayout(
                 icon: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc",
                 title: copyDetection.isComplete
                     ? L10n["onboarding.copy.detected_title"]
@@ -263,65 +259,64 @@ struct OnboardingView: View {
                 subtitle: copyDetection.isComplete
                     ? L10n["onboarding.copy.detected_subtitle"]
                     : L10n["onboarding.copy.subtitle"]
-            )
+            ) {
+                VStack(spacing: UIConstants.Onboarding.contentSpacing) {
+                    HStack(spacing: UIConstants.Onboarding.sampleCodeBlockSpacing) {
+                        Text(L10n["onboarding.copy.sample_text"])
+                            .font(.system(size: UIConstants.TypeSize.body, weight: .medium, design: .monospaced))
+                            .foregroundStyle(usedOtherContent ? PastryPalette.muted : PastryPalette.ink)
+                            .lineLimit(2)
+                            .textSelection(.enabled)
 
-            HStack(spacing: UIConstants.Onboarding.sampleCodeBlockSpacing) {
-                Text(L10n["onboarding.copy.sample_text"])
-                    .font(.system(size: UIConstants.TypeSize.body, weight: .medium, design: .monospaced))
-                    .foregroundStyle(usedOtherContent ? PastryPalette.muted : PastryPalette.ink)
-                    .lineLimit(2)
-                    .textSelection(.enabled)
+                        Spacer()
 
-                Spacer()
-
-                Button(action: copySampleText) {
-                    animatedSymbol(
-                        actionFeedback.iconName,
-                        size: UIConstants.TypeSize.title,
-                        color: sampleWasUsed
-                            ? PastryPalette.successDeep
-                            : (usedOtherContent ? PastryPalette.muted : PastryPalette.warmAccent)
-                    )
-                        .frame(
-                            width: UIConstants.Onboarding.sampleCopyButtonSize,
-                            height: UIConstants.Onboarding.sampleCopyButtonSize
+                        Button(action: copySampleText) {
+                            animatedSymbol(
+                                actionFeedback.iconName,
+                                size: UIConstants.TypeSize.title,
+                                color: sampleWasUsed
+                                    ? PastryPalette.successDeep
+                                    : (usedOtherContent ? PastryPalette.muted : PastryPalette.warmAccent)
+                            )
+                                .frame(
+                                    width: UIConstants.Onboarding.sampleCopyButtonSize,
+                                    height: UIConstants.Onboarding.sampleCopyButtonSize
+                                )
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .settingsCardChrome(
+                            cornerRadius: UIConstants.Radius.control,
+                            fill: sampleCopyButtonHovered && !usedOtherContent
+                                ? PastryPalette.cardFill
+                                : PastryPalette.cardFillSoft
                         )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .settingsCardChrome(
-                    cornerRadius: UIConstants.Radius.control,
-                    fill: sampleCopyButtonHovered && !usedOtherContent
-                        ? PastryPalette.cardFill
-                        : PastryPalette.cardFillSoft
-                )
-                .disabled(usedOtherContent)
-                .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyButtonHovered)
-                .onHover { sampleCopyButtonHovered = $0 }
-                .help(L10n[actionFeedback.labelKey])
-                .accessibilityLabel(L10n[actionFeedback.labelKey])
-                .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.copySampleButton)
-            }
-            .padding(.horizontal, UIConstants.Onboarding.sampleCodeBlockHorizontalPadding)
-            .frame(width: UIConstants.Onboarding.sampleCardWidth)
-            .frame(minHeight: UIConstants.Onboarding.sampleCardMinHeight)
-            .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: PastryPalette.cardFillSoft)
-            .opacity(usedOtherContent ? UIConstants.Onboarding.sampleCodeBlockDisabledOpacity : 1)
-            .animation(.easeOut(duration: UIConstants.Motion.short), value: copyDetection.outcome)
-            .modifier(
-                OnboardingShakeEffect(
-                    progress: copyPromptAttempts,
-                    distance: UIConstants.Onboarding.copyPromptShakeDistance,
-                    oscillations: UIConstants.Onboarding.copyPromptShakeOscillations
-                )
-            )
+                        .disabled(usedOtherContent)
+                        .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyButtonHovered)
+                        .onHover { sampleCopyButtonHovered = $0 }
+                        .help(L10n[actionFeedback.labelKey])
+                        .accessibilityLabel(L10n[actionFeedback.labelKey])
+                        .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.copySampleButton)
+                    }
+                    .padding(UIConstants.Onboarding.sampleCodeBlockPadding)
+                    .frame(width: UIConstants.Onboarding.sampleCardWidth)
+                    .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: PastryPalette.cardFillSoft)
+                    .opacity(usedOtherContent ? UIConstants.Onboarding.sampleCodeBlockDisabledOpacity : 1)
+                    .animation(.easeOut(duration: UIConstants.Motion.short), value: copyDetection.outcome)
+                    .modifier(
+                        OnboardingShakeEffect(
+                            progress: copyPromptAttempts,
+                            distance: UIConstants.Onboarding.copyPromptShakeDistance,
+                            oscillations: UIConstants.Onboarding.copyPromptShakeOscillations
+                        )
+                    )
 
-            Text(L10n["onboarding.copy.anywhere_hint"])
-                .font(.system(size: UIConstants.TypeSize.callout))
-                .foregroundStyle(PastryPalette.muted)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay(alignment: .bottomTrailing) {
+                    Text(L10n["onboarding.copy.anywhere_hint"])
+                        .font(.system(size: UIConstants.TypeSize.callout))
+                        .foregroundStyle(PastryPalette.muted)
+                }
+            }
+
             if !copyDetection.isComplete {
                 Button(L10n["onboarding.skip_step"]) {
                     advance()
@@ -334,49 +329,68 @@ struct OnboardingView: View {
                 .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.skipStepButton)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var permissionStep: some View {
-        VStack(spacing: UIConstants.Onboarding.contentSpacing) {
-            stepHeading(
-                icon: accessibilityTrusted ? "checkmark.shield.fill" : "hand.raised.fill",
-                title: L10n["onboarding.permission.title"],
-                subtitle: L10n["onboarding.permission.subtitle"]
-            )
+        stepLayout(
+            icon: accessibilityTrusted ? "checkmark.shield.fill" : "hand.raised.fill",
+            title: L10n["onboarding.permission.title"],
+            subtitle: L10n["onboarding.permission.subtitle"]
+        ) {
+            VStack(spacing: UIConstants.Onboarding.contentSpacing) {
+                let model = AccessibilityPermissionRowModel.resolve(isTrusted: accessibilityTrusted)
+                HStack(spacing: UIConstants.Onboarding.permissionRowSpacing) {
+                    Image(systemName: model.iconName)
+                        .font(.system(size: UIConstants.TypeSize.title3, weight: .bold))
+                        .foregroundStyle(model.iconColor)
+                        .frame(width: UIConstants.Onboarding.permissionIconWidth)
 
-            let model = AccessibilityPermissionRowModel.resolve(isTrusted: accessibilityTrusted)
-            HStack(spacing: UIConstants.Onboarding.permissionRowSpacing) {
-                Image(systemName: model.iconName)
-                    .font(.system(size: UIConstants.TypeSize.title3, weight: .bold))
-                    .foregroundStyle(model.iconColor)
-                    .frame(width: UIConstants.Onboarding.permissionIconWidth)
-
-                VStack(alignment: .leading, spacing: UIConstants.Onboarding.permissionTextSpacing) {
-                    Text(model.title)
-                        .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
-                    Text(model.subtitle)
-                        .font(.system(size: UIConstants.TypeSize.label))
-                        .foregroundStyle(PastryPalette.muted)
-                }
-
-                Spacer()
-
-                if !accessibilityTrusted {
-                    Button(L10n["settings.accessibility_grant_btn"]) {
-                        AccessibilityPermissionChecker.openSystemSettings()
+                    VStack(alignment: .leading, spacing: UIConstants.Onboarding.permissionTextSpacing) {
+                        Text(model.title)
+                            .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
+                        Text(model.subtitle)
+                            .font(.system(size: UIConstants.TypeSize.label))
+                            .foregroundStyle(PastryPalette.muted)
                     }
-                    .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
-                    .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.permissionButton)
-                }
-            }
-            .padding(UIConstants.Onboarding.cardPadding)
-            .frame(width: UIConstants.Onboarding.permissionCardWidth)
-            .frame(minHeight: UIConstants.Onboarding.permissionCardMinHeight)
-            .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
 
-            Text(L10n["onboarding.permission.optional_hint"])
-                .font(.system(size: UIConstants.TypeSize.callout))
-                .foregroundStyle(PastryPalette.muted)
+                    Spacer()
+
+                    if !accessibilityTrusted {
+                        Button(L10n["settings.accessibility_grant_btn"]) {
+                            AccessibilityPermissionChecker.openSystemSettings()
+                        }
+                        .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
+                        .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.permissionButton)
+                    }
+                }
+                .padding(UIConstants.Onboarding.cardPadding)
+                .frame(width: UIConstants.Onboarding.permissionCardWidth)
+                .frame(minHeight: UIConstants.Onboarding.permissionCardMinHeight)
+                .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
+
+                Text(L10n["onboarding.permission.optional_hint"])
+                    .font(.system(size: UIConstants.TypeSize.callout))
+                    .foregroundStyle(PastryPalette.muted)
+            }
+        }
+    }
+
+    private func stepLayout<Content: View>(
+        icon: String,
+        title: String,
+        subtitle: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: UIConstants.Onboarding.contentSpacing) {
+            stepHeading(icon: icon, title: title, subtitle: subtitle)
+                .frame(height: UIConstants.Onboarding.headingSlotHeight, alignment: .top)
+                .clipped()
+
+            content()
+                .frame(maxWidth: .infinity)
+                .frame(height: UIConstants.Onboarding.bodySlotHeight, alignment: .center)
+                .clipped()
         }
         .padding(.horizontal, UIConstants.Onboarding.contentHorizontalPadding)
     }
@@ -388,6 +402,7 @@ struct OnboardingView: View {
                 size: UIConstants.Onboarding.heroSymbolSize,
                 color: PastryPalette.warmAccent
             )
+            .frame(height: UIConstants.Onboarding.heroSymbolFrameHeight)
 
             Text(title)
                 .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold))

@@ -57,6 +57,8 @@ enum UIConstants {
         static let headerSpacing: CGFloat = 12
         static let footerSpacing: CGFloat = 10
         static let contentSpacing: CGFloat = 20
+        static let headingSlotHeight: CGFloat = 136
+        static let bodySlotHeight: CGFloat = 144
         static let shortcutContentSpacing: CGFloat = 22
         static let featureSpacing: CGFloat = 12
         static let featureContentSpacing: CGFloat = 8
@@ -67,6 +69,7 @@ enum UIConstants {
         static let progressInactiveOpacity: Double = 0.13
         static let appIconSize: CGFloat = 34
         static let heroSymbolSize: CGFloat = 36
+        static let heroSymbolFrameHeight: CGFloat = 44
         static let progressLabelWidth: CGFloat = 34
         static let featureRowMaxWidth: CGFloat = 540
         static let featurePadding: CGFloat = 14
@@ -77,9 +80,8 @@ enum UIConstants {
         static let shortcutFeedbackHeight: CGFloat = 24
         static let cardPadding: CGFloat = 18
         static let sampleCardWidth: CGFloat = 430
-        static let sampleCardMinHeight: CGFloat = 74
         static let sampleCodeBlockSpacing: CGFloat = 14
-        static let sampleCodeBlockHorizontalPadding: CGFloat = 16
+        static let sampleCodeBlockPadding: CGFloat = 20
         static let sampleCopyButtonSize: CGFloat = 34
         static let sampleCodeBlockDisabledOpacity: Double = 0.46
         static let copyStepTrailingActionInset: CGFloat = 24
