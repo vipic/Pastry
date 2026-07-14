@@ -8,7 +8,8 @@ struct OnboardingView: View {
     @State private var activationSource: OnboardingActivationSource?
     @State private var copyDetection: OnboardingCopyDetection
     @State private var accessibilityTrusted = false
-    @State private var sampleCopyHovered = false
+    @State private var sampleCopyButtonHovered = false
+    @State private var sampleTextCopied = false
     @State private var copyPromptAttempts: CGFloat = 0
 
     let onStepChange: (OnboardingStep) -> Void
@@ -76,6 +77,7 @@ struct OnboardingView: View {
             onStepChange(newStep)
             if newStep == .copy {
                 copyDetection = OnboardingCopyDetection(baselineItemIDs: Set(store.items.map(\.id)))
+                sampleTextCopied = false
             } else if newStep == .permission {
                 refreshAccessibilityStatus()
             }
@@ -251,68 +253,63 @@ struct OnboardingView: View {
     }
 
     private var copyStep: some View {
-        VStack(spacing: UIConstants.Onboarding.contentSpacing) {
-                stepHeading(
-                    icon: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc",
-                    title: copyDetection.isComplete
-                        ? L10n["onboarding.copy.detected_title"]
-                        : L10n["onboarding.copy.title"],
-                    subtitle: copyDetection.isComplete
-                        ? L10n["onboarding.copy.detected_subtitle"]
-                        : L10n["onboarding.copy.subtitle"]
-                )
+        let actionFeedback = OnboardingCopyActionFeedback(isComplete: sampleTextCopied)
+        return VStack(spacing: UIConstants.Onboarding.contentSpacing) {
+            stepHeading(
+                icon: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc",
+                title: copyDetection.isComplete
+                    ? L10n["onboarding.copy.detected_title"]
+                    : L10n["onboarding.copy.title"],
+                subtitle: copyDetection.isComplete
+                    ? L10n["onboarding.copy.detected_subtitle"]
+                    : L10n["onboarding.copy.subtitle"]
+            )
+
+            HStack(spacing: UIConstants.Onboarding.sampleCodeBlockSpacing) {
+                Text(L10n["onboarding.copy.sample_text"])
+                    .font(.system(size: UIConstants.TypeSize.body, weight: .medium, design: .monospaced))
+                    .foregroundStyle(PastryPalette.ink)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+
+                Spacer()
 
                 Button(action: copySampleText) {
-                    HStack(spacing: UIConstants.Onboarding.permissionRowSpacing) {
-                        VStack(alignment: .leading, spacing: UIConstants.Onboarding.permissionTextSpacing) {
-                            Text(L10n["onboarding.copy.sample_text"])
-                                .font(.system(size: UIConstants.TypeSize.body, weight: .medium))
-                                .foregroundStyle(PastryPalette.ink)
-                                .lineLimit(2)
-
-                            Text(
-                                copyDetection.isComplete
-                                    ? L10n["onboarding.copy.copied_hint"]
-                                    : L10n["onboarding.copy.click_hint"]
-                            )
-                            .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
-                            .foregroundStyle(
-                                copyDetection.isComplete ? PastryPalette.successDeep : PastryPalette.muted
-                            )
-                            .contentTransition(.opacity)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: copyDetection.isComplete ? "checkmark.circle.fill" : "cursorarrow.click")
-                            .font(.system(size: UIConstants.TypeSize.heroIcon))
-                            .foregroundStyle(
-                                copyDetection.isComplete ? PastryPalette.successDeep : PastryPalette.warmAccent
-                            )
-                            .contentTransition(.symbolEffect(.replace))
-                            .symbolEffect(.bounce, value: copyDetection.isComplete)
-                    }
-                    .padding(UIConstants.Onboarding.cardPadding)
-                    .frame(width: UIConstants.Onboarding.sampleCardWidth)
-                    .frame(minHeight: UIConstants.Onboarding.sampleCardMinHeight)
-                    .contentShape(Rectangle())
+                    Image(systemName: actionFeedback.iconName)
+                        .font(.system(size: UIConstants.TypeSize.title, weight: .semibold))
+                        .foregroundStyle(
+                            sampleTextCopied ? PastryPalette.successDeep : PastryPalette.warmAccent
+                        )
+                        .frame(
+                            width: UIConstants.Onboarding.sampleCopyButtonSize,
+                            height: UIConstants.Onboarding.sampleCopyButtonSize
+                        )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .settingsCardChrome(
-                    cornerRadius: UIConstants.Radius.cardLarge,
-                    fill: sampleCopyHovered ? PastryPalette.cardFill : PastryPalette.cardFillSoft
+                    cornerRadius: UIConstants.Radius.control,
+                    fill: sampleCopyButtonHovered ? PastryPalette.cardFill : PastryPalette.cardFillSoft
                 )
-                .scaleEffect(sampleCopyHovered ? UIConstants.Onboarding.sampleCardHoverScale : 1)
-                .modifier(
-                    OnboardingShakeEffect(
-                        progress: copyPromptAttempts,
-                        distance: UIConstants.Onboarding.copyPromptShakeDistance,
-                        oscillations: UIConstants.Onboarding.copyPromptShakeOscillations
-                    )
-                )
-                .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyHovered)
-                .onHover { sampleCopyHovered = $0 }
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: sampleTextCopied)
+                .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyButtonHovered)
+                .onHover { sampleCopyButtonHovered = $0 }
+                .help(L10n[actionFeedback.labelKey])
+                .accessibilityLabel(L10n[actionFeedback.labelKey])
                 .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.copySampleButton)
+            }
+            .padding(.horizontal, UIConstants.Onboarding.sampleCodeBlockHorizontalPadding)
+            .frame(width: UIConstants.Onboarding.sampleCardWidth)
+            .frame(minHeight: UIConstants.Onboarding.sampleCardMinHeight)
+            .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: PastryPalette.cardFillSoft)
+            .modifier(
+                OnboardingShakeEffect(
+                    progress: copyPromptAttempts,
+                    distance: UIConstants.Onboarding.copyPromptShakeDistance,
+                    oscillations: UIConstants.Onboarding.copyPromptShakeOscillations
+                )
+            )
 
             Text(L10n["onboarding.copy.anywhere_hint"])
                 .font(.system(size: UIConstants.TypeSize.callout))
@@ -440,6 +437,9 @@ struct OnboardingView: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(L10n["onboarding.copy.sample_text"], forType: .string)
+        withAnimation(.easeOut(duration: UIConstants.Motion.short)) {
+            sampleTextCopied = true
+        }
     }
 
     private func refreshAccessibilityStatus() {

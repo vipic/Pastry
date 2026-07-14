@@ -81,6 +81,16 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(detection.observe(itemIDs: [UUID()]))
     }
 
+    func testCopyActionFeedbackTransitionsFromCopyToCopied() {
+        let ready = OnboardingCopyActionFeedback(isComplete: false)
+        XCTAssertEqual(ready.iconName, "doc.on.doc")
+        XCTAssertEqual(ready.labelKey, "onboarding.copy.action")
+
+        let copied = OnboardingCopyActionFeedback(isComplete: true)
+        XCTAssertEqual(copied.iconName, "checkmark")
+        XCTAssertEqual(copied.labelKey, "onboarding.copy.copied_action")
+    }
+
     func testActivationFeedbackDistinguishesShortcutAndMenuBar() {
         XCTAssertNotEqual(OnboardingActivationSource.shortcut, .menuBar)
         XCTAssertNotEqual(

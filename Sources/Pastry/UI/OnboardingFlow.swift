@@ -47,6 +47,16 @@ struct OnboardingActivationFeedback: Equatable {
     }
 }
 
+struct OnboardingCopyActionFeedback: Equatable {
+    let iconName: String
+    let labelKey: String
+
+    init(isComplete: Bool) {
+        iconName = isComplete ? "checkmark" : "doc.on.doc"
+        labelKey = isComplete ? "onboarding.copy.copied_action" : "onboarding.copy.action"
+    }
+}
+
 enum OnboardingPreferences {
     static let currentVersion = 1
 

@@ -4472,36 +4472,36 @@
         }
       }
     },
-    "onboarding.copy.click_hint": {
+    "onboarding.copy.action": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "点击这张卡片即可复制"
+            "value": "复制"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Click this card to copy"
+            "value": "Copy"
           }
         }
       }
     },
-    "onboarding.copy.copied_hint": {
+    "onboarding.copy.copied_action": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制成功"
+            "value": "已复制"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copied successfully"
+            "value": "Copied"
           }
         }
       }

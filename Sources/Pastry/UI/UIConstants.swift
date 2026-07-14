@@ -80,7 +80,9 @@ enum UIConstants {
         static let cardPadding: CGFloat = 18
         static let sampleCardWidth: CGFloat = 430
         static let sampleCardMinHeight: CGFloat = 74
-        static let sampleCardHoverScale: CGFloat = 1.01
+        static let sampleCodeBlockSpacing: CGFloat = 14
+        static let sampleCodeBlockHorizontalPadding: CGFloat = 16
+        static let sampleCopyButtonSize: CGFloat = 34
         static let copyStepTrailingActionInset: CGFloat = 24
         static let copyStepBottomActionInset: CGFloat = 4
         static let copyPromptShakeDistance: CGFloat = 4
