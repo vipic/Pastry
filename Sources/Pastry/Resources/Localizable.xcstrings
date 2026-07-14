@@ -4325,13 +4325,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "快捷键已经记住了"
+            "value": "当前快捷键有效"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shortcut detected"
+            "value": "Your current shortcut works"
           }
         }
       }
@@ -4342,13 +4342,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "以后在任何应用中按下它，都能打开 Pastry。"
+            "value": "它能够在任何应用中唤醒 Pastry，功能正常。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use it from any app to open Pastry."
+            "value": "It can bring up Pastry from any app."
           }
         }
       }
