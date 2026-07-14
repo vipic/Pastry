@@ -67,7 +67,10 @@ struct OnboardingView: View {
         .onReceive(store.$items) { items in
             guard step == .copy else { return }
             withAnimation(.easeOut(duration: UIConstants.Motion.short)) {
-                _ = copyDetection.observe(itemIDs: Set(items.map(\.id)))
+                _ = copyDetection.observe(
+                    items: items.map { OnboardingCopyItem(id: $0.id, content: $0.content) },
+                    sampleText: L10n["onboarding.copy.sample_text"]
+                )
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -75,10 +78,7 @@ struct OnboardingView: View {
         }
         .onChange(of: step) { _, newStep in
             onStepChange(newStep)
-            if newStep == .copy {
-                copyDetection = OnboardingCopyDetection(baselineItemIDs: Set(store.items.map(\.id)))
-                sampleTextCopied = false
-            } else if newStep == .permission {
+            if newStep == .permission {
                 refreshAccessibilityStatus()
             }
         }
@@ -253,7 +253,9 @@ struct OnboardingView: View {
     }
 
     private var copyStep: some View {
-        let actionFeedback = OnboardingCopyActionFeedback(isComplete: sampleTextCopied)
+        let sampleWasUsed = sampleTextCopied || copyDetection.outcome == .sampleText
+        let usedOtherContent = copyDetection.outcome == .otherContent
+        let actionFeedback = OnboardingCopyActionFeedback(isComplete: sampleWasUsed)
         return VStack(spacing: UIConstants.Onboarding.contentSpacing) {
             stepHeading(
                 icon: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc",
@@ -268,7 +270,7 @@ struct OnboardingView: View {
             HStack(spacing: UIConstants.Onboarding.sampleCodeBlockSpacing) {
                 Text(L10n["onboarding.copy.sample_text"])
                     .font(.system(size: UIConstants.TypeSize.body, weight: .medium, design: .monospaced))
-                    .foregroundStyle(PastryPalette.ink)
+                    .foregroundStyle(usedOtherContent ? PastryPalette.muted : PastryPalette.ink)
                     .lineLimit(2)
                     .textSelection(.enabled)
 
@@ -278,7 +280,9 @@ struct OnboardingView: View {
                     animatedSymbol(
                         actionFeedback.iconName,
                         size: UIConstants.TypeSize.title,
-                        color: sampleTextCopied ? PastryPalette.successDeep : PastryPalette.warmAccent
+                        color: sampleWasUsed
+                            ? PastryPalette.successDeep
+                            : (usedOtherContent ? PastryPalette.muted : PastryPalette.warmAccent)
                     )
                         .frame(
                             width: UIConstants.Onboarding.sampleCopyButtonSize,
@@ -289,8 +293,11 @@ struct OnboardingView: View {
                 .buttonStyle(.plain)
                 .settingsCardChrome(
                     cornerRadius: UIConstants.Radius.control,
-                    fill: sampleCopyButtonHovered ? PastryPalette.cardFill : PastryPalette.cardFillSoft
+                    fill: sampleCopyButtonHovered && !usedOtherContent
+                        ? PastryPalette.cardFill
+                        : PastryPalette.cardFillSoft
                 )
+                .disabled(usedOtherContent)
                 .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyButtonHovered)
                 .onHover { sampleCopyButtonHovered = $0 }
                 .help(L10n[actionFeedback.labelKey])
@@ -301,6 +308,8 @@ struct OnboardingView: View {
             .frame(width: UIConstants.Onboarding.sampleCardWidth)
             .frame(minHeight: UIConstants.Onboarding.sampleCardMinHeight)
             .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: PastryPalette.cardFillSoft)
+            .opacity(usedOtherContent ? UIConstants.Onboarding.sampleCodeBlockDisabledOpacity : 1)
+            .animation(.easeOut(duration: UIConstants.Motion.short), value: copyDetection.outcome)
             .modifier(
                 OnboardingShakeEffect(
                     progress: copyPromptAttempts,

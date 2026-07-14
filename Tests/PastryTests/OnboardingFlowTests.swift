@@ -66,19 +66,59 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertFalse(OnboardingStep.shortcut.shouldPromptForCopy(copyComplete: false))
     }
 
-    func testCopyDetectionOnlyCompletesForItemAfterBaseline() {
+    func testCopyDetectionIdentifiesProvidedSampleText() {
         let baseline = UUID()
         var detection = OnboardingCopyDetection(baselineItemIDs: [baseline])
+        let sampleText = "这是我的第一条 Pastry 记录"
 
-        XCTAssertFalse(detection.observe(itemIDs: [baseline]))
-        XCTAssertTrue(detection.observe(itemIDs: [baseline, UUID()]))
+        XCTAssertFalse(
+            detection.observe(
+                items: [.init(id: baseline, content: "existing")],
+                sampleText: sampleText
+            )
+        )
+        XCTAssertTrue(
+            detection.observe(
+                items: [
+                    .init(id: UUID(), content: sampleText),
+                    .init(id: baseline, content: "existing")
+                ],
+                sampleText: sampleText
+            )
+        )
         XCTAssertTrue(detection.isComplete)
+        XCTAssertEqual(detection.outcome, .sampleText)
     }
 
-    func testCopyDetectionWithoutBaselineAcceptsFirstItem() {
+    func testCopyDetectionMarksDifferentContentAsExternal() {
         var detection = OnboardingCopyDetection(baselineItemIDs: [])
 
-        XCTAssertTrue(detection.observe(itemIDs: [UUID()]))
+        XCTAssertTrue(
+            detection.observe(
+                items: [.init(id: UUID(), content: "copied elsewhere")],
+                sampleText: "provided sample"
+            )
+        )
+        XCTAssertEqual(detection.outcome, .otherContent)
+    }
+
+    func testCopyDetectionKeepsCompletionOutcomeAfterLaterObservations() {
+        var detection = OnboardingCopyDetection(baselineItemIDs: [])
+        let sampleText = "provided sample"
+
+        XCTAssertTrue(
+            detection.observe(
+                items: [.init(id: UUID(), content: "copied elsewhere")],
+                sampleText: sampleText
+            )
+        )
+        XCTAssertTrue(
+            detection.observe(
+                items: [.init(id: UUID(), content: sampleText)],
+                sampleText: sampleText
+            )
+        )
+        XCTAssertEqual(detection.outcome, .otherContent)
     }
 
     func testCopyActionFeedbackTransitionsFromCopyToCopied() {

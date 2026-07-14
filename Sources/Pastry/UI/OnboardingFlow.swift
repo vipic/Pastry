@@ -69,19 +69,36 @@ enum OnboardingPreferences {
     }
 }
 
+struct OnboardingCopyItem: Equatable {
+    let id: UUID
+    let content: String
+}
+
+enum OnboardingCopyOutcome: Equatable {
+    case pending
+    case sampleText
+    case otherContent
+
+    var isComplete: Bool { self != .pending }
+}
+
 struct OnboardingCopyDetection {
     private let baselineItemIDs: Set<UUID>
-    private(set) var isComplete = false
+    private(set) var outcome: OnboardingCopyOutcome = .pending
+
+    var isComplete: Bool { outcome.isComplete }
 
     init(baselineItemIDs: Set<UUID>) {
         self.baselineItemIDs = baselineItemIDs
     }
 
     @discardableResult
-    mutating func observe(itemIDs: Set<UUID>) -> Bool {
+    mutating func observe(items: [OnboardingCopyItem], sampleText: String) -> Bool {
         guard !isComplete else { return true }
-        guard !itemIDs.subtracting(baselineItemIDs).isEmpty else { return false }
-        isComplete = true
+        guard let newItem = items.first(where: { !baselineItemIDs.contains($0.id) }) else {
+            return false
+        }
+        outcome = newItem.content == sampleText ? .sampleText : .otherContent
         return true
     }
 }

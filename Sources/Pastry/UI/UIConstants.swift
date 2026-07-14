@@ -83,6 +83,7 @@ enum UIConstants {
         static let sampleCodeBlockSpacing: CGFloat = 14
         static let sampleCodeBlockHorizontalPadding: CGFloat = 16
         static let sampleCopyButtonSize: CGFloat = 34
+        static let sampleCodeBlockDisabledOpacity: Double = 0.46
         static let copyStepTrailingActionInset: CGFloat = 24
         static let copyStepBottomActionInset: CGFloat = 4
         static let copyPromptShakeDistance: CGFloat = 4
