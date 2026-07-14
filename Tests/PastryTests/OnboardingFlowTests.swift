@@ -87,7 +87,9 @@ final class OnboardingFlowTests: XCTestCase {
             OnboardingActivationFeedback(source: .shortcut),
             OnboardingActivationFeedback(source: .menuBar)
         )
-        XCTAssertNil(OnboardingActivationFeedback(source: nil).badgeKey)
+        XCTAssertTrue(OnboardingActivationFeedback(source: .shortcut).highlightsShortcut)
+        XCTAssertFalse(OnboardingActivationFeedback(source: .menuBar).highlightsShortcut)
+        XCTAssertFalse(OnboardingActivationFeedback(source: nil).highlightsShortcut)
         XCTAssertEqual(
             Notification.Name.onboardingActivationDetected.rawValue,
             "onboardingActivationDetected"

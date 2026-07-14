@@ -27,22 +27,22 @@ enum OnboardingActivationSource: Equatable {
 struct OnboardingActivationFeedback: Equatable {
     let titleKey: String
     let subtitleKey: String
-    let badgeKey: String?
+    let highlightsShortcut: Bool
 
     init(source: OnboardingActivationSource?) {
         switch source {
         case .shortcut:
             titleKey = "onboarding.shortcut.detected_title"
             subtitleKey = "onboarding.shortcut.detected_subtitle"
-            badgeKey = "onboarding.shortcut.success_badge"
+            highlightsShortcut = true
         case .menuBar:
             titleKey = "onboarding.shortcut.menubar_detected_title"
             subtitleKey = "onboarding.shortcut.menubar_detected_subtitle"
-            badgeKey = "onboarding.shortcut.menubar_success_badge"
+            highlightsShortcut = false
         case nil:
             titleKey = "onboarding.shortcut.title"
             subtitleKey = "onboarding.shortcut.subtitle"
-            badgeKey = nil
+            highlightsShortcut = false
         }
     }
 }

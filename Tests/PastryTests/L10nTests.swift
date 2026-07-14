@@ -35,10 +35,9 @@ final class L10nTests: XCTestCase {
             "onboarding.shortcut.menubar_detected_title",
             "onboarding.shortcut.menubar_detected_subtitle",
             "onboarding.shortcut.menubar_hint", "onboarding.shortcut.not_set",
-            "onboarding.shortcut.success_badge", "onboarding.shortcut.menubar_success_badge",
             "onboarding.copy.title", "onboarding.copy.subtitle",
             "onboarding.copy.detected_title", "onboarding.copy.detected_subtitle",
-            "onboarding.copy.sample_text", "onboarding.copy.click_hint",
+            "onboarding.copy.sample_text", "onboarding.copy.click_hint", "onboarding.copy.copied_hint",
             "onboarding.copy.anywhere_hint",
             "onboarding.permission.title", "onboarding.permission.subtitle",
             "onboarding.permission.optional_hint"

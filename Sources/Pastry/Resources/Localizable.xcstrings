@@ -4489,6 +4489,23 @@
         }
       }
     },
+    "onboarding.copy.copied_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制成功"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied successfully"
+          }
+        }
+      }
+    },
     "onboarding.copy.anywhere_hint": {
       "extractionState": "manual",
       "localizations": {
@@ -4557,23 +4574,6 @@
         }
       }
     },
-    "onboarding.shortcut.success_badge": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "按键成功"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shortcut detected"
-          }
-        }
-      }
-    },
     "onboarding.shortcut.menubar_detected_title": {
       "extractionState": "manual",
       "localizations": {
@@ -4604,23 +4604,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "The menu bar action to open Pastry worked. You can also try the shortcut above."
-          }
-        }
-      }
-    },
-    "onboarding.shortcut.menubar_success_badge": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开面板操作成功"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open-panel action detected"
           }
         }
       }
