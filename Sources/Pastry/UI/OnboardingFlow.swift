@@ -1,4 +1,60 @@
+import AppKit
 import Foundation
+
+@MainActor
+final class OnboardingOverlayHandoff {
+    private var resignObserver: NSObjectProtocol?
+    private var notificationCenter: NotificationCenter?
+    private var openOverlay: (() -> Void)?
+
+    func restorePolicyAndOpen(
+        savedPolicy: NSApplication.ActivationPolicy,
+        notificationCenter: NotificationCenter = .default,
+        isApplicationActive: @escaping () -> Bool,
+        restorePolicy: () -> Void,
+        openOverlay: @escaping () -> Void
+    ) {
+        cancel()
+
+        guard savedPolicy != .regular else {
+            restorePolicy()
+            openOverlay()
+            return
+        }
+
+        self.notificationCenter = notificationCenter
+        self.openOverlay = openOverlay
+        resignObserver = notificationCenter.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.finish()
+            }
+        }
+
+        restorePolicy()
+        if !isApplicationActive() {
+            finish()
+        }
+    }
+
+    private func finish() {
+        guard let openOverlay else { return }
+        cancel()
+        openOverlay()
+    }
+
+    private func cancel() {
+        if let resignObserver, let notificationCenter {
+            notificationCenter.removeObserver(resignObserver)
+        }
+        resignObserver = nil
+        notificationCenter = nil
+        openOverlay = nil
+    }
+}
 
 enum OnboardingStep: Int, CaseIterable, Equatable {
     case welcome

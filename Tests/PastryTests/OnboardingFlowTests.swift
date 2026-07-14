@@ -148,6 +148,64 @@ final class OnboardingFlowTests: XCTestCase {
     }
 
     @MainActor
+    func testOverlayHandoffWaitsForApplicationDeactivationBeforeOpening() {
+        let notificationCenter = NotificationCenter()
+        let handoff = OnboardingOverlayHandoff()
+        var isApplicationActive = true
+        var openCount = 0
+
+        handoff.restorePolicyAndOpen(
+            savedPolicy: .accessory,
+            notificationCenter: notificationCenter,
+            isApplicationActive: { isApplicationActive },
+            restorePolicy: {},
+            openOverlay: { openCount += 1 }
+        )
+
+        XCTAssertEqual(openCount, 0)
+
+        isApplicationActive = false
+        notificationCenter.post(name: NSApplication.didResignActiveNotification, object: nil)
+        notificationCenter.post(name: NSApplication.didResignActiveNotification, object: nil)
+
+        XCTAssertEqual(openCount, 1)
+    }
+
+    @MainActor
+    func testOverlayHandoffOpensImmediatelyWhenApplicationIsAlreadyInactive() {
+        let handoff = OnboardingOverlayHandoff()
+        var didRestorePolicy = false
+        var openCount = 0
+
+        handoff.restorePolicyAndOpen(
+            savedPolicy: .accessory,
+            notificationCenter: NotificationCenter(),
+            isApplicationActive: { false },
+            restorePolicy: { didRestorePolicy = true },
+            openOverlay: { openCount += 1 }
+        )
+
+        XCTAssertTrue(didRestorePolicy)
+        XCTAssertEqual(openCount, 1)
+    }
+
+    @MainActor
+    func testOverlayHandoffDoesNotWaitWhenRestoringRegularPolicy() {
+        let handoff = OnboardingOverlayHandoff()
+        var openCount = 0
+
+        handoff.restorePolicyAndOpen(
+            savedPolicy: .regular,
+            notificationCenter: NotificationCenter(),
+            isApplicationActive: { true },
+            restorePolicy: {},
+            openOverlay: { openCount += 1 }
+        )
+
+        XCTAssertEqual(openCount, 1)
+    }
+
+    @MainActor
     func testOnboardingWindowChromeHidesTrafficLightButtons() {
         let window = NSWindow(
             contentRect: NSRect(

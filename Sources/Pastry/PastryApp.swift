@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindow: NSWindow?
     private var onboardingStep: OnboardingStep?
     private var onboardingKeyMonitor: Any?
+    private var onboardingOverlayHandoff: OnboardingOverlayHandoff?
+    private var shouldOpenOverlayAfterOnboarding = false
     private let updateErrorPath = "/tmp/pastry_update_error.txt"
 
     override init() {
@@ -169,19 +171,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.isReleasedWhenClosed = false
         onboardingStep = .welcome
+        shouldOpenOverlayAfterOnboarding = false
         window.contentView = NSHostingView(
             rootView: OnboardingView(
                 onStepChange: { [weak self] step in
                     self?.onboardingStep = step
                 },
                 onFinish: { [weak self, weak window] openOverlay in
+                    self?.shouldOpenOverlayAfterOnboarding = openOverlay
                     window?.close()
-                    self?.onboardingWindow = nil
-                    self?.onboardingStep = nil
-                    guard openOverlay else { return }
-                    DispatchQueue.main.async {
-                        OverlayPanelManager.shared.show()
-                    }
                 }
             )
         )
@@ -191,6 +189,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.onboardingWindow = nil
             self?.onboardingStep = nil
             self?.stopOnboardingShortcutMonitor()
+        } restorePolicy: { [weak self] savedPolicy in
+            if let self {
+                self.restorePolicyAfterOnboarding(savedPolicy)
+            } else {
+                NSApp.setActivationPolicy(savedPolicy)
+            }
         }
         window.delegate = delegate
         delegate.selfRetain()
@@ -199,6 +203,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    private func restorePolicyAfterOnboarding(_ savedPolicy: NSApplication.ActivationPolicy) {
+        guard shouldOpenOverlayAfterOnboarding else {
+            NSApp.setActivationPolicy(savedPolicy)
+            return
+        }
+
+        shouldOpenOverlayAfterOnboarding = false
+        let handoff = OnboardingOverlayHandoff()
+        onboardingOverlayHandoff = handoff
+        handoff.restorePolicyAndOpen(
+            savedPolicy: savedPolicy,
+            isApplicationActive: { NSApp.isActive },
+            restorePolicy: { NSApp.setActivationPolicy(savedPolicy) },
+            openOverlay: { [weak self] in
+                DispatchQueue.main.async {
+                    NSApp.activate(ignoringOtherApps: true)
+                    OverlayPanelManager.shared.show()
+                    self?.onboardingOverlayHandoff = nil
+                }
+            }
+        )
     }
 
     @MainActor
@@ -507,18 +535,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 private class SettingsWindowDelegate: NSObject, NSWindowDelegate {
     let savedPolicy: NSApplication.ActivationPolicy
     private let onClose: (() -> Void)?
+    private let restorePolicy: ((NSApplication.ActivationPolicy) -> Void)?
     private var selfReference: SettingsWindowDelegate?
 
-    init(savedPolicy: NSApplication.ActivationPolicy, onClose: (() -> Void)? = nil) {
+    init(
+        savedPolicy: NSApplication.ActivationPolicy,
+        onClose: (() -> Void)? = nil,
+        restorePolicy: ((NSApplication.ActivationPolicy) -> Void)? = nil
+    ) {
         self.savedPolicy = savedPolicy
         self.onClose = onClose
+        self.restorePolicy = restorePolicy
     }
 
     func selfRetain() { selfReference = self }
 
     func windowWillClose(_ notification: Notification) {
         onClose?()
-        NSApp.setActivationPolicy(savedPolicy)
+        if let restorePolicy {
+            restorePolicy(savedPolicy)
+        } else {
+            NSApp.setActivationPolicy(savedPolicy)
+        }
         selfReference = nil
     }
 }
