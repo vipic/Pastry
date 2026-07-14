@@ -23,6 +23,12 @@ final class AccessibilityIdentifiersTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.Overlay.card(id), "overlay.card.abc-123")
     }
 
+    func testOnboardingIdentifiersAreStable() {
+        XCTAssertEqual(AccessibilityIdentifiers.Onboarding.root, "onboarding.root")
+        XCTAssertEqual(AccessibilityIdentifiers.Onboarding.primaryButton, "onboarding.primary-button")
+        XCTAssertEqual(AccessibilityIdentifiers.Onboarding.permissionButton, "onboarding.permission-button")
+    }
+
     func testAllStaticIdentifiersAreUnique() {
         let ids = [
             AccessibilityIdentifiers.Overlay.root,
@@ -46,6 +52,11 @@ final class AccessibilityIdentifiersTests: XCTestCase {
             AccessibilityIdentifiers.Settings.accessibilityRow,
             AccessibilityIdentifiers.Settings.accessibilityGrantButton,
             AccessibilityIdentifiers.Settings.excludedAddButton,
+            AccessibilityIdentifiers.Onboarding.root,
+            AccessibilityIdentifiers.Onboarding.laterButton,
+            AccessibilityIdentifiers.Onboarding.backButton,
+            AccessibilityIdentifiers.Onboarding.primaryButton,
+            AccessibilityIdentifiers.Onboarding.permissionButton,
         ]
         XCTAssertEqual(Set(ids).count, ids.count, "a11y id 不得重复")
         for id in ids {

@@ -38,6 +38,14 @@ final class GlobalHotkeyManager {
         return UInt32(raw)
     }
 
+    var currentShortcutDisplay: String {
+        guard currentKeyCode >= 0 else { return L10n["onboarding.shortcut.not_set"] }
+        return shortcutDisplayString(
+            keyCode: Int(currentKeyCode),
+            modifiers: Int(currentModifiers)
+        )
+    }
+
     private init() {
         // 监听 UserDefaults 变化，快捷键改变后自动重注册
         NotificationCenter.default.addObserver(
@@ -125,6 +133,9 @@ final class GlobalHotkeyManager {
     private let hotkeyHandler: EventHandlerProcPtr = { _, _, _ -> OSStatus in
         OverlayPanelManager.hotkeyFiredAt = CFAbsoluteTimeGetCurrent()
         DispatchQueue.main.async {
+            if AppDelegate.shared?.consumeOnboardingHotkey() == true {
+                return
+            }
             OverlayPanelManager.shared.toggle()
         }
         return noErr

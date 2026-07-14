@@ -49,6 +49,44 @@ enum UIConstants {
         static let cornerRadius: CGFloat = Radius.control
     }
 
+    enum Onboarding {
+        static let windowWidth: CGFloat = 640
+        static let windowHeight: CGFloat = 480
+        static let headerHeight: CGFloat = 68
+        static let footerHeight: CGFloat = 66
+        static let headerHorizontalPadding: CGFloat = 24
+        static let contentHorizontalPadding: CGFloat = 36
+        static let headerSpacing: CGFloat = 12
+        static let footerSpacing: CGFloat = 10
+        static let contentSpacing: CGFloat = 20
+        static let shortcutContentSpacing: CGFloat = 22
+        static let featureSpacing: CGFloat = 12
+        static let featureContentSpacing: CGFloat = 8
+        static let headingSpacing: CGFloat = 10
+        static let progressSpacing: CGFloat = 7
+        static let progressActiveWidth: CGFloat = 22
+        static let progressInactiveSize: CGFloat = 7
+        static let progressInactiveOpacity: Double = 0.13
+        static let appIconSize: CGFloat = 34
+        static let heroSymbolSize: CGFloat = 36
+        static let progressLabelWidth: CGFloat = 34
+        static let featureRowMaxWidth: CGFloat = 540
+        static let featurePadding: CGFloat = 14
+        static let featureMinHeight: CGFloat = 118
+        static let shortcutHorizontalPadding: CGFloat = 22
+        static let shortcutHeight: CGFloat = 58
+        static let cardPadding: CGFloat = 18
+        static let sampleCardWidth: CGFloat = 430
+        static let sampleCardMinHeight: CGFloat = 74
+        static let permissionCardWidth: CGFloat = 480
+        static let permissionCardMinHeight: CGFloat = 78
+        static let permissionRowSpacing: CGFloat = 14
+        static let permissionTextSpacing: CGFloat = 3
+        static let permissionIconWidth: CGFloat = 32
+        static let headingMaxWidth: CGFloat = 500
+        static let headingLineSpacing: CGFloat = 3
+    }
+
     /// 删除/清空确认对话框（与托盘同系深色玻璃）
     enum Confirmation {
         static let cardWidth: CGFloat = 360

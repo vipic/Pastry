@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var helpWindow: NSWindow?
     private var updateWindow: NSWindow?
+    private var onboardingWindow: NSWindow?
     private let updateErrorPath = "/tmp/pastry_update_error.txt"
 
     override init() {
@@ -54,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 初次启动：写入常见密码管理器的默认排除名单
         seedDefaultExcludedApps()
         showPendingUpdateErrorIfNeeded()
+        showOnboardingIfNeeded()
     }
 
     private func configureApplicationIcon() {
@@ -117,7 +119,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    @objc private func showHelpWindow() {
+    func showOnboardingIfNeeded() {
+        guard OnboardingPreferences.needsPresentation() else { return }
+        showOnboardingWindow()
+    }
+
+    @MainActor
+    @objc func showOnboardingWindow() {
+        if let existing = onboardingWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        OverlayPanelManager.shared.hide()
+        let savedPolicy = NSApp.activationPolicy()
+        NSApp.setActivationPolicy(.regular)
+
+        let window = NSWindow(
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: UIConstants.Onboarding.windowWidth,
+                height: UIConstants.Onboarding.windowHeight
+            ),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = L10n["onboarding.window_title"]
+        window.styleMask.insert(.fullSizeContentView)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.isMovableByWindowBackground = true
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: OnboardingView { [weak self, weak window] openOverlay in
+            window?.close()
+            self?.onboardingWindow = nil
+            guard openOverlay else { return }
+            DispatchQueue.main.async {
+                OverlayPanelManager.shared.show()
+            }
+        })
+
+        let delegate = SettingsWindowDelegate(savedPolicy: savedPolicy) { [weak self] in
+            OnboardingPreferences.markCompleted()
+            self?.onboardingWindow = nil
+        }
+        window.delegate = delegate
+        delegate.selfRetain()
+        onboardingWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    func consumeOnboardingHotkey() -> Bool {
+        guard let window = onboardingWindow, window.isVisible else { return false }
+        NotificationCenter.default.post(name: .onboardingShortcutDetected, object: nil)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        return true
+    }
+
+    @MainActor
+    @objc func showHelpWindow() {
         if let existing = helpWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -387,15 +456,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 // 关闭设置时恢复后台模式
 private class SettingsWindowDelegate: NSObject, NSWindowDelegate {
     let savedPolicy: NSApplication.ActivationPolicy
+    private let onClose: (() -> Void)?
     private var selfReference: SettingsWindowDelegate?
 
-    init(savedPolicy: NSApplication.ActivationPolicy) {
+    init(savedPolicy: NSApplication.ActivationPolicy, onClose: (() -> Void)? = nil) {
         self.savedPolicy = savedPolicy
+        self.onClose = onClose
     }
 
     func selfRetain() { selfReference = self }
 
     func windowWillClose(_ notification: Notification) {
+        onClose?()
         NSApp.setActivationPolicy(savedPolicy)
         selfReference = nil
     }
@@ -473,6 +545,16 @@ struct PastryApp: App {
                     appDelegate.openSettingsWindow()
                 }
                 .keyboardShortcut(",", modifiers: .command)
+            }
+
+            CommandGroup(replacing: .help) {
+                Button(L10n["menu.help"]) {
+                    appDelegate.showHelpWindow()
+                }
+
+                Button(L10n["menu.onboarding"]) {
+                    appDelegate.showOnboardingWindow()
+                }
             }
         }
     }

@@ -62,6 +62,7 @@ final class MenuBarManager: NSObject {
             target: self,
             actions: MenuBarMenuActions(
                 openOverlay: #selector(openOverlay),
+                showOnboarding: #selector(showOnboardingAction),
                 checkUpdates: #selector(checkUpdatesAction),
                 openSettings: #selector(openSettingsAction),
                 quit: #selector(quitApp)
@@ -95,6 +96,14 @@ final class MenuBarManager: NSObject {
     private var isUpdateDevBuild: Bool {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         return version.contains("-dev")
+    }
+
+    @MainActor
+    @objc private func showOnboardingAction() {
+        OverlayPanelManager.shared.hide()
+        DispatchQueue.main.async {
+            AppDelegate.shared?.showOnboardingWindow()
+        }
     }
 
     @MainActor

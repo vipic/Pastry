@@ -49,6 +49,8 @@ enum UserDefaultsKeys {
     static let historyMaxItems = "history_max_items"
     static let historyMaxAgeDays = "history_max_age_days"
     static let performanceLoggingEnabled = "performance_logging_enabled"
+    /// 已完成的新手引导版本。使用版本号而非布尔值，便于未来只补充重大新增步骤。
+    static let onboardingCompletedVersion = "onboarding_completed_version"
 }
 
 /// 删除确认偏好。缺省键时视为开启，避免 `bool(forKey:)` 对缺失键返回 false。
@@ -63,6 +65,7 @@ enum DeleteConfirmationPreference {
 
 extension Notification.Name {
     static let pastryLanguageDidChange = Notification.Name("pastryLanguageDidChange")
+    static let onboardingShortcutDetected = Notification.Name("onboardingShortcutDetected")
 }
 
 // MARK: - 颜色

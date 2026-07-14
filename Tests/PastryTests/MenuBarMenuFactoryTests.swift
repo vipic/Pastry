@@ -13,6 +13,7 @@ final class MenuBarMenuFactoryTests: XCTestCase {
 
         XCTAssertEqual(titles, [
             L10n["menu.open_clipboard"],
+            L10n["menu.onboarding"],
             L10n["menu.check_updates"],
             L10n["menu.settings"],
             L10n["menu.quit"],
@@ -36,13 +37,13 @@ final class MenuBarMenuFactoryTests: XCTestCase {
         XCTAssertFalse(MenuBarManager.shouldOpenMenu(for: nil))
     }
 
-    func testMenuHasTwoSeparatorsAndFourActions() {
+    func testMenuHasTwoSeparatorsAndFiveActions() {
         let menu = makeMenu().menu
         let separators = menu.items.filter(\.isSeparatorItem)
         let actions = menu.items.filter { !$0.isSeparatorItem }
         XCTAssertEqual(separators.count, 2)
-        XCTAssertEqual(actions.count, 4)
-        XCTAssertEqual(menu.items.count, 6)
+        XCTAssertEqual(actions.count, 5)
+        XCTAssertEqual(menu.items.count, 7)
     }
 
     func testMenuItemsHaveTargetsAndSymbols() {
@@ -53,6 +54,7 @@ final class MenuBarMenuFactoryTests: XCTestCase {
             target: target,
             actions: MenuBarMenuActions(
                 openOverlay: #selector(DummyMenuTarget.openOverlay),
+                showOnboarding: #selector(DummyMenuTarget.showOnboarding),
                 checkUpdates: #selector(DummyMenuTarget.checkUpdates),
                 openSettings: #selector(DummyMenuTarget.openSettings),
                 quit: #selector(DummyMenuTarget.quit)
@@ -76,6 +78,7 @@ final class MenuBarMenuFactoryTests: XCTestCase {
             target: DummyMenuTarget(),
             actions: MenuBarMenuActions(
                 openOverlay: #selector(DummyMenuTarget.openOverlay),
+                showOnboarding: #selector(DummyMenuTarget.showOnboarding),
                 checkUpdates: #selector(DummyMenuTarget.checkUpdates),
                 openSettings: #selector(DummyMenuTarget.openSettings),
                 quit: #selector(DummyMenuTarget.quit)
@@ -90,6 +93,7 @@ final class MenuBarMenuFactoryTests: XCTestCase {
 
 private final class DummyMenuTarget: NSObject {
     @objc func openOverlay() {}
+    @objc func showOnboarding() {}
     @objc func checkUpdates() {}
     @objc func openSettings() {}
     @objc func quit() {}

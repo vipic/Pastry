@@ -2,6 +2,7 @@ import Cocoa
 
 struct MenuBarMenuActions {
     let openOverlay: Selector
+    let showOnboarding: Selector
     let checkUpdates: Selector
     let openSettings: Selector
     let quit: Selector
@@ -27,6 +28,14 @@ enum MenuBarMenuFactory {
         )
         menu.addItem(openItem)
         menu.addItem(.separator())
+
+        let onboardingItem = item(
+            title: L10n["menu.onboarding"],
+            action: actions.showOnboarding,
+            target: target,
+            symbolName: "sparkles.rectangle.stack"
+        )
+        menu.addItem(onboardingItem)
 
         let updatesItem = item(
             title: L10n["menu.check_updates"],

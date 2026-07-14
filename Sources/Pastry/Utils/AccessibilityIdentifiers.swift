@@ -33,4 +33,12 @@ enum AccessibilityIdentifiers {
         static let accessibilityGrantButton = "settings.accessibility-grant-button"
         static let excludedAddButton = "settings.excluded-add-button"
     }
+
+    enum Onboarding {
+        static let root = "onboarding.root"
+        static let laterButton = "onboarding.later-button"
+        static let backButton = "onboarding.back-button"
+        static let primaryButton = "onboarding.primary-button"
+        static let permissionButton = "onboarding.permission-button"
+    }
 }

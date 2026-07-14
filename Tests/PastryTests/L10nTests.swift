@@ -12,12 +12,35 @@ final class L10nTests: XCTestCase {
         let keys = [
             "menu.open_clipboard",
             "menu.about", "menu.settings", "menu.quit",
-            "menu.check_updates"
+            "menu.check_updates", "menu.onboarding"
         ]
         for key in keys {
             let value = L10n[key]
             XCTAssertNotEqual(value, key,
                               "\(key) 应有翻译，不应返回 key 本身")
+        }
+    }
+
+    func testOnboardingKeysExist() {
+        let keys = [
+            "onboarding.window_title", "onboarding.later", "onboarding.back",
+            "onboarding.skip_step", "onboarding.start", "onboarding.continue",
+            "onboarding.finish_open", "onboarding.copy_sample",
+            "onboarding.welcome.title", "onboarding.welcome.subtitle",
+            "onboarding.welcome.local_title", "onboarding.welcome.local_subtitle",
+            "onboarding.welcome.excluded_title", "onboarding.welcome.excluded_subtitle",
+            "onboarding.welcome.menubar_title", "onboarding.welcome.menubar_subtitle",
+            "onboarding.shortcut.title", "onboarding.shortcut.subtitle",
+            "onboarding.shortcut.detected_title", "onboarding.shortcut.detected_subtitle",
+            "onboarding.shortcut.menubar_hint", "onboarding.shortcut.not_set",
+            "onboarding.copy.title", "onboarding.copy.subtitle",
+            "onboarding.copy.detected_title", "onboarding.copy.detected_subtitle",
+            "onboarding.copy.sample_text", "onboarding.copy.anywhere_hint",
+            "onboarding.permission.title", "onboarding.permission.subtitle",
+            "onboarding.permission.optional_hint"
+        ]
+        for key in keys {
+            XCTAssertNotEqual(L10n[key], key, "\(key) 应有翻译")
         }
     }
 
