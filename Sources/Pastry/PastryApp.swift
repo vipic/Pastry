@@ -2,6 +2,16 @@ import SwiftUI
 import OSLog
 import ServiceManagement
 
+@MainActor
+enum OnboardingWindowChrome {
+    static func hideTrafficLightButtons(in window: NSWindow) {
+        let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        for buttonType in buttonTypes {
+            window.standardWindowButton(buttonType)?.isHidden = true
+        }
+    }
+}
+
 // MARK: - 应用委托
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -154,6 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
+        OnboardingWindowChrome.hideTrafficLightButtons(in: window)
         window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false

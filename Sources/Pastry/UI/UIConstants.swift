@@ -52,9 +52,9 @@ enum UIConstants {
     enum Onboarding {
         static let windowWidth: CGFloat = 640
         static let windowHeight: CGFloat = 480
-        static let headerHeight: CGFloat = 68
         static let footerHeight: CGFloat = 66
         static let headerHorizontalPadding: CGFloat = 24
+        static let headerVerticalPadding: CGFloat = headerHorizontalPadding
         static let contentHorizontalPadding: CGFloat = 36
         static let headerSpacing: CGFloat = 12
         static let footerSpacing: CGFloat = 10

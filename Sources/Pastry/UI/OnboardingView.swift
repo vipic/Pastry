@@ -53,6 +53,7 @@ struct OnboardingView: View {
             width: UIConstants.Onboarding.windowWidth,
             height: UIConstants.Onboarding.windowHeight
         )
+        .ignoresSafeArea(.container, edges: .top)
         .background(PastryPalette.cream)
         .foregroundStyle(PastryPalette.ink)
         .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.root)
@@ -126,7 +127,7 @@ struct OnboardingView: View {
                 .frame(width: UIConstants.Onboarding.progressLabelWidth, alignment: .trailing)
         }
         .padding(.horizontal, UIConstants.Onboarding.headerHorizontalPadding)
-        .frame(height: UIConstants.Onboarding.headerHeight)
+        .padding(.vertical, UIConstants.Onboarding.headerVerticalPadding)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(PastryPalette.hairline)

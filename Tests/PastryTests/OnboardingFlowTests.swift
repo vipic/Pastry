@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Pastry
 
@@ -144,5 +145,27 @@ final class OnboardingFlowTests: XCTestCase {
             Notification.Name.onboardingActivationDetected.rawValue,
             "onboardingActivationDetected"
         )
+    }
+
+    @MainActor
+    func testOnboardingWindowChromeHidesTrafficLightButtons() {
+        let window = NSWindow(
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: UIConstants.Onboarding.windowWidth,
+                height: UIConstants.Onboarding.windowHeight
+            ),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+
+        OnboardingWindowChrome.hideTrafficLightButtons(in: window)
+
+        XCTAssertTrue(window.styleMask.contains(.closable))
+        XCTAssertEqual(window.standardWindowButton(.closeButton)?.isHidden, true)
+        XCTAssertEqual(window.standardWindowButton(.miniaturizeButton)?.isHidden, true)
+        XCTAssertEqual(window.standardWindowButton(.zoomButton)?.isHidden, true)
     }
 }
