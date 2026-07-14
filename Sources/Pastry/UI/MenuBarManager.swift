@@ -53,7 +53,7 @@ final class MenuBarManager: NSObject {
         case .showMenu:
             showMenu()
         case .acknowledgeOnboarding:
-            _ = AppDelegate.shared?.acknowledgeOnboardingActivation()
+            _ = AppDelegate.shared?.acknowledgeOnboardingActivation(source: .menuBar)
         case .toggleOverlay:
             OverlayPanelManager.shared.toggle()
         }

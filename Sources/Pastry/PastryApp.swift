@@ -196,9 +196,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    func acknowledgeOnboardingActivation() -> Bool {
+    func acknowledgeOnboardingActivation(source: OnboardingActivationSource) -> Bool {
         guard let window = onboardingWindow, isOnboardingShortcutStepVisible else { return false }
-        NotificationCenter.default.post(name: .onboardingShortcutDetected, object: nil)
+        NotificationCenter.default.post(name: .onboardingActivationDetected, object: source)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         return true
@@ -213,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   GlobalHotkeyManager.shared.matchesCurrentShortcut(event)
             else { return event }
 
-            return self.acknowledgeOnboardingActivation() ? nil : event
+            return self.acknowledgeOnboardingActivation(source: .shortcut) ? nil : event
         }
     }
 

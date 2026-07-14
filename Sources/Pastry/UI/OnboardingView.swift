@@ -5,10 +5,11 @@ struct OnboardingView: View {
     @ObservedObject private var store = StoreManager.shared
 
     @State private var step: OnboardingStep = .welcome
-    @State private var shortcutDetected = false
+    @State private var activationSource: OnboardingActivationSource?
     @State private var copyDetection: OnboardingCopyDetection
     @State private var accessibilityTrusted = false
     @State private var sampleCopyHovered = false
+    @State private var copyPromptAttempts: CGFloat = 0
 
     let onStepChange: (OnboardingStep) -> Void
     let onFinish: (_ openOverlay: Bool) -> Void
@@ -54,15 +55,19 @@ struct OnboardingView: View {
         .background(PastryPalette.cream)
         .foregroundStyle(PastryPalette.ink)
         .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.root)
-        .onReceive(NotificationCenter.default.publisher(for: .onboardingShortcutDetected)) { _ in
-            guard step == .shortcut else { return }
+        .onReceive(NotificationCenter.default.publisher(for: .onboardingActivationDetected)) { notification in
+            guard step == .shortcut,
+                  let source = notification.object as? OnboardingActivationSource
+            else { return }
             withAnimation(.easeOut(duration: UIConstants.Motion.short)) {
-                shortcutDetected = true
+                activationSource = source
             }
         }
         .onReceive(store.$items) { items in
             guard step == .copy else { return }
-            _ = copyDetection.observe(itemIDs: Set(items.map(\.id)))
+            withAnimation(.easeOut(duration: UIConstants.Motion.short)) {
+                _ = copyDetection.observe(itemIDs: Set(items.map(\.id)))
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAccessibilityStatus()
@@ -94,15 +99,6 @@ struct OnboardingView: View {
                 .font(.system(size: UIConstants.TypeSize.titleMedium, weight: .bold))
 
             Spacer()
-
-            Button(L10n["onboarding.later"]) {
-                OnboardingPreferences.markCompleted()
-                onFinish(false)
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
-            .foregroundStyle(PastryPalette.muted)
-            .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.laterButton)
 
             HStack(spacing: UIConstants.Onboarding.progressSpacing) {
                 ForEach(OnboardingStep.allCases, id: \.rawValue) { item in
@@ -138,6 +134,13 @@ struct OnboardingView: View {
 
     private var footer: some View {
         HStack(spacing: UIConstants.Onboarding.footerSpacing) {
+            Button(L10n["onboarding.later"]) {
+                OnboardingPreferences.markCompleted()
+                onFinish(false)
+            }
+            .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
+            .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.laterButton)
+
             Spacer()
 
             if let previous = step.previous {
@@ -152,12 +155,13 @@ struct OnboardingView: View {
                 if step == .permission {
                     OnboardingPreferences.markCompleted()
                     onFinish(true)
+                } else if step.shouldPromptForCopy(copyComplete: copyDetection.isComplete) {
+                    promptForSampleCopy()
                 } else {
                     advance()
                 }
             }
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
-            .disabled(!step.canContinue(copyComplete: copyDetection.isComplete))
             .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.primaryButton)
         }
         .padding(.horizontal, UIConstants.Onboarding.headerHorizontalPadding)
@@ -213,28 +217,25 @@ struct OnboardingView: View {
     }
 
     private var shortcutStep: some View {
-        VStack(spacing: UIConstants.Onboarding.shortcutContentSpacing) {
+        let feedback = OnboardingActivationFeedback(source: activationSource)
+        return VStack(spacing: UIConstants.Onboarding.shortcutContentSpacing) {
             stepHeading(
-                icon: shortcutDetected ? "checkmark.circle.fill" : "command",
-                title: shortcutDetected
-                    ? L10n["onboarding.shortcut.detected_title"]
-                    : L10n["onboarding.shortcut.title"],
-                subtitle: shortcutDetected
-                    ? L10n["onboarding.shortcut.detected_subtitle"]
-                    : L10n["onboarding.shortcut.subtitle"]
+                icon: activationSource == nil ? "command" : "checkmark.circle.fill",
+                title: L10n[feedback.titleKey],
+                subtitle: L10n[feedback.subtitleKey]
             )
 
             Text(GlobalHotkeyManager.shared.currentShortcutDisplay)
                 .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold, design: .rounded))
-                .foregroundStyle(shortcutDetected ? PastryPalette.successDeep : PastryPalette.ink)
+                .foregroundStyle(activationSource == nil ? PastryPalette.ink : PastryPalette.successDeep)
                 .padding(.horizontal, UIConstants.Onboarding.shortcutHorizontalPadding)
                 .frame(height: UIConstants.Onboarding.shortcutHeight)
                 .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
 
             Group {
-                if shortcutDetected {
+                if activationSource != nil {
                     Label(
-                        L10n["onboarding.shortcut.success_badge"],
+                        L10n[feedback.badgeKey ?? "onboarding.shortcut.success_badge"],
                         systemImage: "checkmark.circle.fill"
                     )
                     .font(.system(size: UIConstants.TypeSize.callout, weight: .semibold))
@@ -255,81 +256,88 @@ struct OnboardingView: View {
     }
 
     private var copyStep: some View {
-        VStack(spacing: UIConstants.Onboarding.contentSpacing) {
-            HStack {
-                Spacer()
+        ZStack(alignment: .bottomTrailing) {
+            VStack(spacing: UIConstants.Onboarding.contentSpacing) {
+                stepHeading(
+                    icon: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc",
+                    title: copyDetection.isComplete
+                        ? L10n["onboarding.copy.detected_title"]
+                        : L10n["onboarding.copy.title"],
+                    subtitle: copyDetection.isComplete
+                        ? L10n["onboarding.copy.detected_subtitle"]
+                        : L10n["onboarding.copy.subtitle"]
+                )
+                .contentTransition(.opacity)
 
-                if !copyDetection.isComplete {
-                    Button(L10n["onboarding.skip_step"]) {
-                        advance()
+                Button(action: copySampleText) {
+                    HStack(spacing: UIConstants.Onboarding.permissionRowSpacing) {
+                        VStack(alignment: .leading, spacing: UIConstants.Onboarding.permissionTextSpacing) {
+                            Text(L10n["onboarding.copy.sample_text"])
+                                .font(.system(size: UIConstants.TypeSize.body, weight: .medium))
+                                .foregroundStyle(PastryPalette.ink)
+                                .lineLimit(2)
+
+                            Label(
+                                L10n["onboarding.copy.click_hint"],
+                                systemImage: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc"
+                            )
+                            .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
+                            .foregroundStyle(
+                                copyDetection.isComplete ? PastryPalette.successDeep : PastryPalette.muted
+                            )
+                            .contentTransition(.symbolEffect(.replace))
+                        }
+
+                        Spacer()
+
+                        Image(systemName: copyDetection.isComplete ? "checkmark.circle.fill" : "cursorarrow.click")
+                            .font(.system(size: UIConstants.TypeSize.heroIcon))
+                            .foregroundStyle(
+                                copyDetection.isComplete ? PastryPalette.successDeep : PastryPalette.warmAccent
+                            )
+                            .contentTransition(.symbolEffect(.replace))
+                            .symbolEffect(.bounce, value: copyDetection.isComplete)
                     }
-                    .buttonStyle(.plain)
-                    .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
+                    .padding(UIConstants.Onboarding.cardPadding)
+                    .frame(width: UIConstants.Onboarding.sampleCardWidth)
+                    .frame(minHeight: UIConstants.Onboarding.sampleCardMinHeight)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .settingsCardChrome(
+                    cornerRadius: UIConstants.Radius.cardLarge,
+                    fill: sampleCopyHovered ? PastryPalette.cardFill : PastryPalette.cardFillSoft
+                )
+                .scaleEffect(sampleCopyHovered ? UIConstants.Onboarding.sampleCardHoverScale : 1)
+                .modifier(
+                    OnboardingShakeEffect(
+                        progress: copyPromptAttempts,
+                        distance: UIConstants.Onboarding.copyPromptShakeDistance,
+                        oscillations: UIConstants.Onboarding.copyPromptShakeOscillations
+                    )
+                )
+                .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyHovered)
+                .onHover { sampleCopyHovered = $0 }
+                .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.copySampleButton)
+
+                Text(L10n["onboarding.copy.anywhere_hint"])
+                    .font(.system(size: UIConstants.TypeSize.callout))
                     .foregroundStyle(PastryPalette.muted)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.skipStepButton)
-                }
             }
-            .frame(
-                maxWidth: UIConstants.Onboarding.headingMaxWidth,
-                minHeight: UIConstants.Onboarding.copyStepActionHeight
-            )
 
-            stepHeading(
-                icon: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc",
-                title: copyDetection.isComplete
-                    ? L10n["onboarding.copy.detected_title"]
-                    : L10n["onboarding.copy.title"],
-                subtitle: copyDetection.isComplete
-                    ? L10n["onboarding.copy.detected_subtitle"]
-                    : L10n["onboarding.copy.subtitle"]
-            )
-
-            Button(action: copySampleText) {
-                HStack(spacing: UIConstants.Onboarding.permissionRowSpacing) {
-                    VStack(alignment: .leading, spacing: UIConstants.Onboarding.permissionTextSpacing) {
-                        Text(L10n["onboarding.copy.sample_text"])
-                            .font(.system(size: UIConstants.TypeSize.body, weight: .medium))
-                            .foregroundStyle(PastryPalette.ink)
-                            .lineLimit(2)
-
-                        Label(
-                            L10n["onboarding.copy.click_hint"],
-                            systemImage: copyDetection.isComplete ? "checkmark.circle.fill" : "doc.on.doc"
-                        )
-                        .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
-                        .foregroundStyle(
-                            copyDetection.isComplete ? PastryPalette.successDeep : PastryPalette.muted
-                        )
-                    }
-
-                    Spacer()
-
-                    Image(systemName: copyDetection.isComplete ? "checkmark.circle.fill" : "cursorarrow.click")
-                        .font(.system(size: UIConstants.TypeSize.heroIcon))
-                        .foregroundStyle(
-                            copyDetection.isComplete ? PastryPalette.successDeep : PastryPalette.warmAccent
-                        )
+            if !copyDetection.isComplete {
+                Button(L10n["onboarding.skip_step"]) {
+                    advance()
                 }
-                .padding(UIConstants.Onboarding.cardPadding)
-                .frame(width: UIConstants.Onboarding.sampleCardWidth)
-                .frame(minHeight: UIConstants.Onboarding.sampleCardMinHeight)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .settingsCardChrome(
-                cornerRadius: UIConstants.Radius.cardLarge,
-                fill: sampleCopyHovered ? PastryPalette.cardFill : PastryPalette.cardFillSoft
-            )
-            .scaleEffect(sampleCopyHovered ? UIConstants.Onboarding.sampleCardHoverScale : 1)
-            .animation(.easeOut(duration: UIConstants.Motion.instant), value: sampleCopyHovered)
-            .onHover { sampleCopyHovered = $0 }
-            .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.copySampleButton)
-
-            Text(L10n["onboarding.copy.anywhere_hint"])
-                .font(.system(size: UIConstants.TypeSize.callout))
+                .buttonStyle(.plain)
+                .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
                 .foregroundStyle(PastryPalette.muted)
+                .padding(.trailing, UIConstants.Onboarding.contentHorizontalPadding)
+                .padding(.bottom, UIConstants.Onboarding.copyStepBottomActionInset)
+                .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.skipStepButton)
+            }
         }
-        .padding(.horizontal, UIConstants.Onboarding.contentHorizontalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var permissionStep: some View {
@@ -428,6 +436,12 @@ struct OnboardingView: View {
         withAnimation { step = next }
     }
 
+    private func promptForSampleCopy() {
+        withAnimation(.linear(duration: UIConstants.Onboarding.copyPromptShakeDuration)) {
+            copyPromptAttempts += 1
+        }
+    }
+
     private func copySampleText() {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
@@ -436,5 +450,21 @@ struct OnboardingView: View {
 
     private func refreshAccessibilityStatus() {
         accessibilityTrusted = AccessibilityPermissionChecker.shared.isTrusted()
+    }
+}
+
+private struct OnboardingShakeEffect: GeometryEffect {
+    var progress: CGFloat
+    let distance: CGFloat
+    let oscillations: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let offset = sin(progress * .pi * 2 * oscillations) * distance
+        return ProjectionTransform(CGAffineTransform(translationX: offset, y: 0))
     }
 }

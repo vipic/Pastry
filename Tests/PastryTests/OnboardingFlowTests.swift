@@ -60,10 +60,10 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(OnboardingStep.permission.previous, .copy)
     }
 
-    func testCopyStepRequiresCopyBeforeContinue() {
-        XCTAssertFalse(OnboardingStep.copy.canContinue(copyComplete: false))
-        XCTAssertTrue(OnboardingStep.copy.canContinue(copyComplete: true))
-        XCTAssertTrue(OnboardingStep.shortcut.canContinue(copyComplete: false))
+    func testIncompleteCopyStepPromptsInsteadOfAdvancing() {
+        XCTAssertTrue(OnboardingStep.copy.shouldPromptForCopy(copyComplete: false))
+        XCTAssertFalse(OnboardingStep.copy.shouldPromptForCopy(copyComplete: true))
+        XCTAssertFalse(OnboardingStep.shortcut.shouldPromptForCopy(copyComplete: false))
     }
 
     func testCopyDetectionOnlyCompletesForItemAfterBaseline() {
@@ -81,10 +81,16 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(detection.observe(itemIDs: [UUID()]))
     }
 
-    func testShortcutFeedbackNotificationNameIsStable() {
+    func testActivationFeedbackDistinguishesShortcutAndMenuBar() {
+        XCTAssertNotEqual(OnboardingActivationSource.shortcut, .menuBar)
+        XCTAssertNotEqual(
+            OnboardingActivationFeedback(source: .shortcut),
+            OnboardingActivationFeedback(source: .menuBar)
+        )
+        XCTAssertNil(OnboardingActivationFeedback(source: nil).badgeKey)
         XCTAssertEqual(
-            Notification.Name.onboardingShortcutDetected.rawValue,
-            "onboardingShortcutDetected"
+            Notification.Name.onboardingActivationDetected.rawValue,
+            "onboardingActivationDetected"
         )
     }
 }

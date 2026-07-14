@@ -14,8 +14,36 @@ enum OnboardingStep: Int, CaseIterable, Equatable {
         OnboardingStep(rawValue: rawValue - 1)
     }
 
-    func canContinue(copyComplete: Bool) -> Bool {
-        self != .copy || copyComplete
+    func shouldPromptForCopy(copyComplete: Bool) -> Bool {
+        self == .copy && !copyComplete
+    }
+}
+
+enum OnboardingActivationSource: Equatable {
+    case shortcut
+    case menuBar
+}
+
+struct OnboardingActivationFeedback: Equatable {
+    let titleKey: String
+    let subtitleKey: String
+    let badgeKey: String?
+
+    init(source: OnboardingActivationSource?) {
+        switch source {
+        case .shortcut:
+            titleKey = "onboarding.shortcut.detected_title"
+            subtitleKey = "onboarding.shortcut.detected_subtitle"
+            badgeKey = "onboarding.shortcut.success_badge"
+        case .menuBar:
+            titleKey = "onboarding.shortcut.menubar_detected_title"
+            subtitleKey = "onboarding.shortcut.menubar_detected_subtitle"
+            badgeKey = "onboarding.shortcut.menubar_success_badge"
+        case nil:
+            titleKey = "onboarding.shortcut.title"
+            subtitleKey = "onboarding.shortcut.subtitle"
+            badgeKey = nil
+        }
     }
 }
 

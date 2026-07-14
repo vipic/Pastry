@@ -65,7 +65,7 @@ enum DeleteConfirmationPreference {
 
 extension Notification.Name {
     static let pastryLanguageDidChange = Notification.Name("pastryLanguageDidChange")
-    static let onboardingShortcutDetected = Notification.Name("onboardingShortcutDetected")
+    static let onboardingActivationDetected = Notification.Name("onboardingActivationDetected")
 }
 
 // MARK: - 颜色

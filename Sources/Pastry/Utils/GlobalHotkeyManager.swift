@@ -155,7 +155,7 @@ final class GlobalHotkeyManager {
     private let hotkeyHandler: EventHandlerProcPtr = { _, _, _ -> OSStatus in
         OverlayPanelManager.hotkeyFiredAt = CFAbsoluteTimeGetCurrent()
         DispatchQueue.main.async {
-            if AppDelegate.shared?.acknowledgeOnboardingActivation() == true {
+            if AppDelegate.shared?.acknowledgeOnboardingActivation(source: .shortcut) == true {
                 return
             }
             OverlayPanelManager.shared.toggle()

@@ -4574,6 +4574,57 @@
         }
       }
     },
+    "onboarding.shortcut.menubar_detected_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "菜单栏入口已找到"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu bar action detected"
+          }
+        }
+      }
+    },
+    "onboarding.shortcut.menubar_detected_subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击菜单栏图标打开面板的操作成功了；你也可以继续试试上面的快捷键。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The menu bar action to open Pastry worked. You can also try the shortcut above."
+          }
+        }
+      }
+    },
+    "onboarding.shortcut.menubar_success_badge": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开面板操作成功"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open-panel action detected"
+          }
+        }
+      }
+    },
     "update.just_now": {
       "extractionState": "manual",
       "localizations": {
