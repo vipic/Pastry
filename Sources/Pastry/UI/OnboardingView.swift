@@ -49,10 +49,7 @@ struct OnboardingView: View {
 
             footer
         }
-        .frame(
-            width: UIConstants.Onboarding.windowWidth,
-            height: UIConstants.Onboarding.windowHeight
-        )
+        .frame(width: UIConstants.Onboarding.windowWidth)
         .ignoresSafeArea(.container, edges: .top)
         .background(PastryPalette.cream)
         .foregroundStyle(PastryPalette.ink)
@@ -126,8 +123,8 @@ struct OnboardingView: View {
                 .foregroundStyle(PastryPalette.muted)
                 .frame(width: UIConstants.Onboarding.progressLabelWidth, alignment: .trailing)
         }
-        .padding(.horizontal, UIConstants.Onboarding.headerHorizontalPadding)
-        .padding(.vertical, UIConstants.Onboarding.headerVerticalPadding)
+        .padding(.horizontal, UIConstants.Onboarding.chromeOuterPadding)
+        .padding(.vertical, UIConstants.Onboarding.chromeOuterPadding)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(PastryPalette.hairline)
@@ -167,8 +164,8 @@ struct OnboardingView: View {
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
             .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.primaryButton)
         }
-        .padding(.horizontal, UIConstants.Onboarding.headerHorizontalPadding)
-        .frame(height: UIConstants.Onboarding.footerHeight)
+        .padding(.horizontal, UIConstants.Onboarding.chromeOuterPadding)
+        .padding(.vertical, UIConstants.Onboarding.chromeOuterPadding)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(PastryPalette.hairline)
