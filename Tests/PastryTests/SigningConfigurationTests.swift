@@ -17,11 +17,9 @@ final class SigningConfigurationTests: XCTestCase {
     func testScriptsDefaultToSharedAuthorSigningIdentity() throws {
         let deployScript = try contents(of: "deploy.sh")
         let releaseScript = try contents(of: "release.sh")
-        let benchScript = try contents(of: "bench.sh")
 
         XCTAssertTrue(deployScript.contains(#"IDENTITY="${CODESIGN_IDENTITY:-Nekutai}""#))
         XCTAssertTrue(releaseScript.contains(#"IDENTITY="${CODESIGN_IDENTITY:-Nekutai}""#))
-        XCTAssertTrue(benchScript.contains(#"IDENTITY="${CODESIGN_IDENTITY:-Nekutai}""#))
         XCTAssertFalse(deployScript.contains(#"IDENTITY="${CODESIGN_IDENTITY:-Pastry Dev}""#))
         XCTAssertFalse(releaseScript.contains(#"IDENTITY="${CODESIGN_IDENTITY:-Pastry Release}""#))
     }
@@ -29,9 +27,8 @@ final class SigningConfigurationTests: XCTestCase {
     func testScriptsRejectAdhocSigningFallback() throws {
         let deployScript = try contents(of: "deploy.sh")
         let releaseScript = try contents(of: "release.sh")
-        let benchScript = try contents(of: "bench.sh")
 
-        for script in [deployScript, releaseScript, benchScript] {
+        for script in [deployScript, releaseScript] {
             XCTAssertTrue(script.contains("不能使用 ad-hoc 签名"))
             XCTAssertFalse(script.contains("回退 ad-hoc"))
             XCTAssertFalse(script.contains("codesign --force --sign -"))
@@ -49,7 +46,7 @@ final class SigningConfigurationTests: XCTestCase {
 
     func testDocumentsDescribeReusableAuthorCertificate() throws {
         let developmentGuide = try contents(of: "docs/DEVELOPMENT.md")
-        let releaseGuide = try contents(of: "RELEASE.md")
+        let releaseGuide = try contents(of: "docs/RELEASE.md")
 
         XCTAssertTrue(developmentGuide.contains("Pastry 必须使用稳定代码签名"))
         XCTAssertTrue(developmentGuide.contains("不要使用 ad-hoc 签名"))

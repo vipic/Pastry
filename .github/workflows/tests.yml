@@ -17,20 +17,7 @@ jobs:
         run: swift --version
 
       - name: Check Shell Scripts
-        run: |
-          bash -n deploy.sh
-          bash -n release.sh
-          bash -n smoke.sh
-          bash -n populate_clipboard.sh
-          bash -n bench.sh
-          bash -n scripts/check_coverage.sh
-          bash -n scripts/check_design_tokens.sh
-          bash -n scripts/diagnostics.sh
-          bash -n scripts/lib/command_log.sh
-          bash -n scripts/next_version.sh
-          bash -n .mise/tasks/release
-          bash -n .mise/tasks/release-auto
-          bash -n .mise/tasks/publish
+        run: scripts/check_shell.sh
 
       - name: Check Design Tokens
         run: scripts/check_design_tokens.sh

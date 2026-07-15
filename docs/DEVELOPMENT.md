@@ -1,6 +1,6 @@
 # Development
 
-本文档记录 Pastry 的本地开发、构建和签名要求。发布流程见 [RELEASE.md](../RELEASE.md)，测试命令见 [TESTING.md](TESTING.md)。
+本文档记录 Pastry 的本地开发、构建、签名和命令入口。发布流程见 [RELEASE.md](RELEASE.md)，测试命令见 [TESTING.md](TESTING.md)。
 
 ## 环境要求
 
@@ -44,7 +44,7 @@ Keychain Access -> 证书助理 -> 创建证书
 证书类型: 代码签名
 ```
 
-证书缺失、签名失败或显式设置 `CODESIGN_IDENTITY="-"` 时，`deploy.sh`、`release.sh` 和 `bench.sh` 会直接停止，不会改用 ad-hoc。
+证书缺失、签名失败或显式设置 `CODESIGN_IDENTITY="-"` 时，`deploy.sh` 和 `release.sh` 会直接停止，不会改用 ad-hoc。
 
 ## 本地构建
 
@@ -69,10 +69,27 @@ swift build -c release -Xswiftc -Osize
 ## 本机冒烟
 
 ```bash
-./smoke.sh
+scripts/smoke.sh
 ```
 
 脚本会部署开发版、填充剪贴板样本、唤出面板，并把截图和日志保存到 `dist/smoke/`。它不进 CI，适合发布前人工确认菜单栏、面板和卡片行为。
+
+## 开发工具
+
+面向开发、测试和诊断的辅助工具统一放在 `scripts/`：
+
+```text
+scripts/
+├── bench.sh               # 性能基准与 perf.log 报告
+├── populate_clipboard.sh  # 写入本机测试样本（图片样本需 Pillow）
+├── smoke.sh               # 部署、填充样本并截图
+├── check_shell.sh         # 仓库全部 shell 语法检查
+├── check_coverage.sh      # 覆盖率门槛
+├── check_design_tokens.sh # UI token 防回潮检查
+└── diagnostics.sh         # 应用和本地命令日志查看
+```
+
+根目录只保留两个主要工作流入口：`deploy.sh` 和 `release.sh`。
 
 ## mise 入口
 
@@ -81,10 +98,11 @@ swift build -c release -Xswiftc -Osize
 ```bash
 mise run check
 mise run deploy
+mise run smoke
 mise run release-auto
 ```
 
-完整说明见 [MISE.md](MISE.md)。
+`mise tasks` 可查看全部入口。常用任务还包括 `test`、`test:coverage`、`bench`、`logs`、`snapshot:test`、`version:next` 和 `publish`；参数通过 `--` 传给底层脚本。`mise` 只是命令面板，真实实现仍在 SwiftPM、根目录工作流脚本和 `scripts/` 中。
 
 ## 项目结构
 

@@ -1,13 +1,13 @@
 #!/bin/bash
 # Pastry 本机冒烟检查
 # 用法:
-#   ./smoke.sh                 # 部署开发版 → 填充样本 → 唤出面板 → 截图
-#   ./smoke.sh --skip-deploy   # 使用当前已运行/已安装的应用
-#   ./smoke.sh --skip-populate # 不改写剪贴板样本
+#   scripts/smoke.sh                 # 部署开发版 → 填充样本 → 唤出面板 → 截图
+#   scripts/smoke.sh --skip-deploy   # 使用当前已运行/已安装的应用
+#   scripts/smoke.sh --skip-populate # 不改写剪贴板样本
 
 set -euo pipefail
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 ARTIFACT_DIR="$PROJECT_DIR/dist/smoke/$TIMESTAMP"
 OVERLAY_SHOT="$ARTIFACT_DIR/overlay.png"
@@ -104,7 +104,7 @@ log "═════════════════════════
 cd "$PROJECT_DIR"
 
 if [[ "$SKIP_DEPLOY" -eq 0 ]]; then
-    run_step "部署开发版" ./deploy.sh
+    run_step "部署开发版" "$PROJECT_DIR/deploy.sh"
 else
     log ""
     log "── 部署开发版 ──"
@@ -115,12 +115,12 @@ if wait_for_pastry; then
     log "✓ Pastry 进程已运行"
 else
     log "✗ 未检测到 Pastry 进程"
-    log "  可手动启动后重试: ./smoke.sh --skip-deploy"
+    log "  可手动启动后重试: scripts/smoke.sh --skip-deploy"
     exit 1
 fi
 
 if [[ "$SKIP_POPULATE" -eq 0 ]]; then
-    run_step "填充剪贴板样本" ./populate_clipboard.sh
+    run_step "填充剪贴板样本" "$PROJECT_DIR/scripts/populate_clipboard.sh"
 else
     log ""
     log "── 填充剪贴板样本 ──"

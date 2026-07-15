@@ -51,14 +51,13 @@ Vibe 的产物，但细节经过实际使用打磨。布局参考了 [Paste](htt
 
 从 [GitHub Releases](https://github.com/vipic/Pastry/releases) 下载最新 DMG，打开后将 `Pastry.app` 拖入 `/Applications`。
 
-当前项目没有开发者账号签名和公证，首次打开时可能需要在系统设置里允许运行。Pastry 需要辅助功能权限才能完成全局快捷键和粘贴相关操作。
+当前项目没有开发者账号签名和公证，首次打开时可能需要在系统设置里允许运行。Pastry 会在首次执行跨应用粘贴时请求辅助功能权限；剪贴板记录和全局快捷键本身不依赖这项授权。
 
 ## 文档
 
 - [开发说明](docs/DEVELOPMENT.md)：本地构建、签名证书、调试部署、项目结构。
 - [测试说明](docs/TESTING.md)：单测、覆盖率、快照、冒烟和性能检查。
-- [发布流程](RELEASE.md)：版本号、DMG、GitHub Releases、自动更新排查。
-- [mise 命令](docs/MISE.md)：统一任务入口。
+- [发布流程](docs/RELEASE.md)：版本号、DMG、GitHub Releases、自动更新排查。
 - [产品说明](docs/PRODUCT.md)：产品定位和功能细节。
 - [Agent Onboarding](AGENTS.md)：给代码代理使用的架构、坑点和约定。
 

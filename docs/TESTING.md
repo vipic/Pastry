@@ -66,22 +66,13 @@ swift test --filter AppIconProviderTests
 
 ## 脚本语法检查
 
-CI 会检查这些脚本是否有 shell 语法错误：
+CI 和 `mise run lint:scripts` 共用同一个检查入口：
 
 ```bash
-bash -n deploy.sh
-bash -n release.sh
-bash -n smoke.sh
-bash -n populate_clipboard.sh
-bash -n bench.sh
-bash -n scripts/check_coverage.sh
-bash -n scripts/diagnostics.sh
-bash -n scripts/lib/command_log.sh
-bash -n scripts/next_version.sh
-bash -n .mise/tasks/release
-bash -n .mise/tasks/release-auto
-bash -n .mise/tasks/publish
+scripts/check_shell.sh
 ```
+
+新增或移动 shell 脚本时，只需要同步 `scripts/check_shell.sh` 的清单。
 
 ## Coverage
 
@@ -149,15 +140,15 @@ env PASTRY_NETWORK_TESTS=1 swift test --filter UpdateCheckerTests
 本机冒烟检查会部署开发版、填充剪贴板样本、尝试唤出面板并保存截图：
 
 ```bash
-./smoke.sh
+scripts/smoke.sh
 ```
 
 常用参数：
 
 ```bash
-./smoke.sh --skip-deploy
-./smoke.sh --skip-populate
-./smoke.sh --skip-hotkey
+scripts/smoke.sh --skip-deploy
+scripts/smoke.sh --skip-populate
+scripts/smoke.sh --skip-hotkey
 ```
 
 产物位置：
@@ -166,38 +157,39 @@ env PASTRY_NETWORK_TESTS=1 swift test --filter UpdateCheckerTests
 dist/smoke/<timestamp>/
 ```
 
-`smoke.sh` 会自动检查 Pastry 进程、截图文件、截图尺寸，以及唤起前后画面是否发生变化。关键检查失败时脚本会以非 0 退出；通过后仍保留人工验证清单，用来确认卡片内容、右键菜单和菜单栏行为。
+`scripts/smoke.sh` 会自动检查 Pastry 进程、截图文件、截图尺寸，以及唤起前后画面是否发生变化。关键检查失败时脚本会以非 0 退出；通过后仍保留人工验证清单，用来确认卡片内容、右键菜单和菜单栏行为。
 
 只填充剪贴板样本：
 
 ```bash
-./populate_clipboard.sh
+scripts/populate_clipboard.sh
 ```
 
-注意：`populate_clipboard.sh` 会写系统剪贴板；Pastry 运行中会捕获这些样本。
+注意：`scripts/populate_clipboard.sh` 会写系统剪贴板；Pastry 运行中会捕获这些样本。文本、URL、HTML、RTF 和文件样本只需系统工具；生成图片样本还需要 Python Pillow（`python3 -m pip install Pillow`）。
 
 ## Performance Checks
 
 跑一次本机性能基准：
 
 ```bash
-./bench.sh
+scripts/bench.sh
 ```
 
 保存或对比基线：
 
 ```bash
-./bench.sh --baseline
-./bench.sh --diff
+scripts/bench.sh --baseline
+scripts/bench.sh --diff
 ```
 
 从性能日志生成 p50/p95/p99：
 
 ```bash
-./bench.sh --report
+scripts/bench.sh --report
+scripts/bench.sh --report-dev
 ```
 
-`--report` 依赖 `~/Library/Logs/Pastry/perf.log`（DEBUG 为 `Pastry Dev`）。开发诊断默认关闭，可在设置 → Security → Privacy 打开「开发诊断记录」，同时写入：
+`--report` 读取正式版的 `~/Library/Logs/Pastry/perf.log`，`--report-dev` 读取 `~/Library/Logs/Pastry Dev/perf.log`。开发诊断默认关闭，可在设置 → Security → Privacy 打开「开发诊断记录」，同时写入：
 
 - `perf.log`：面板打开 / 粘贴计时
 - `usage.json`：功能使用次数累加（收藏、删除、预览、筛选等）
@@ -259,18 +251,8 @@ scripts/diagnostics.sh command publish --full
 `.github/workflows/tests.yml` 当前执行：
 
 ```bash
-bash -n deploy.sh
-bash -n release.sh
-bash -n smoke.sh
-bash -n populate_clipboard.sh
-bash -n bench.sh
-bash -n scripts/check_coverage.sh
-bash -n scripts/diagnostics.sh
-bash -n scripts/lib/command_log.sh
-bash -n scripts/next_version.sh
-bash -n .mise/tasks/release
-bash -n .mise/tasks/release-auto
-bash -n .mise/tasks/publish
+scripts/check_shell.sh
+scripts/check_design_tokens.sh
 swift test --enable-code-coverage
 scripts/check_coverage.sh 20
 swift build -c release -Xswiftc -Osize
@@ -304,21 +286,11 @@ env CLANG_MODULE_CACHE_PATH=/private/tmp/clang-module-cache PASTRY_SNAPSHOT_TEST
 发布前：
 
 ```bash
-bash -n deploy.sh
-bash -n release.sh
-bash -n smoke.sh
-bash -n populate_clipboard.sh
-bash -n bench.sh
-bash -n scripts/check_coverage.sh
-bash -n scripts/diagnostics.sh
-bash -n scripts/lib/command_log.sh
-bash -n scripts/next_version.sh
-bash -n .mise/tasks/release
-bash -n .mise/tasks/release-auto
-bash -n .mise/tasks/publish
+scripts/check_shell.sh
+scripts/check_design_tokens.sh
 swift test --enable-code-coverage
 scripts/check_coverage.sh
 env CLANG_MODULE_CACHE_PATH=/private/tmp/clang-module-cache PASTRY_SNAPSHOT_TESTS=1 swift test --filter ClipboardCardSnapshotTests
 swift build -c release -Xswiftc -Osize
-./smoke.sh
+scripts/smoke.sh
 ```

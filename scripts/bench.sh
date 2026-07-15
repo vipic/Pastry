@@ -1,17 +1,19 @@
 #!/bin/bash
 # Pastry 性能基准测试
-# 用法: ./bench.sh              # 跑一次输出指标
-#       ./bench.sh --baseline    # 保存为基线（覆盖上一次基线）
-#       ./bench.sh --diff        # 对比当前与基线
-#       ./bench.sh --report      # 从 perf.log 生成 p50/p95/p99 统计
+# 用法: scripts/bench.sh              # 跑一次输出指标
+#       scripts/bench.sh --baseline    # 保存为基线（覆盖上一次基线）
+#       scripts/bench.sh --diff        # 对比当前与基线
+#       scripts/bench.sh --report      # 正式版 perf.log 的 p50/p95/p99
+#       scripts/bench.sh --report-dev  # 开发版 perf.log 的 p50/p95/p99
 
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 BASELINE_FILE=".bench_baseline"
-APP_BIN="$HOME/Applications/Pastry.app/Contents/MacOS/Pastry"
 BUILD_BIN=".build/release/Pastry"
 PERF_LOG="$HOME/Library/Logs/Pastry/perf.log"
-IDENTITY="${CODESIGN_IDENTITY:-Nekutai}"
+if [[ "${1:-}" == "--report-dev" ]]; then
+    PERF_LOG="$HOME/Library/Logs/Pastry Dev/perf.log"
+fi
 
 # macOS 毫秒时间戳
 now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
@@ -24,11 +26,12 @@ do_report() {
         exit 1
     fi
 
-    python3 << 'PYEOF'
+PERF_LOG="$PERF_LOG" python3 << 'PYEOF'
+import os
 import re, sys
 from collections import defaultdict
 
-log_path = "/Users/mason/Library/Logs/Pastry/perf.log"
+log_path = os.environ["PERF_LOG"]
 with open(log_path) as f:
     lines = [line.strip() for line in f if line.strip()]
 
@@ -127,7 +130,7 @@ PYEOF
 }
 
 # ── 若为 --report 模式，直接跑报告并退出 ──
-if [[ "${1:-}" == "--report" ]]; then
+if [[ "${1:-}" == "--report" || "${1:-}" == "--report-dev" ]]; then
     do_report
     exit 0
 fi
@@ -158,29 +161,16 @@ TEST_PASSED=$(echo "$TEST_OUTPUT" | grep -oE '[[:space:]]*Executed [0-9]+ tests'
 echo "${TEST_PASSED:-测试结果解析失败}"
 echo "测试耗时: ${TEST_MS}ms"
 
-# ── 4. 部署（--bench 需要从 app bundle 运行以获取 Info.plist 等资源）──
-if [[ -f "$BUILD_BIN" ]]; then
-    if [[ "$IDENTITY" == "-" ]]; then
-        echo "❌ Pastry 需要稳定代码签名以保留辅助功能授权，不能使用 ad-hoc 签名。"
-        exit 1
-    fi
-    pkill -x Pastry 2>/dev/null || true
-    sleep 0.3
-    cp "$BUILD_BIN" "$APP_BIN" 2>/dev/null || true
-    rm -rf "${APP_BIN%/Contents/MacOS/Pastry}/_CodeSignature" 2>/dev/null || true
-    codesign --force --sign "$IDENTITY" "${APP_BIN%/Contents/MacOS/Pastry}" 2>/dev/null
-fi
-
-# ── 5. 启动耗时 ──
+# ── 4. 启动耗时 ──
 echo ""
 echo "═══ 启动耗时 ═══"
-if [[ -x "$APP_BIN" ]]; then
-    LAUNCH_OUTPUT=$("$APP_BIN" --bench 2>/dev/null)
+if [[ -x "$BUILD_BIN" ]]; then
+    LAUNCH_OUTPUT=$("$BUILD_BIN" --bench 2>/dev/null)
     LAUNCH_MS=$(echo "$LAUNCH_OUTPUT" | grep -o '[0-9]*' | head -1)
     echo "启动耗时: ${LAUNCH_MS:-?}ms"
 else
     LAUNCH_MS=0
-    echo "⚠  未找到 app bundle，跳过启动测试"
+    echo "⚠  未找到 release 二进制，跳过启动测试"
 fi
 
 # ── 汇总 ──
@@ -207,12 +197,12 @@ elif [[ "${1:-}" == "--diff" ]]; then
         printf "启动: %+dms\n" $((LAUNCH_MS - B_LAUNCH))
         printf "测试: %+dms\n" $((TEST_MS - B_TST))
     else
-        echo "❌ 无基线文件，先运行 ./bench.sh --baseline"
+        echo "❌ 无基线文件，先运行 scripts/bench.sh --baseline"
     fi
 fi
 
 # ── 提示可选 perf 报告 ──
 if [[ -f "$PERF_LOG" ]]; then
     echo ""
-    echo "💡 perf.log 存在，可运行 ./bench.sh --report 查看面板/粘贴统计"
+    echo "💡 perf.log 存在，可运行 scripts/bench.sh --report 查看面板/粘贴统计"
 fi

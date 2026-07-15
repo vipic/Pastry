@@ -1,11 +1,11 @@
 #!/bin/bash
 # 向剪贴板依次写入 Pastry 支持的所有类型
-# 用法: ./populate_clipboard.sh
+# 用法: scripts/populate_clipboard.sh
 # Pastry 运行中会自动捕获每一项；运行前建议先在应用内"清空全部记录"
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 SLEEP=0.8
-PBWRITE="$(dirname "$0")/pbwrite"
+PBWRITE=".local/bin/pbwrite"
 
 log()   { echo "→ $*"; }
 err()   { echo "  ✗ $*"; }
@@ -13,15 +13,15 @@ ok()    { echo "  ✓"; }
 
 echo "══════════════════════════════════════"
 echo "  Pastry 剪贴板填充脚本"
-echo "  将写入 7 种类型，共 10 条"
-echo "  （多文件显示为 1 张卡片包含 3 个文件）"
+echo "  将写入文本、链接、HTML、RTF、文件和图片样本"
 echo "══════════════════════════════════════"
 echo
 
 # 编译 pbwrite（如需要）
-if [[ ! -x "$PBWRITE" ]]; then
+if [[ ! -x "$PBWRITE" || scripts/pbwrite.swift -nt "$PBWRITE" ]]; then
     echo "→ 正在编译 pbwrite…"
-    swiftc pbwrite.swift -o pbwrite || { echo "✗ 编译失败"; exit 1; }
+    mkdir -p "$(dirname "$PBWRITE")"
+    swiftc scripts/pbwrite.swift -o "$PBWRITE" || { echo "✗ 编译失败"; exit 1; }
 fi
 
 # 选择存在的样本文件。.zprofile 在不少环境里不存在，优先用常见 dotfile 兜底。
@@ -49,32 +49,29 @@ sleep "$SLEEP"
 # ── 2. 长文本（多行）──
 log "text — 长文本（多行）"
 cat <<'EOF' | pbcopy
-DeepSeek TUI 是一款运行在终端中的 AI 编程助手。
+Pastry 是一款 macOS 剪贴板管理器，用来找回刚刚复制过的临时内容。
 
 特性：
-• 支持 Swift / Python / Rust 等多种语言
-• 1M token 上下文窗口
-• 内置沙箱 + 子代理并行执行
-• macOS 26+ 原生体验
+• 记录文本、链接、图片、文件、RTF 和 HTML
+• 支持全文搜索、来源与时间筛选
+• 支持收藏备注、多选、预览、拖拽和快捷粘贴
+• 历史数据仅存本机，数据库使用 SQLCipher 加密
 
-项目地址：https://github.com/nekutai/deepseek-tui
+项目地址：https://github.com/vipic/Pastry
 
-以上是 Pastry 性能打点的一部分背景 — 我们给 OverlayPanelManager 的
-showPanel() 和 hideAndPaste() 加了 CFAbsoluteTime 分段计时，
-数据写入 ~/Library/Logs/Pastry/perf.log，然后 bench.sh --report
-可以拉出 p50/p95/p99 统计。
+这段多行内容用于检查长文本卡片的换行、截断、搜索和复制行为。
 EOF
 ok
 sleep "$SLEEP"
 
 # ── 2b. 纯 URL（整段为链接，Pastry 标记 isURL）──
 log "text — 纯 URL（链接条目）"
-"$PBWRITE" url "https://github.com/nekutai/pastry" && ok || err "URL 写入失败"
+"$PBWRITE" url "https://github.com/vipic/Pastry" && ok || err "URL 写入失败"
 sleep "$SLEEP"
 
 # ── 3. HTML ──
 log "html — HTML 片段"
-"$PBWRITE" html "<h2>Pastry 发布说明</h2><ul><li><b>v1.2</b> — 支持多选粘贴</li><li><b>v1.1</b> — SQLCipher 全库加密</li><li><b>v1.0</b> — 首个公开版本</li></ul><p style='color:#888'>macOS 26+ 剪贴板管理器</p>" && ok || err "HTML 写入失败"
+"$PBWRITE" html "<h2>Pastry HTML 样本</h2><ul><li><b>搜索</b> — 查找历史内容</li><li><b>预览</b> — 查看链接与文件</li><li><b>加密</b> — SQLCipher 本地存储</li></ul><p style='color:#888'>用于检查富文本解析和展示</p>" && ok || err "HTML 写入失败"
 sleep "$SLEEP"
 
 # ── 4. RTF — 写临时文件再用 pbwrite 读取 ──
@@ -86,7 +83,7 @@ cat > "$RTF_FILE" << 'RTFEOF'
 \f0\fs32\b Pastry\b0
 \fs24 是 macOS 26+ 的原生剪贴板管理器。\par
 \f1\i 支持：\i0 文本、RTF、HTML、图片、文件路径。\par
-\f0 github.com/nekutai/pastry
+\f0 github.com/vipic/Pastry
 }
 RTFEOF
 "$PBWRITE" rtf "$RTF_FILE" && ok || err "RTF 写入失败"

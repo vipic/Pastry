@@ -330,7 +330,7 @@ scripts/check_coverage.sh
 
 设置 → Security → Privacy「开发诊断记录」开关（UserDefaults `performance_logging_enabled`）同时控制：
 
-- `~/Library/Logs/Pastry/perf.log`：面板 / 粘贴计时（`bench.sh --report` 可读）
+- `~/Library/Logs/Pastry/perf.log`：面板 / 粘贴计时（`scripts/bench.sh --report` 可读）
 - `~/Library/Logs/Pastry/usage.json`：功能使用次数累加（收藏、删除、预览、筛选、粘贴路径等）
 
 仅本地文件，不上报。环境变量 `PASTRY_DIAGNOSTICS=1` 或 `PASTRY_PERF_LOG=1` 也可强制开启。

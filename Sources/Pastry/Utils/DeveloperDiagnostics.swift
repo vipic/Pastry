@@ -153,7 +153,7 @@ enum DeveloperDiagnostics {
         }
     }
 
-    /// 写入一行性能日志（格式保持与 bench.sh 兼容）。
+    /// 写入一行性能日志（格式保持与 scripts/bench.sh 兼容）。
     static func writePerfLine(_ line: String) {
         guard isEnabled else { return }
         queue.async {

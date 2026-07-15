@@ -20,7 +20,7 @@ run = "scripts/check_coverage.sh"
 
 [tasks."lint:scripts"]
 description = "Check shell scripts for syntax errors"
-run = "bash -n deploy.sh && bash -n release.sh && bash -n smoke.sh && bash -n populate_clipboard.sh && bash -n bench.sh && bash -n scripts/check_coverage.sh && bash -n scripts/diagnostics.sh && bash -n scripts/lib/command_log.sh && bash -n scripts/next_version.sh && bash -n .mise/tasks/release && bash -n .mise/tasks/release-auto && bash -n .mise/tasks/publish"
+run = "scripts/check_shell.sh"
 
 [tasks.check]
 description = "Run the standard local validation suite"
@@ -40,15 +40,15 @@ run = "./deploy.sh"
 
 [tasks.smoke]
 description = "Run local UI smoke checks"
-run = "./smoke.sh"
+run = "scripts/smoke.sh"
 
 [tasks.populate]
 description = "Populate the pasteboard with sample clipboard data"
-run = "./populate_clipboard.sh"
+run = "scripts/populate_clipboard.sh"
 
 [tasks.bench]
 description = "Run the local performance benchmark; pass bench flags after --"
-run = "./bench.sh"
+run = "scripts/bench.sh"
 
 [tasks.logs]
 description = "List Pastry runtime logs and latest local workflow logs"
