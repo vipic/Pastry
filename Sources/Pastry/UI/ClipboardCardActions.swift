@@ -1,6 +1,13 @@
 import Cocoa
 import Quartz
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum ContextMenu {
+        static let cardMinimumWidth: CGFloat = 190
+    }
+}
+
 extension ClipboardCardView {
     /// 用默认应用打开（多文件/多链接时逐个打开所有存在的 URL）
     private func openItem() {
@@ -127,7 +134,7 @@ extension ClipboardCardView {
     /// 右键菜单（使用系统 NSMenu.popUpContextMenu）
     func showContextMenu(with event: NSEvent, for view: NSView) {
         let menu = NSMenu()
-        menu.minimumWidth = UIConstants.ContextMenu.cardMinimumWidth
+        menu.minimumWidth = Local.ContextMenu.cardMinimumWidth
         let handler = _MenuHandler { title, object in
             // representedObject 传递的动作标识优先
             if let appURL = object as? URL {

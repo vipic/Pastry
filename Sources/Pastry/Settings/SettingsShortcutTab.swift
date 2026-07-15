@@ -2,6 +2,14 @@ import SwiftUI
 import AppKit
 import Carbon
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Settings {
+        static let keycapHighlightOpacity: Double = 0.70
+        static let shortcutCaptureMinHeight: CGFloat = 142
+    }
+}
+
 // MARK: - Shortcut Tab
 
 extension SettingsSceneView {
@@ -31,7 +39,7 @@ extension SettingsSceneView {
                     }
                     .buttonStyle(SettingsPillButtonStyle(kind: .primary))
                     .disabled(isRecordingShortcut)
-                    .opacity(isRecordingShortcut ? 0.72 : 1)
+                    .opacity(isRecordingShortcut ? UIConstants.Settings.secondaryFillOpacity : 1)
                 }
 
                 ShortcutCaptureView(
@@ -87,20 +95,20 @@ extension SettingsSceneView {
                     shortcutKeycap(segment)
                 }
             }
-            .padding(.horizontal, 14)
-            .frame(height: 48)
+            .padding(.horizontal, UIConstants.Settings.rowHorizontalPadding)
+            .frame(height: UIConstants.Settings.rowMinHeight)
             .background(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
-                    .fill(Color.white.opacity(0.88))
+                    .fill(Color.white.opacity(UIConstants.Settings.pressedOpacity))
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
-                            .stroke(SettingsPalette.ink.opacity(0.14), lineWidth: UIConstants.Stroke.hairline)
+                            .stroke(SettingsPalette.ink.opacity(UIConstants.Settings.borderOpacity), lineWidth: UIConstants.Stroke.hairline)
                     )
-                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 3)
+                    .shadow(color: .black.opacity(UIConstants.Shadow.Shortcut.opacity), radius: UIConstants.Shadow.Shortcut.radius, x: 0, y: UIConstants.Shadow.Shortcut.y)
             )
             Spacer()
         }
-        .frame(maxWidth: .infinity, minHeight: 142)
+        .frame(maxWidth: .infinity, minHeight: Local.Settings.shortcutCaptureMinHeight)
         .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: SettingsPalette.cardFillSoft)
     }
 
@@ -119,7 +127,7 @@ extension SettingsSceneView {
                         LinearGradient(
                             colors: [
                                 .white,
-                                PastryPalette.keycapBottom
+                                PastryPalette.cream
                             ],
                             startPoint: .top,
                             endPoint: .bottom
@@ -127,14 +135,14 @@ extension SettingsSceneView {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
-                            .stroke(SettingsPalette.ink.opacity(0.14), lineWidth: UIConstants.Stroke.hairline)
+                            .stroke(SettingsPalette.ink.opacity(UIConstants.Settings.borderOpacity), lineWidth: UIConstants.Stroke.hairline)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                            .stroke(.white.opacity(0.70), lineWidth: UIConstants.Stroke.hairline)
+                            .stroke(.white.opacity(Local.Settings.keycapHighlightOpacity), lineWidth: UIConstants.Stroke.hairline)
                             .padding(1)
                     )
-                    .shadow(color: SettingsPalette.ink.opacity(0.12), radius: 0, x: 0, y: 2)
+                    .shadow(color: SettingsPalette.ink.opacity(UIConstants.Shadow.Shortcut.keycapOpacity), radius: 0, x: 0, y: UIConstants.Shadow.Shortcut.keycapY)
             )
     }
 

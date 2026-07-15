@@ -3,6 +3,39 @@ import Cocoa
 import UniformTypeIdentifiers
 import Quartz
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Badge {
+        static let countCornerRadius: CGFloat = UIConstants.Radius.button
+        static let countPadding: CGFloat = 7
+        static let countSize: CGFloat = 24
+    }
+    enum Card {
+        static let animationDuration = UIConstants.Motion.fast
+        static let appIconSize: CGFloat = 72
+        static let contentHorizontalPadding: CGFloat = 10
+        static let cornerRadius: CGFloat = UIConstants.Radius.card
+        static let favoriteNoteActionSize: CGFloat = 16
+        static let favoriteNoteBottomPadding: CGFloat = 12
+        static let favoriteNoteHeight: CGFloat = 24
+        static let headerHeight: CGFloat = 48
+        static let headerThemeLeadingOpacity: Double = 0.74
+        static let headerThemeTrailingOpacity: Double = 0.58
+        static let hoverActionCornerRadius: CGFloat = UIConstants.Radius.xs
+        static let hoverActionIconSize: CGFloat = UIConstants.TypeSize.caption2
+        static let hoverActionReserveWidth: CGFloat = 62
+        static let hoverActionSize: CGFloat = 18
+        static let hoverActionSpacing: CGFloat = 2
+        static let hoverBorderOpacity: CGFloat = 0.30
+        static let idleBorderOpacity: CGFloat = 0.22
+        static let noteAccentStrokeOpacity: Double = 0.18
+        static let noteIdleFillOpacity: Double = 0.035
+        static let pasteScale: CGFloat = 0.95
+        static let selectedBorderWidth: CGFloat = UIConstants.Stroke.emphasis
+        static let size: CGFloat = 240
+    }
+}
+
 // MARK: - 剪贴板卡片视图
 struct ClipboardCardView: View {
 
@@ -110,35 +143,35 @@ struct ClipboardCardView: View {
                 .layoutPriority(2)
             contentArea
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
+                .padding(.horizontal, Local.Card.contentHorizontalPadding)
                 .padding(.top, UIConstants.Card.contentVerticalPadding)
                 // 有备注时收紧底部，避免域名与备注之间再空出一整段 content padding
                 .padding(.bottom, showsFavoriteNoteStrip ? 2 : UIConstants.Card.contentVerticalPadding)
                 .layoutPriority(0)
                 .clipped()
             favoriteNoteStrip
-                .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
-                .padding(.bottom, UIConstants.Card.favoriteNoteBottomPadding)
+                .padding(.horizontal, Local.Card.contentHorizontalPadding)
+                .padding(.bottom, Local.Card.favoriteNoteBottomPadding)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
             footerBar
-                .padding(.horizontal, UIConstants.Card.contentHorizontalPadding)
+                .padding(.horizontal, Local.Card.contentHorizontalPadding)
                 .padding(.bottom, UIConstants.Card.footerBottomPadding)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(2)
         }
-        .frame(width: UIConstants.Card.size, height: UIConstants.Card.size)
+        .frame(width: Local.Card.size, height: Local.Card.size)
         .background(Color(nsColor: NSColor.windowBackgroundColor))
         .compositingGroup()
-        .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Local.Card.cornerRadius, style: .continuous))
         // Inset stroke only: centered `.stroke` bleeds outside the card and gets clipped
         // by the horizontal strip ScrollView (edge cards sit flush with no side padding).
         .overlay(
-            RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: Local.Card.cornerRadius, style: .continuous)
                 .strokeBorder(cardChromeBorderColor, lineWidth: cardChromeBorderWidth)
-                .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
-                .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
-                .animation(.easeOut(duration: 0.5), value: didPaste)
+                .animation(.easeInOut(duration: Local.Card.animationDuration), value: isSelected)
+                .animation(.easeInOut(duration: Local.Card.animationDuration), value: isHovered)
+                .animation(.easeOut(duration: UIConstants.Motion.paste), value: didPaste)
         )
         .overlay(alignment: .bottomTrailing) {
             if let idx = cmdBadgeIndex {
@@ -146,13 +179,13 @@ struct ClipboardCardView: View {
                     .transition(.scale(scale: 0.74, anchor: .bottomTrailing).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isSelected)
-        .animation(.easeInOut(duration: UIConstants.Card.animationDuration), value: isHovered)
-        .scaleEffect(didPaste ? UIConstants.Card.pasteScale : 1.0)
-        .animation(.spring(response: 0.15, dampingFraction: 0.6), value: didPaste)
+        .animation(.easeInOut(duration: Local.Card.animationDuration), value: isSelected)
+        .animation(.easeInOut(duration: Local.Card.animationDuration), value: isHovered)
+        .scaleEffect(didPaste ? Local.Card.pasteScale : 1.0)
+        .animation(.spring(response: UIConstants.Motion.short, dampingFraction: UIConstants.Motion.pasteDamping), value: didPaste)
         .animation(.easeInOut(duration: UIConstants.Motion.note), value: item.isPinned)
         .animation(.easeInOut(duration: UIConstants.Motion.note), value: isEditingFavoriteNote)
-        .contentShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius))
+        .contentShape(RoundedRectangle(cornerRadius: Local.Card.cornerRadius))
     }
 
     // MARK: - 打开文件
@@ -184,14 +217,14 @@ struct ClipboardCardView: View {
     /// Single chrome stroke for all card states (no glow / dual-ring stack).
     private var cardChromeBorderColor: Color {
         if didPaste { return Color.green }
-        if isSelected { return PastryPalette.cardAccent.opacity(0.88) }
-        if isHovered { return .white.opacity(0.30) }
-        return .white.opacity(0.22)
+        if isSelected { return PastryPalette.warmGold.opacity(UIConstants.Settings.pressedOpacity) }
+        if isHovered { return .white.opacity(Local.Card.hoverBorderOpacity) }
+        return .white.opacity(Local.Card.idleBorderOpacity)
     }
 
     private var cardChromeBorderWidth: CGFloat {
         if didPaste || isSelected {
-            return UIConstants.Card.selectedBorderWidth
+            return Local.Card.selectedBorderWidth
         }
         return UIConstants.Stroke.hairline
     }
@@ -202,12 +235,12 @@ struct ClipboardCardView: View {
         Text("\(idx)")
             .font(.system(size: UIConstants.TypeSize.callout, weight: .heavy, design: .rounded))
             .foregroundColor(.white)
-            .frame(width: UIConstants.Badge.countSize, height: UIConstants.Badge.countSize)
+            .frame(width: Local.Badge.countSize, height: Local.Badge.countSize)
             .background(
-                RoundedRectangle(cornerRadius: UIConstants.Badge.countCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: Local.Badge.countCornerRadius, style: .continuous)
                     .fill(PastryPalette.warmAccent)
             )
-            .padding(UIConstants.Badge.countPadding)
+            .padding(Local.Badge.countPadding)
     }
 
     // MARK: - 顶部栏（始终使用主题色背景）
@@ -216,26 +249,26 @@ struct ClipboardCardView: View {
         HStack(spacing: 0) {
             Image(systemName: item.sourceFormat.iconName)
                 .font(.system(size: UIConstants.TypeSize.caption, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
-                .padding(.leading, UIConstants.Card.contentHorizontalPadding)
+                .foregroundColor(.white.opacity(UIConstants.OnDark.textPrimary))
+                .padding(.leading, Local.Card.contentHorizontalPadding)
 
             Text(cardTypeLabel)
                 .font(.system(size: UIConstants.TypeSize.caption, weight: .semibold))
-                .foregroundColor(.white.opacity(0.76))
+                .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
                 .lineLimit(1)
                 .padding(.leading, 5)
 
             Spacer()
         }
-        .frame(height: UIConstants.Card.headerHeight)
+        .frame(height: Local.Card.headerHeight)
         .background(
             LinearGradient(
-                colors: [themeColor.opacity(0.74), themeColor.opacity(0.58)],
+                colors: [themeColor.opacity(Local.Card.headerThemeLeadingOpacity), themeColor.opacity(Local.Card.headerThemeTrailingOpacity)],
                 startPoint: .leading,
                 endPoint: .trailing
             )
         )
-        .overlay(Color.white.opacity(0.06))
+        .overlay(Color.white.opacity(UIConstants.OnDark.fillSubtle))
         .clipped()
         .overlay(alignment: .topTrailing) {
             appIconOverlay
@@ -256,19 +289,19 @@ struct ClipboardCardView: View {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: UIConstants.Card.cornerRadius, style: .continuous))
-                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: Local.Card.cornerRadius, style: .continuous))
+                    .shadow(color: .black.opacity(UIConstants.Shadow.CardIcon.opacity), radius: UIConstants.Shadow.CardIcon.radius, x: 0, y: UIConstants.Shadow.CardIcon.y)
             } else if item.isHandoff {
                 // Handoff 来源：SF Symbol 图标
                 Image(systemName: "laptopcomputer.and.iphone")
-                    .font(.system(size: UIConstants.Card.appIconSize * 0.55, weight: .light))
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.system(size: Local.Card.appIconSize * 0.55, weight: .light))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
             } else {
                 Color.clear
             }
         }
-        .frame(width: UIConstants.Card.appIconSize, height: UIConstants.Card.appIconSize)
-        .offset(x: 12, y: (UIConstants.Card.headerHeight - UIConstants.Card.appIconSize) / 2 - 2)
+        .frame(width: Local.Card.appIconSize, height: Local.Card.appIconSize)
+        .offset(x: 12, y: (Local.Card.headerHeight - Local.Card.appIconSize) / 2 - 2)
         .animation(.easeInOut(duration: UIConstants.Motion.iconReveal), value: appIcon != nil)
     }
 
@@ -522,10 +555,10 @@ struct ClipboardCardView: View {
                         Button(action: commitFavoriteNote) {
                             Image(systemName: "checkmark")
                                 .font(.system(size: UIConstants.TypeSize.caption2, weight: .bold))
-                                .frame(width: 16, height: 16)
+                                .frame(width: Local.Card.favoriteNoteActionSize, height: Local.Card.favoriteNoteActionSize)
                                 .background(
                                     Circle()
-                                        .fill(isFavoriteNoteCommitHovered ? themeColor.opacity(0.16) : Color.clear)
+                                        .fill(isFavoriteNoteCommitHovered ? themeColor.opacity(UIConstants.OnDark.fillHover) : Color.clear)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -538,10 +571,10 @@ struct ClipboardCardView: View {
                         Button(action: cancelFavoriteNoteEditing) {
                             Image(systemName: "xmark")
                                 .font(.system(size: UIConstants.TypeSize.caption2, weight: .bold))
-                                .frame(width: 16, height: 16)
+                                .frame(width: Local.Card.favoriteNoteActionSize, height: Local.Card.favoriteNoteActionSize)
                                 .background(
                                     Circle()
-                                        .fill(isFavoriteNoteCancelHovered ? Color.black.opacity(0.08) : Color.clear)
+                                        .fill(isFavoriteNoteCancelHovered ? Color.black.opacity(UIConstants.OnDark.fillSubtle) : Color.clear)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -555,11 +588,11 @@ struct ClipboardCardView: View {
                     .padding(.vertical, 3)
                     .background(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                            .fill(themeColor.opacity(0.10))
+                            .fill(themeColor.opacity(UIConstants.OnDark.fillSubtle))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                            .stroke(themeColor.opacity(0.18), lineWidth: UIConstants.Stroke.hairline)
+                            .stroke(themeColor.opacity(Local.Card.noteAccentStrokeOpacity), lineWidth: UIConstants.Stroke.hairline)
                     )
                     .onAppear {
                         OverlayPanelManager.shared.keyboardOwner = .favoriteNoteEditor
@@ -582,7 +615,7 @@ struct ClipboardCardView: View {
                                     .foregroundColor(themeColor)
                                 Text(favoriteNoteText ?? L10n["favorite_note.add"])
                                     .font(.system(size: UIConstants.TypeSize.caption))
-                                    .foregroundColor(favoriteNoteText == nil ? .secondary : .primary.opacity(0.82))
+                                    .foregroundColor(favoriteNoteText == nil ? .secondary : .primary.opacity(UIConstants.OnLight.textStrong))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
                                 Spacer(minLength: 0)
@@ -595,11 +628,11 @@ struct ClipboardCardView: View {
                             Button(action: clearFavoriteNote) {
                                 Image(systemName: "xmark")
                                     .font(.system(size: UIConstants.TypeSize.caption2, weight: .bold))
-                                    .frame(width: 16, height: 16)
+                                    .frame(width: Local.Card.favoriteNoteActionSize, height: Local.Card.favoriteNoteActionSize)
                                     .background(
                                         Circle()
                                             .fill(isFavoriteNoteDeleteHovered
-                                                  ? Color.black.opacity(0.08)
+                                                  ? Color.black.opacity(UIConstants.OnDark.fillSubtle)
                                                   : Color.clear)
                                     )
                             }
@@ -618,11 +651,11 @@ struct ClipboardCardView: View {
                     .padding(.vertical, 3)
                     .background(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                            .fill(isFavoriteNoteHovered ? themeColor.opacity(0.08) : Color.black.opacity(0.035))
+                            .fill(isFavoriteNoteHovered ? themeColor.opacity(UIConstants.OnDark.fillSubtle) : Color.black.opacity(Local.Card.noteIdleFillOpacity))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                            .stroke(isFavoriteNoteHovered ? themeColor.opacity(0.18) : Color.clear, lineWidth: UIConstants.Stroke.hairline)
+                            .stroke(isFavoriteNoteHovered ? themeColor.opacity(Local.Card.noteAccentStrokeOpacity) : Color.clear, lineWidth: UIConstants.Stroke.hairline)
                     )
                     .onHover { hovering in
                         isFavoriteNoteHovered = hovering
@@ -631,7 +664,7 @@ struct ClipboardCardView: View {
                     .animation(.easeInOut(duration: UIConstants.Motion.fast), value: isFavoriteNoteHovered)
                 }
             }
-            .frame(height: 24)
+            .frame(height: Local.Card.favoriteNoteHeight)
             .onReceive(NotificationCenter.default.publisher(for: .overlayCancelFavoriteNoteEditing)) { _ in
                 guard isEditingFavoriteNote else { return }
                 cancelFavoriteNoteEditing()
@@ -690,14 +723,14 @@ struct ClipboardCardView: View {
                 Text("·").font(.caption2).foregroundColor(.secondary)
                 Text(app).font(.system(size: UIConstants.TypeSize.caption2)).foregroundColor(.secondary).lineLimit(1)
             }
-            Spacer(minLength: showHoverActions ? UIConstants.Card.hoverActionReserveWidth : 0)
+            Spacer(minLength: showHoverActions ? Local.Card.hoverActionReserveWidth : 0)
         }
     }
 
     // MARK: - Hover 轻操作
 
     private var hoverActionBar: some View {
-        HStack(spacing: UIConstants.Card.hoverActionSpacing) {
+        HStack(spacing: Local.Card.hoverActionSpacing) {
             hoverActionButton(
                 action: .favorite,
                 icon: item.isPinned ? "pin.fill" : "pin",
@@ -723,7 +756,7 @@ struct ClipboardCardView: View {
                 onDelete(item)
             }
         }
-        .padding(.trailing, UIConstants.Card.contentHorizontalPadding)
+        .padding(.trailing, Local.Card.contentHorizontalPadding)
         .padding(.bottom, UIConstants.Card.footerBottomPadding)
     }
 
@@ -737,11 +770,11 @@ struct ClipboardCardView: View {
         let isActionHovered = hoverAction == action
         return Button(action: perform) {
             Image(systemName: icon)
-                .font(.system(size: UIConstants.Card.hoverActionIconSize, weight: .semibold))
+                .font(.system(size: Local.Card.hoverActionIconSize, weight: .semibold))
                 .foregroundColor(tint)
-                .frame(width: UIConstants.Card.hoverActionSize, height: UIConstants.Card.hoverActionSize)
+                .frame(width: Local.Card.hoverActionSize, height: Local.Card.hoverActionSize)
                 .background(
-                    RoundedRectangle(cornerRadius: UIConstants.Card.hoverActionCornerRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: Local.Card.hoverActionCornerRadius, style: .continuous)
                         .fill(Color.primary.opacity(isActionHovered ? UIConstants.OnDark.fillHover : UIConstants.OnDark.fillSubtle))
                 )
         }

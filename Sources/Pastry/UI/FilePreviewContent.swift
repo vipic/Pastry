@@ -28,7 +28,7 @@ struct FilePreviewContent: View {
             }
             Text(formattedFileLabel(url: url))
                 .font(.system(size: UIConstants.TypeSize.caption2))
-                .foregroundColor(isMissing ? .secondary.opacity(0.4) : .secondary)
+                .foregroundColor(isMissing ? .secondary.opacity(UIConstants.OnLight.textFaint) : .secondary)
                 .strikethrough(isMissing)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -65,10 +65,10 @@ struct FilePreviewContent: View {
             Spacer()
             Image(systemName: "questionmark.folder")
                 .font(.system(size: UIConstants.TypeSize.heroIcon))
-                .foregroundColor(.secondary.opacity(0.3))
+                .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
             Text(L10n["card.file_not_found"])
                 .font(.system(size: UIConstants.TypeSize.caption))
-                .foregroundColor(.secondary.opacity(0.45))
+                .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -84,16 +84,16 @@ struct FilePreviewContent: View {
                     if isMissing {
                         Image(systemName: "questionmark.folder")
                             .font(.system(size: UIConstants.TypeSize.caption))
-                            .foregroundColor(.secondary.opacity(0.4))
+                            .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
                     } else if let icon = fileIcons[url] {
                         Image(nsImage: icon)
                             .resizable()
-                            .frame(width: 12, height: 12)
+                            .frame(width: UIConstants.Control.microIconSize, height: UIConstants.Control.microIconSize)
                     }
                     Text(formattedFileLabel(url: url))
                         .lineLimit(1)
                         .font(.system(size: UIConstants.TypeSize.caption))
-                        .foregroundColor(isMissing ? .secondary.opacity(0.4) : .primary)
+                        .foregroundColor(isMissing ? .secondary.opacity(UIConstants.OnLight.textFaint) : .primary)
                         .strikethrough(isMissing)
                 }
             }
@@ -120,7 +120,7 @@ struct FilePreviewContent: View {
             Spacer()
             Image(systemName: "photo.badge.exclamationmark")
                 .font(.title2)
-                .foregroundColor(.secondary.opacity(0.4))
+                .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
             Spacer()
         }
         .frame(maxWidth: .infinity)

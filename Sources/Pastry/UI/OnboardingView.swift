@@ -1,6 +1,42 @@
 import AppKit
 import SwiftUI
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Onboarding {
+        static let bodySlotHeight: CGFloat = 144
+        static let cardPadding: CGFloat = 18
+        static let chromeOuterPadding: CGFloat = 24
+        static let contentHorizontalPadding: CGFloat = 36
+        static let contentSpacing: CGFloat = 20
+        static let copyPromptShakeDuration: Double = 0.62
+        static let copyPromptShakeOscillations: CGFloat = 2
+        static let featureRowMaxWidth: CGFloat = 540
+        static let headingMaxWidth: CGFloat = 500
+        static let headingSlotHeight: CGFloat = 136
+        static let heroSymbolFrameHeight: CGFloat = 44
+        static let heroSymbolSize: CGFloat = 36
+        static let iconSize: CGFloat = 34
+        static let insetSpacing: CGFloat = 14
+        static let microSpacing: CGFloat = 3
+        static let permissionCardMinHeight: CGFloat = 78
+        static let permissionCardWidth: CGFloat = 480
+        static let permissionIconWidth: CGFloat = 32
+        static let progressActiveWidth: CGFloat = 22
+        static let progressDotSize: CGFloat = 7
+        static let progressInactiveOpacity: Double = 0.13
+        static let sampleCardWidth: CGFloat = 430
+        static let sampleCodeBlockDisabledOpacity: Double = 0.46
+        static let sectionSpacing: CGFloat = 12
+        static let shakeDistance: CGFloat = 4
+        static let shortcutFeedbackHeight: CGFloat = 24
+        static let shortcutHeight: CGFloat = 58
+        static let shortcutInset: CGFloat = 22
+        static let stackSpacing: CGFloat = 10
+        static let tightSpacing: CGFloat = 8
+    }
+}
+
 struct OnboardingView: View {
     @ObservedObject private var store = StoreManager.shared
 
@@ -87,12 +123,12 @@ struct OnboardingView: View {
     }
 
     private var header: some View {
-        HStack(spacing: UIConstants.Onboarding.headerSpacing) {
+        HStack(spacing: Local.Onboarding.sectionSpacing) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(
-                    width: UIConstants.Onboarding.appIconSize,
-                    height: UIConstants.Onboarding.appIconSize
+                    width: Local.Onboarding.iconSize,
+                    height: Local.Onboarding.iconSize
                 )
 
             Text("Pastry")
@@ -100,19 +136,19 @@ struct OnboardingView: View {
 
             Spacer()
 
-            HStack(spacing: UIConstants.Onboarding.progressSpacing) {
+            HStack(spacing: Local.Onboarding.progressDotSize) {
                 ForEach(OnboardingStep.allCases, id: \.rawValue) { item in
                     Capsule(style: .continuous)
                         .fill(
                             item == step
                                 ? PastryPalette.warmAccent
-                                : PastryPalette.ink.opacity(UIConstants.Onboarding.progressInactiveOpacity)
+                                : PastryPalette.ink.opacity(Local.Onboarding.progressInactiveOpacity)
                         )
                         .frame(
                             width: item == step
-                                ? UIConstants.Onboarding.progressActiveWidth
-                                : UIConstants.Onboarding.progressInactiveSize,
-                            height: UIConstants.Onboarding.progressInactiveSize
+                                ? Local.Onboarding.progressActiveWidth
+                                : Local.Onboarding.progressDotSize,
+                            height: Local.Onboarding.progressDotSize
                         )
                 }
             }
@@ -121,10 +157,10 @@ struct OnboardingView: View {
             Text("\(step.rawValue + 1) / \(OnboardingStep.allCases.count)")
                 .font(.system(size: UIConstants.TypeSize.label, weight: .medium, design: .monospaced))
                 .foregroundStyle(PastryPalette.muted)
-                .frame(width: UIConstants.Onboarding.progressLabelWidth, alignment: .trailing)
+                .frame(width: Local.Onboarding.iconSize, alignment: .trailing)
         }
-        .padding(.horizontal, UIConstants.Onboarding.chromeOuterPadding)
-        .padding(.vertical, UIConstants.Onboarding.chromeOuterPadding)
+        .padding(.horizontal, Local.Onboarding.chromeOuterPadding)
+        .padding(.vertical, Local.Onboarding.chromeOuterPadding)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(PastryPalette.hairline)
@@ -133,7 +169,7 @@ struct OnboardingView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: UIConstants.Onboarding.footerSpacing) {
+        HStack(spacing: Local.Onboarding.stackSpacing) {
             Button(L10n["onboarding.later"]) {
                 OnboardingPreferences.markCompleted()
                 onFinish(false)
@@ -164,8 +200,8 @@ struct OnboardingView: View {
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
             .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.primaryButton)
         }
-        .padding(.horizontal, UIConstants.Onboarding.chromeOuterPadding)
-        .padding(.vertical, UIConstants.Onboarding.chromeOuterPadding)
+        .padding(.horizontal, Local.Onboarding.chromeOuterPadding)
+        .padding(.vertical, Local.Onboarding.chromeOuterPadding)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(PastryPalette.hairline)
@@ -192,7 +228,7 @@ struct OnboardingView: View {
             title: L10n["onboarding.welcome.title"],
             subtitle: L10n["onboarding.welcome.subtitle"]
         ) {
-            HStack(spacing: UIConstants.Onboarding.featureSpacing) {
+            HStack(spacing: Local.Onboarding.sectionSpacing) {
                 welcomeFeature(
                     icon: "lock.shield.fill",
                     title: L10n["onboarding.welcome.local_title"],
@@ -209,7 +245,7 @@ struct OnboardingView: View {
                     subtitle: L10n["onboarding.welcome.menubar_subtitle"]
                 )
             }
-            .frame(maxWidth: UIConstants.Onboarding.featureRowMaxWidth)
+            .frame(maxWidth: Local.Onboarding.featureRowMaxWidth)
         }
     }
 
@@ -220,12 +256,12 @@ struct OnboardingView: View {
             title: L10n[feedback.titleKey],
             subtitle: L10n[feedback.subtitleKey]
         ) {
-            VStack(spacing: UIConstants.Onboarding.shortcutContentSpacing) {
+            VStack(spacing: Local.Onboarding.shortcutInset) {
                 Text(GlobalHotkeyManager.shared.currentShortcutDisplay)
                     .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold, design: .rounded))
                     .foregroundStyle(feedback.highlightsShortcut ? PastryPalette.successDeep : PastryPalette.ink)
-                    .padding(.horizontal, UIConstants.Onboarding.shortcutHorizontalPadding)
-                    .frame(height: UIConstants.Onboarding.shortcutHeight)
+                    .padding(.horizontal, Local.Onboarding.shortcutInset)
+                    .frame(height: Local.Onboarding.shortcutHeight)
                     .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
 
                 Group {
@@ -240,7 +276,7 @@ struct OnboardingView: View {
                         Color.clear
                     }
                 }
-                .frame(height: UIConstants.Onboarding.shortcutFeedbackHeight)
+                .frame(height: Local.Onboarding.shortcutFeedbackHeight)
                 .contentTransition(.opacity)
             }
         }
@@ -260,8 +296,8 @@ struct OnboardingView: View {
                     ? L10n["onboarding.copy.detected_subtitle"]
                     : L10n["onboarding.copy.subtitle"]
             ) {
-                VStack(spacing: UIConstants.Onboarding.contentSpacing) {
-                    HStack(spacing: UIConstants.Onboarding.sampleCodeBlockSpacing) {
+                VStack(spacing: Local.Onboarding.contentSpacing) {
+                    HStack(spacing: Local.Onboarding.insetSpacing) {
                         Text(L10n["onboarding.copy.sample_text"])
                             .font(.system(size: UIConstants.TypeSize.body, weight: .medium, design: .monospaced))
                             .foregroundStyle(usedOtherContent ? PastryPalette.muted : PastryPalette.ink)
@@ -279,8 +315,8 @@ struct OnboardingView: View {
                                     : (usedOtherContent ? PastryPalette.muted : PastryPalette.warmAccent)
                             )
                                 .frame(
-                                    width: UIConstants.Onboarding.sampleCopyButtonSize,
-                                    height: UIConstants.Onboarding.sampleCopyButtonSize
+                                    width: Local.Onboarding.iconSize,
+                                    height: Local.Onboarding.iconSize
                                 )
                                 .contentShape(Rectangle())
                         }
@@ -298,16 +334,16 @@ struct OnboardingView: View {
                         .accessibilityLabel(L10n[actionFeedback.labelKey])
                         .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.copySampleButton)
                     }
-                    .padding(UIConstants.Onboarding.sampleCodeBlockPadding)
-                    .frame(width: UIConstants.Onboarding.sampleCardWidth)
+                    .padding(Local.Onboarding.contentSpacing)
+                    .frame(width: Local.Onboarding.sampleCardWidth)
                     .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: PastryPalette.cardFillSoft)
-                    .opacity(usedOtherContent ? UIConstants.Onboarding.sampleCodeBlockDisabledOpacity : 1)
+                    .opacity(usedOtherContent ? Local.Onboarding.sampleCodeBlockDisabledOpacity : 1)
                     .animation(.easeOut(duration: UIConstants.Motion.short), value: copyDetection.outcome)
                     .modifier(
                         OnboardingShakeEffect(
                             progress: copyPromptAttempts,
-                            distance: UIConstants.Onboarding.copyPromptShakeDistance,
-                            oscillations: UIConstants.Onboarding.copyPromptShakeOscillations
+                            distance: Local.Onboarding.shakeDistance,
+                            oscillations: Local.Onboarding.copyPromptShakeOscillations
                         )
                     )
 
@@ -324,8 +360,8 @@ struct OnboardingView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
                 .foregroundStyle(PastryPalette.muted)
-                .padding(.trailing, UIConstants.Onboarding.copyStepTrailingActionInset)
-                .padding(.bottom, UIConstants.Onboarding.copyStepBottomActionInset)
+                .padding(.trailing, Local.Onboarding.chromeOuterPadding)
+                .padding(.bottom, Local.Onboarding.shakeDistance)
                 .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.skipStepButton)
             }
         }
@@ -338,15 +374,15 @@ struct OnboardingView: View {
             title: L10n["onboarding.permission.title"],
             subtitle: L10n["onboarding.permission.subtitle"]
         ) {
-            VStack(spacing: UIConstants.Onboarding.contentSpacing) {
+            VStack(spacing: Local.Onboarding.contentSpacing) {
                 let model = AccessibilityPermissionRowModel.resolve(isTrusted: accessibilityTrusted)
-                HStack(spacing: UIConstants.Onboarding.permissionRowSpacing) {
+                HStack(spacing: Local.Onboarding.insetSpacing) {
                     Image(systemName: model.iconName)
                         .font(.system(size: UIConstants.TypeSize.title3, weight: .bold))
                         .foregroundStyle(model.iconColor)
-                        .frame(width: UIConstants.Onboarding.permissionIconWidth)
+                        .frame(width: Local.Onboarding.permissionIconWidth)
 
-                    VStack(alignment: .leading, spacing: UIConstants.Onboarding.permissionTextSpacing) {
+                    VStack(alignment: .leading, spacing: Local.Onboarding.microSpacing) {
                         Text(model.title)
                             .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                         Text(model.subtitle)
@@ -364,9 +400,9 @@ struct OnboardingView: View {
                         .accessibilityIdentifier(AccessibilityIdentifiers.Onboarding.permissionButton)
                     }
                 }
-                .padding(UIConstants.Onboarding.cardPadding)
-                .frame(width: UIConstants.Onboarding.permissionCardWidth)
-                .frame(minHeight: UIConstants.Onboarding.permissionCardMinHeight)
+                .padding(Local.Onboarding.cardPadding)
+                .frame(width: Local.Onboarding.permissionCardWidth)
+                .frame(minHeight: Local.Onboarding.permissionCardMinHeight)
                 .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
 
                 Text(L10n["onboarding.permission.optional_hint"])
@@ -382,27 +418,27 @@ struct OnboardingView: View {
         subtitle: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(spacing: UIConstants.Onboarding.contentSpacing) {
+        VStack(spacing: Local.Onboarding.contentSpacing) {
             stepHeading(icon: icon, title: title, subtitle: subtitle)
-                .frame(height: UIConstants.Onboarding.headingSlotHeight, alignment: .top)
+                .frame(height: Local.Onboarding.headingSlotHeight, alignment: .top)
                 .clipped()
 
             content()
                 .frame(maxWidth: .infinity)
-                .frame(height: UIConstants.Onboarding.bodySlotHeight, alignment: .center)
+                .frame(height: Local.Onboarding.bodySlotHeight, alignment: .center)
                 .clipped()
         }
-        .padding(.horizontal, UIConstants.Onboarding.contentHorizontalPadding)
+        .padding(.horizontal, Local.Onboarding.contentHorizontalPadding)
     }
 
     private func stepHeading(icon: String, title: String, subtitle: String) -> some View {
-        VStack(spacing: UIConstants.Onboarding.headingSpacing) {
+        VStack(spacing: Local.Onboarding.stackSpacing) {
             animatedSymbol(
                 icon,
-                size: UIConstants.Onboarding.heroSymbolSize,
+                size: Local.Onboarding.heroSymbolSize,
                 color: PastryPalette.warmAccent
             )
-            .frame(height: UIConstants.Onboarding.heroSymbolFrameHeight)
+            .frame(height: Local.Onboarding.heroSymbolFrameHeight)
 
             Text(title)
                 .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold))
@@ -412,8 +448,8 @@ struct OnboardingView: View {
                 .font(.system(size: UIConstants.TypeSize.body))
                 .foregroundStyle(PastryPalette.muted)
                 .multilineTextAlignment(.center)
-                .lineSpacing(UIConstants.Onboarding.headingLineSpacing)
-                .frame(maxWidth: UIConstants.Onboarding.headingMaxWidth)
+                .lineSpacing(Local.Onboarding.microSpacing)
+                .frame(maxWidth: Local.Onboarding.headingMaxWidth)
         }
     }
 
@@ -425,7 +461,7 @@ struct OnboardingView: View {
     }
 
     private func welcomeFeature(icon: String, title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: UIConstants.Onboarding.featureContentSpacing) {
+        VStack(alignment: .leading, spacing: Local.Onboarding.tightSpacing) {
             Image(systemName: icon)
                 .font(.system(size: UIConstants.TypeSize.headline, weight: .semibold))
                 .foregroundStyle(PastryPalette.warmAccent)
@@ -433,17 +469,17 @@ struct OnboardingView: View {
                 .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(height: UIConstants.Onboarding.featureTitleHeight, alignment: .topLeading)
+                .frame(height: Local.Onboarding.heroSymbolSize, alignment: .topLeading)
             Text(subtitle)
                 .font(.system(size: UIConstants.TypeSize.label))
                 .foregroundStyle(PastryPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(UIConstants.Onboarding.featurePadding)
+        .padding(Local.Onboarding.insetSpacing)
         .frame(
             maxWidth: .infinity,
-            minHeight: UIConstants.Onboarding.featureHeight,
-            maxHeight: UIConstants.Onboarding.featureHeight,
+            minHeight: Local.Onboarding.bodySlotHeight,
+            maxHeight: Local.Onboarding.bodySlotHeight,
             alignment: .topLeading
         )
         .clipped()
@@ -456,7 +492,7 @@ struct OnboardingView: View {
     }
 
     private func promptForSampleCopy() {
-        withAnimation(.easeInOut(duration: UIConstants.Onboarding.copyPromptShakeDuration)) {
+        withAnimation(.easeInOut(duration: Local.Onboarding.copyPromptShakeDuration)) {
             copyPromptAttempts += 1
         }
     }

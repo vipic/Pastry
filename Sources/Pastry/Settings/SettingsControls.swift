@@ -2,6 +2,17 @@ import SwiftUI
 import AppKit
 import Carbon
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Settings {
+        static let borderStrongOpacity: Double = 0.50
+        static let switchHeight: CGFloat = 26
+        static let switchThumbInset: CGFloat = 3
+        static let switchThumbSize: CGFloat = 20
+        static let switchWidth: CGFloat = 46
+    }
+}
+
 enum SettingsButtonKind {
     case primary
     case secondary
@@ -34,7 +45,7 @@ struct SettingsPillButtonStyle: ButtonStyle {
     @ViewBuilder
     private func buttonBackground(isPressed: Bool) -> some View {
         RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
-            .fill(fillColor.opacity(isPressed ? 0.88 : 1))
+            .fill(fillColor.opacity(isPressed ? UIConstants.Settings.pressedOpacity : 1))
             .overlay(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
                     .stroke(borderColor, lineWidth: UIConstants.Stroke.hairline)
@@ -46,7 +57,7 @@ struct SettingsPillButtonStyle: ButtonStyle {
         case .primary:
             return PastryPalette.warmAccent
         case .secondary:
-            return Color.white.opacity(0.72)
+            return Color.white.opacity(UIConstants.Settings.secondaryFillOpacity)
         case .danger:
             return PastryPalette.danger
         }
@@ -55,11 +66,11 @@ struct SettingsPillButtonStyle: ButtonStyle {
     private var borderColor: Color {
         switch kind {
         case .primary:
-            return PastryPalette.warmBorder.opacity(0.50)
+            return PastryPalette.warmBorder.opacity(Local.Settings.borderStrongOpacity)
         case .secondary:
-            return PastryPalette.ink.opacity(0.16)
+            return PastryPalette.ink.opacity(UIConstants.Settings.borderOpacity)
         case .danger:
-            return PastryPalette.dangerBorder.opacity(0.50)
+            return PastryPalette.dangerBorder.opacity(Local.Settings.borderStrongOpacity)
         }
     }
 }
@@ -109,12 +120,17 @@ struct SettingsSwitchBody: View {
 
             Circle()
                 .fill(Color.white)
-                .shadow(color: .black.opacity(isPressed ? 0.12 : 0.16), radius: isPressed ? 1 : 2, x: 0, y: 1)
-                .frame(width: 20, height: 20)
+                .shadow(
+                    color: .black.opacity(isPressed ? UIConstants.Shadow.Switch.pressedOpacity : UIConstants.Shadow.Switch.idleOpacity),
+                    radius: isPressed ? UIConstants.Shadow.Switch.pressedRadius : UIConstants.Shadow.Switch.idleRadius,
+                    x: 0,
+                    y: UIConstants.Shadow.Switch.y
+                )
+                .frame(width: Local.Settings.switchThumbSize, height: Local.Settings.switchThumbSize)
                 .scaleEffect(isPressed ? 0.92 : 1)
-                .padding(3)
+                .padding(Local.Settings.switchThumbInset)
         }
-        .frame(width: 46, height: 26)
+        .frame(width: Local.Settings.switchWidth, height: Local.Settings.switchHeight)
         .contentShape(Capsule(style: .continuous))
         .animation(animation, value: isOn)
         .animation(.easeOut(duration: UIConstants.Motion.fast), value: isPressed)
@@ -128,8 +144,8 @@ struct SettingsSwitchBody: View {
 
     private var trackStroke: Color {
         isOn
-            ? PastryPalette.warmBorder.opacity(0.45)
-            : PastryPalette.ink.opacity(0.16)
+            ? PastryPalette.warmBorder.opacity(Local.Settings.borderStrongOpacity)
+            : PastryPalette.ink.opacity(UIConstants.Settings.borderOpacity)
     }
 }
 

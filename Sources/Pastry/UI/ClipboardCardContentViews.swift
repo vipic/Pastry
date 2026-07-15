@@ -1,6 +1,15 @@
 import SwiftUI
 import Cocoa
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Card {
+        static let hostBadgeSize: CGFloat = 20
+        static let linkThumbnailHeight: CGFloat = 106
+        static let linkThumbnailHeightCompact: CGFloat = 72
+    }
+}
+
 // MARK: - Clipboard card content components
 
 struct ClipboardLinkContentView: View {
@@ -13,19 +22,19 @@ struct ClipboardLinkContentView: View {
 
     private var mediaScale: CGFloat {
         compactMedia
-            ? UIConstants.Card.linkThumbnailHeightCompact / UIConstants.Card.linkThumbnailHeight
+            ? Local.Card.linkThumbnailHeightCompact / Local.Card.linkThumbnailHeight
             : 1
     }
 
     private var thumbnailHeight: CGFloat {
-        UIConstants.Card.linkThumbnailHeight * mediaScale
+        Local.Card.linkThumbnailHeight * mediaScale
     }
 
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { geo in
                 let width = geo.size.width * mediaScale
-                let height = UIConstants.Card.linkThumbnailHeight * mediaScale
+                let height = Local.Card.linkThumbnailHeight * mediaScale
                 thumbnail(imageURL: preview?.imageURL)
                     .frame(width: width, height: height)
                     .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.sm * mediaScale, style: .continuous))
@@ -54,7 +63,7 @@ struct ClipboardLinkContentView: View {
                 }
                 Text(text.host)
                     .font(.system(size: UIConstants.TypeSize.micro))
-                    .foregroundColor(.secondary.opacity(0.6))
+                    .foregroundColor(.secondary.opacity(UIConstants.OnLight.textMuted))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -79,19 +88,19 @@ struct ClipboardLinkContentView: View {
         } else {
             ZStack {
                 LinearGradient(
-                    colors: [Color.secondary.opacity(0.3), Color.secondary.opacity(0.1)],
+                    colors: [Color.secondary.opacity(UIConstants.OnLight.textFaint), Color.secondary.opacity(UIConstants.OnLight.fillSoft)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 if linkPreviewNetworkEnabled {
                     Image(systemName: "link")
                         .font(.system(size: UIConstants.TypeSize.subhead, weight: .light))
-                        .foregroundColor(.secondary.opacity(0.35))
+                        .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
                 } else {
                     Button(action: openLinkPreviewNetworkSettings) {
                         Text(L10n["card.link_preview_enable_hint"])
                             .font(.system(size: UIConstants.TypeSize.caption2, weight: .medium))
-                            .foregroundColor(.secondary.opacity(0.72))
+                            .foregroundColor(.secondary.opacity(UIConstants.OnLight.textSecondary))
                             .multilineTextAlignment(.center)
                             .lineLimit(3)
                             .padding(.horizontal, 10)
@@ -151,7 +160,7 @@ struct ClipboardImageFallbackView: View {
             Spacer()
             Image(systemName: "photo.badge.exclamationmark")
                 .font(.title2)
-                .foregroundColor(.secondary.opacity(0.4))
+                .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -165,15 +174,15 @@ struct ClipboardMultiLinkContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(format: L10n["card.multi_links"], urls.count))
                 .font(.system(size: UIConstants.TypeSize.micro, weight: .medium))
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundColor(.secondary.opacity(UIConstants.OnLight.textTertiary))
                 .padding(.bottom, 4)
 
             ForEach(Array(urls.prefix(6).enumerated()), id: \.offset) { idx, url in
                 HStack(spacing: 6) {
                     ZStack {
                         Circle()
-                            .fill(PastryPalette.warmAccent.opacity(0.12))
-                            .frame(width: 20, height: 20)
+                            .fill(PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentFillOpacity))
+                            .frame(width: Local.Card.hostBadgeSize, height: Local.Card.hostBadgeSize)
                         Text(String(url.host?.prefix(1).uppercased() ?? "?"))
                             .font(.system(size: UIConstants.TypeSize.caption2, weight: .semibold))
                             .foregroundColor(PastryPalette.warmAccent)
@@ -186,7 +195,7 @@ struct ClipboardMultiLinkContentView: View {
                             .lineLimit(1)
                         Text(url.path.isEmpty ? "/" : url.path)
                             .font(.system(size: UIConstants.TypeSize.micro))
-                            .foregroundColor(.secondary.opacity(0.5))
+                            .foregroundColor(.secondary.opacity(UIConstants.OnLight.textTertiary))
                             .lineLimit(1)
                     }
                 }
@@ -194,7 +203,7 @@ struct ClipboardMultiLinkContentView: View {
                 .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
-                        .fill(Color.primary.opacity(idx % 2 == 0 ? 0.02 : 0))
+                        .fill(Color.primary.opacity(idx % 2 == 0 ? UIConstants.OnLight.fillZebra : 0))
                 )
             }
 

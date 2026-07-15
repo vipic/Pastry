@@ -2,6 +2,13 @@ import SwiftUI
 import AppKit
 import OSLog
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Settings {
+        static let controlColumnWidth: CGFloat = 112
+    }
+}
+
 // MARK: - General Tab
 
 extension SettingsSceneView {
@@ -41,7 +48,7 @@ extension SettingsSceneView {
                             }
                             .labelsHidden()
                             .pickerStyle(.menu)
-                            .frame(width: 124)
+                            .frame(width: Local.Settings.controlColumnWidth)
                             .accessibilityIdentifier(AccessibilityIdentifiers.Settings.languagePicker)
                         }
 
@@ -115,7 +122,7 @@ extension SettingsSceneView {
                             }
                             .labelsHidden()
                             .pickerStyle(.menu)
-                            .frame(width: 112)
+                            .frame(width: Local.Settings.controlColumnWidth)
                         }
 
                         settingsDivider
@@ -131,7 +138,7 @@ extension SettingsSceneView {
                             }
                             .labelsHidden()
                             .pickerStyle(.menu)
-                            .frame(width: 112)
+                            .frame(width: Local.Settings.controlColumnWidth)
                         }
 
                         settingsDivider

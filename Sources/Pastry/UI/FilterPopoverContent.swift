@@ -1,11 +1,22 @@
 import SwiftUI
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Filter {
+        static let appInitialOpacity: Double = 0.78
+        static let chipIconSize: CGFloat = 14
+        static let clearButtonHeight: CGFloat = 24
+        static let popoverWidth: CGFloat = 370
+        static let sectionFillOpacity: Double = 0.04
+    }
+}
+
 // MARK: - 筛选气泡共用表面色
 
 /// 气泡本体与系统 popover 三角（`presentationBackground`）必须同一实色，
 /// 否则箭头会和面板发色不一致。
 enum FilterPopoverStyle {
-    static let surface = PastryPalette.overlaySurface
+    static let surface = PastryPalette.sidebar
 }
 
 // MARK: - 筛选气泡内容（NSPopover 内嵌 SwiftUI）
@@ -35,7 +46,7 @@ struct FilterPopoverContent: View {
             HStack {
                 Text(L10n["filter.title"])
                     .font(.system(size: UIConstants.TypeSize.body, weight: .bold))
-                    .foregroundColor(.white.opacity(0.90))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textPrimary))
                 Spacer()
                 Button(L10n["filter.clear"]) {
                     if hasActiveFilter {
@@ -49,7 +60,7 @@ struct FilterPopoverContent: View {
                 .font(.system(size: UIConstants.TypeSize.label, weight: .semibold))
                 .foregroundColor(PastryPalette.warmGoldSoft)
                 .padding(.horizontal, UIConstants.Card.footerBottomPadding)
-                .frame(height: 24)
+                .frame(height: Local.Filter.clearButtonHeight)
                 .background(filterClearButtonBackground)
                 .opacity(hasActiveFilter ? 1 : 0)
                 .allowsHitTesting(hasActiveFilter)
@@ -106,7 +117,7 @@ struct FilterPopoverContent: View {
             }
         }
         .padding(UIConstants.Radius.cardLarge)
-        .frame(width: 370)
+        .frame(width: Local.Filter.popoverWidth)
         // 表面与三角由调用方 `.presentationBackground` 提供。
         // 不做内容层 fade/scale，以免叠在系统 popover 动画上。
         .drawingGroup(opaque: false)
@@ -116,7 +127,7 @@ struct FilterPopoverContent: View {
         VStack(alignment: .leading, spacing: UIConstants.Card.footerBottomPadding) {
             Text(title)
                 .font(.system(size: UIConstants.TypeSize.caption, weight: .bold))
-                .foregroundColor(.white.opacity(0.62))
+                .foregroundColor(.white.opacity(UIConstants.OnDark.textIdle))
                 .textCase(.uppercase)
             content()
         }
@@ -149,7 +160,7 @@ struct FilterPopoverContent: View {
 
     private var filterSectionBackground: some View {
         RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
-            .fill(Color.white.opacity(0.04))
+            .fill(Color.white.opacity(Local.Filter.sectionFillOpacity))
     }
 
     private var filterClearButtonBackground: some View {
@@ -201,17 +212,17 @@ struct FilterPopoverContent: View {
             if let icon {
                 Image(nsImage: icon)
                     .resizable()
-                    .frame(width: 14, height: 14)
+                    .frame(width: Local.Filter.chipIconSize, height: Local.Filter.chipIconSize)
             } else {
                 Text(appInitial)
                     .font(.system(size: UIConstants.TypeSize.micro, weight: .heavy, design: .rounded))
-                    .foregroundColor(.white.opacity(0.78))
+                    .foregroundColor(.white.opacity(Local.Filter.appInitialOpacity))
                     .background(
                         Circle()
                             .fill(.white.opacity(UIConstants.OnDark.stroke))
-                            .frame(width: 14, height: 14)
+                            .frame(width: Local.Filter.chipIconSize, height: Local.Filter.chipIconSize)
                     )
-                    .frame(width: 14, height: 14)
+                    .frame(width: Local.Filter.chipIconSize, height: Local.Filter.chipIconSize)
             }
         }
 
@@ -242,7 +253,7 @@ enum FilterChipChrome {
             .overlay(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
                     .stroke(
-                        isSelected ? PastryPalette.warmAccent.opacity(0.35) : Color.clear,
+                        isSelected ? PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentSoftOpacity) : Color.clear,
                         lineWidth: UIConstants.Stroke.hairline
                     )
             )

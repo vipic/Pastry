@@ -1,5 +1,15 @@
 import SwiftUI
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum About {
+        static let chevronWidth: CGFloat = 16
+        static let columnSpacing: CGFloat = 16
+        static let contentPadding: CGFloat = 20
+        static let rowSpacing: CGFloat = 8
+    }
+}
+
 // MARK: - 帮助窗口
 struct HelpView: View {
     @State private var selectedTopic: HelpTopic? = .shortcuts
@@ -44,7 +54,7 @@ struct HelpView: View {
                 case .tips: tipsContent
                 }
             }
-            .padding(20)
+            .padding(Local.About.contentPadding)
         }
     }
 
@@ -52,7 +62,7 @@ struct HelpView: View {
 
     private var shortcutsContent: some View {
         HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Local.About.columnSpacing) {
                 sectionHeader(L10n["help.shortcuts.global"])
                 shortcutRow("⌘ ⇧ V", L10n["help.shortcut.panel_toggle"])
                 shortcutRow("⏎", L10n["help.shortcut.paste_selected"])
@@ -66,7 +76,7 @@ struct HelpView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Local.About.columnSpacing) {
                 sectionHeader(L10n["help.shortcuts.panel"])
                 shortcutRow("↑ ↓", L10n["help.shortcut.arrow_nav"])
                 shortcutRow("⇧ ↑ ↓", L10n["help.shortcut.extend_selection"])
@@ -82,7 +92,7 @@ struct HelpView: View {
     // MARK: - 基本用法
 
     private var usageContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Local.About.columnSpacing) {
             sectionHeader(L10n["help.usage.capture"])
             Text(L10n["help.usage.capture_desc"])
                 .font(.system(size: UIConstants.TypeSize.callout))
@@ -112,7 +122,7 @@ struct HelpView: View {
     // MARK: - 小技巧
 
     private var tipsContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Local.About.columnSpacing) {
             tipRow(L10n["help.tip.drag_save"])
             tipRow(L10n["help.tip.batch_pin"])
             tipRow(L10n["help.tip.handoff"])
@@ -132,7 +142,7 @@ struct HelpView: View {
     }
 
     private func shortcutRow(_ key: String, _ desc: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Local.About.rowSpacing) {
             Text(key)
                 .font(.system(size: UIConstants.TypeSize.label, weight: .medium, design: .monospaced))
                 .foregroundColor(.primary)
@@ -140,7 +150,7 @@ struct HelpView: View {
                 .padding(.vertical, 2)
                 .background(
                     RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
-                        .fill(Color.primary.opacity(0.08))
+                        .fill(Color.primary.opacity(UIConstants.OnLight.fillSoft))
                 )
             Text(desc)
                 .font(.system(size: UIConstants.TypeSize.callout))
@@ -149,11 +159,11 @@ struct HelpView: View {
     }
 
     private func tipRow(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Local.About.rowSpacing) {
             Image(systemName: "lightbulb")
                 .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
                 .foregroundColor(.secondary)
-                .frame(width: 16)
+                .frame(width: Local.About.chevronWidth)
             Text(text)
                 .font(.system(size: UIConstants.TypeSize.callout))
                 .foregroundColor(.secondary)

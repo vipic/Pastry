@@ -1,6 +1,38 @@
 import SwiftUI
 import AppKit
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Badge {
+        static let capsuleHeight: CGFloat = 18
+        static let capsuleHorizontalPadding: CGFloat = 6
+        static let indicatorDotOffset: CGFloat = 3
+        static let indicatorDotSize: CGFloat = 7
+    }
+    enum Control {
+        static let inlineActionSize: CGFloat = 16
+    }
+    enum Overlay {
+        static let animationDuration = UIConstants.Motion.overlay
+        static let bottomInset: CGFloat = 12
+        static let compactCardMaxWidth: CGFloat = 400
+        static let compactListMaxWidth: CGFloat = 520
+        static let emptyStateMaxWidth: CGFloat = 330
+        static let emptyStateMinHeight: CGFloat = 252  // card 240 + 12
+        static let emptyStateVerticalPadding: CGFloat = 24
+        static let horizontalPadding: CGFloat = 28
+        static let insertIndicatorHeightHidden: CGFloat = 24
+        static let insertIndicatorHeightVisible: CGFloat = 40
+        static let insertIndicatorWidth: CGFloat = 2.5
+        static let searchExpandedWidth: CGFloat = 430
+        static let searchFieldWellOpacity: Double = 0.28
+        static let toolbarButtonSize: CGFloat = 32
+        static let trayContentMinHeight: CGFloat = 262  // 240 card + paddings
+        static let trayCornerRadius: CGFloat = UIConstants.Radius.tray
+        static var cardInsertPushDistance: CGFloat { 240 + UIConstants.Overlay.cardSpacing }
+    }
+}
+
 // MARK: - 通知
 extension Notification.Name {
     static let overlayRequestDismiss  = Notification.Name("overlayRequestDismiss")
@@ -106,12 +138,12 @@ struct OverlayView: View {
                 Spacer()
 
                 cardContainer
-                    .padding(.horizontal, UIConstants.Overlay.horizontalPadding)
-                    .padding(.bottom, UIConstants.Overlay.bottomInset)
+                    .padding(.horizontal, Local.Overlay.horizontalPadding)
+                    .padding(.bottom, Local.Overlay.bottomInset)
                     .offset(y: cardVisible ? 0 : 200)
                     .opacity(cardVisible ? 1 : 0)
             }
-            .animation(.easeInOut(duration: 0.2), value: showSearch)
+            .animation(.easeInOut(duration: UIConstants.Motion.overlay), value: showSearch)
 
             if showDeleteConfirm {
                 deleteConfirmOverlay
@@ -135,7 +167,7 @@ struct OverlayView: View {
                 OverlayPanelManager.shared.isHorizontalCardLayout = isHorizontalLayout
                 keyHandler.installMouseMonitor()
                 prefetchAvailableAppIcons()
-                withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
+                withAnimation(.spring(response: Local.Overlay.animationDuration, dampingFraction: UIConstants.Motion.overlayDamping)) {
                     cardVisible = true
                 }
             }
@@ -165,7 +197,7 @@ struct OverlayView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .overlaySelectAll)) { _ in
                 let ids = Set(visibleItems.map { $0.id })
-                withAnimation(.easeInOut(duration: 0.1)) { selection.selectedIds = ids }
+                withAnimation(.easeInOut(duration: UIConstants.Motion.instant)) { selection.selectedIds = ids }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 updateLayoutForCurrentScreen()
@@ -249,7 +281,7 @@ struct OverlayView: View {
     }
 
     private func focusSearchFieldAfterExpansion() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + UIConstants.Motion.searchSpring) {
             guard showSearch else { return }
             isSearchFocused = true
         }
@@ -409,10 +441,10 @@ struct OverlayView: View {
         OverlayPanelManager.shared.isSearchActive = false
         OverlayPanelManager.shared.isFilterPopoverActive = false
         OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
-        withAnimation(.spring(response: UIConstants.Overlay.animationDuration, dampingFraction: 0.82)) {
+        withAnimation(.spring(response: Local.Overlay.animationDuration, dampingFraction: UIConstants.Motion.overlayDamping)) {
             cardVisible = false
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + UIConstants.Overlay.animationDuration) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Local.Overlay.animationDuration) {
             OverlayPanelManager.shared.hide()
         }
     }
@@ -522,30 +554,30 @@ struct OverlayView: View {
     // MARK: - 搜索框（内联在 header 中）
 
     private var searchExpansionAnimation: Animation {
-        .spring(response: 0.24, dampingFraction: 0.86)
+        .spring(response: UIConstants.Motion.searchSpring, dampingFraction: UIConstants.Motion.searchDamping)
     }
 
     private var searchControlHeight: CGFloat {
-        32
+        Local.Overlay.toolbarButtonSize
     }
 
     private var searchControlWidth: CGFloat {
-        showSearch ? 430 : searchControlHeight
+        showSearch ? Local.Overlay.searchExpandedWidth : searchControlHeight
     }
 
     private var searchControl: some View {
         HStack(spacing: showSearch ? 6 : 0) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: showSearch ? UIConstants.TypeSize.callout : UIConstants.TypeSize.body, weight: .semibold))
-                .foregroundColor(showSearch ? .white.opacity(0.46) : toolbarForeground(isActive: false, isHovered: hoverSearch))
-                .frame(width: showSearch ? 12 : searchControlHeight, height: searchControlHeight)
+                .foregroundColor(showSearch ? .white.opacity(UIConstants.OnDark.textTertiary) : toolbarForeground(isActive: false, isHovered: hoverSearch))
+                .frame(width: showSearch ? UIConstants.Control.microIconSize : searchControlHeight, height: searchControlHeight)
 
             if showSearch {
                 ZStack(alignment: .leading) {
                     if store.searchQuery.isEmpty {
                         Text(L10n["search.placeholder"])
                             .font(.system(size: UIConstants.TypeSize.body))
-                            .foregroundColor(.white.opacity(0.68))
+                            .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
                             .allowsHitTesting(false)
                     }
 
@@ -570,14 +602,14 @@ struct OverlayView: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: UIConstants.TypeSize.label))
-                        .frame(width: 16, height: 16)
+                        .frame(width: Local.Control.inlineActionSize, height: Local.Control.inlineActionSize)
                         .background(
                             Circle()
                                 .fill(hoverClearSearch ? Color.white.opacity(UIConstants.OnDark.stroke) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.white.opacity(hoverClearSearch ? UIConstants.OnDark.textSecondary : 0.40))
+                .foregroundColor(.white.opacity(hoverClearSearch ? UIConstants.OnDark.textSecondary : UIConstants.OnDark.textFaint))
                 .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.clearSearchButton)
                 .opacity(store.searchQuery.isEmpty ? 0 : 1)
                 .allowsHitTesting(!store.searchQuery.isEmpty)
@@ -628,24 +660,24 @@ struct OverlayView: View {
             Image(systemName: "line.3.horizontal.decrease")
                 .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                 .foregroundColor(toolbarForeground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
-                .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
+                .frame(width: Local.Overlay.toolbarButtonSize, height: Local.Overlay.toolbarButtonSize)
 
             if hasActiveTimeOrTypeFilter {
                 Circle()
                     .fill(PastryPalette.warmAccent)
                     .frame(
-                        width: UIConstants.Badge.indicatorDotSize,
-                        height: UIConstants.Badge.indicatorDotSize
+                        width: Local.Badge.indicatorDotSize,
+                        height: Local.Badge.indicatorDotSize
                     )
                     .offset(
-                        x: UIConstants.Badge.indicatorDotOffset,
-                        y: -UIConstants.Badge.indicatorDotOffset
+                        x: Local.Badge.indicatorDotOffset,
+                        y: -Local.Badge.indicatorDotOffset
                     )
                     .transition(.scale(scale: 0.72).combined(with: .opacity))
                     .accessibilityHidden(true)
             }
         }
-            .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
+            .frame(width: Local.Overlay.toolbarButtonSize, height: Local.Overlay.toolbarButtonSize)
             .background(toolbarButtonBackground(isActive: showFilterPopover || hasActiveTimeOrTypeFilter, isHovered: hoverFilter))
             .contentShape(Rectangle())
             .onTapGesture {
@@ -688,8 +720,8 @@ struct OverlayView: View {
         .font(.system(size: UIConstants.TypeSize.caption, weight: .bold, design: .rounded))
         .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
         .monospacedDigit()
-        .padding(.horizontal, UIConstants.Badge.capsuleHorizontalPadding)
-        .frame(height: UIConstants.Badge.capsuleHeight)
+        .padding(.horizontal, Local.Badge.capsuleHorizontalPadding)
+        .frame(height: Local.Badge.capsuleHeight)
         .background(
             Capsule(style: .continuous)
                 .fill(.white.opacity(UIConstants.OnDark.fillSubtle))
@@ -726,7 +758,7 @@ struct OverlayView: View {
                 }
             }
             .padding(.top, 10)
-            .frame(maxWidth: .infinity, minHeight: 262)  // 240 card + paddings
+            .frame(maxWidth: .infinity, minHeight: Local.Overlay.trayContentMinHeight)
             .clipped()
         }
         .frame(maxWidth: .infinity)
@@ -736,9 +768,19 @@ struct OverlayView: View {
         .padding(.bottom, 10)
         .background(panelTrayBackground)
         // One outer clip for the tray; GlassBackground uses radius 0 (parent clips).
-        .clipShape(RoundedRectangle(cornerRadius: UIConstants.Overlay.trayCornerRadius, style: .continuous))
-        .shadow(color: .black.opacity(0.24), radius: 16, x: 0, y: 10)
-        .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: Local.Overlay.trayCornerRadius, style: .continuous))
+        .shadow(
+            color: .black.opacity(UIConstants.Shadow.Tray.primaryOpacity),
+            radius: UIConstants.Shadow.Tray.primaryRadius,
+            x: 0,
+            y: UIConstants.Shadow.Tray.primaryY
+        )
+        .shadow(
+            color: .black.opacity(UIConstants.Shadow.Tray.secondaryOpacity),
+            radius: UIConstants.Shadow.Tray.secondaryRadius,
+            x: 0,
+            y: UIConstants.Shadow.Tray.secondaryY
+        )
         .contentShape(Rectangle())
         // 仅空白区清空选择。必须用 onTapGesture 而非 simultaneousGesture：
         // simultaneous 会与卡片点击一并触发，把 ⌘/⇧ 多选立刻 reset 掉。
@@ -758,9 +800,9 @@ struct OverlayView: View {
             // Corner radius applied by the tray's outer clipShape only.
             GlassBackground(cornerRadius: 0)
 
-            PastryPalette.overlaySurface.opacity(UIConstants.Overlay.overlaySurfaceTintOpacity)
+            PastryPalette.sidebar.opacity(UIConstants.Overlay.overlaySurfaceTintOpacity)
 
-            RoundedRectangle(cornerRadius: UIConstants.Overlay.trayCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: Local.Overlay.trayCornerRadius, style: .continuous)
                 .strokeBorder(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
         }
     }
@@ -790,7 +832,7 @@ struct OverlayView: View {
                 Image(systemName: "gearshape")
                     .font(.system(size: UIConstants.TypeSize.title, weight: .semibold))
                     .foregroundColor(toolbarForeground(isActive: false, isHovered: hoverGear))
-                    .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
+                    .frame(width: Local.Overlay.toolbarButtonSize, height: Local.Overlay.toolbarButtonSize)
                     .background(toolbarButtonBackground(isActive: false, isHovered: hoverGear))
             }
             .buttonStyle(.plain)
@@ -863,7 +905,7 @@ struct OverlayView: View {
             Image(systemName: icon)
                 .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                 .foregroundColor(toolbarForeground(isActive: false, isHovered: isHovered))
-                .frame(width: UIConstants.Overlay.toolbarButtonSize, height: UIConstants.Overlay.toolbarButtonSize)
+                .frame(width: Local.Overlay.toolbarButtonSize, height: Local.Overlay.toolbarButtonSize)
                 .background(toolbarButtonBackground(isActive: false, isHovered: isHovered))
         }
         .buttonStyle(.plain)
@@ -892,7 +934,7 @@ struct OverlayView: View {
                     .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
                     .frame(
                         width: showSearch
-                            ? UIConstants.Overlay.toolbarButtonSize
+                            ? Local.Overlay.toolbarButtonSize
                             : UIConstants.TypeSize.body + 2,
                         alignment: .center
                     )
@@ -904,7 +946,7 @@ struct OverlayView: View {
             }
             .padding(.horizontal, showSearch ? 0 : 10)
             .padding(.vertical, showSearch ? 0 : 4)
-            .frame(height: UIConstants.Overlay.toolbarButtonSize)
+            .frame(height: Local.Overlay.toolbarButtonSize)
             .foregroundColor(toolbarForeground(isActive: isSelected, isHovered: isHover))
             .background(toolbarButtonBackground(isActive: isSelected, isHovered: isHover))
         }
@@ -921,7 +963,7 @@ struct OverlayView: View {
 
     private var overlaySearchFieldBackground: some View {
         RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
-            .fill(Color.black.opacity(0.28))
+            .fill(Color.black.opacity(Local.Overlay.searchFieldWellOpacity))
             .overlay(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
                     .stroke(Color.white.opacity(UIConstants.OnDark.fillSubtle), lineWidth: UIConstants.Stroke.hairline)
@@ -932,7 +974,7 @@ struct OverlayView: View {
         if isActive {
             return PastryPalette.warmInk
         }
-        return .white.opacity(isHovered ? 0.86 : 0.62)
+        return .white.opacity(isHovered ? UIConstants.OnDark.textPrimary : UIConstants.OnDark.textIdle)
     }
 
     private func toolbarHoverScale(isHovered: Bool) -> CGFloat {
@@ -958,7 +1000,7 @@ struct OverlayView: View {
 
     private func toolbarButtonBorder(isActive: Bool, isHovered: Bool) -> Color {
         if isActive {
-            return PastryPalette.warmAccent.opacity(0.35)
+            return PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentSoftOpacity)
         }
         // Idle: no visible border — fill alone defines the control.
         return .white.opacity(isHovered ? UIConstants.OnDark.fillSubtle : 0)
@@ -989,7 +1031,7 @@ struct OverlayView: View {
 
     private func showStripEdgeGlow(towardHigherIndex: Bool) {
         let side: StripEdgeSide = towardHigherIndex ? .trailing : .leading
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(.spring(response: UIConstants.Motion.switchSpring, dampingFraction: UIConstants.Motion.overlayDamping)) {
             stripEdgeGlow = side
         }
 
@@ -1015,11 +1057,16 @@ struct OverlayView: View {
     private func stripEdgeGlowOverlay(side: StripEdgeSide) -> some View {
         let visible = stripEdgeGlow == side
         return Capsule(style: .continuous)
-            .fill(PastryPalette.warmAccent.opacity(visible ? 0.90 : 0))
-            .frame(width: 2.5, height: visible ? 40 : 24)
+            .fill(PastryPalette.warmAccent.opacity(visible ? UIConstants.OnDark.textPrimary : 0))
+            .frame(
+                width: Local.Overlay.insertIndicatorWidth,
+                height: visible
+                    ? Local.Overlay.insertIndicatorHeightVisible
+                    : Local.Overlay.insertIndicatorHeightHidden
+            )
             .shadow(
-                color: PastryPalette.warmAccent.opacity(visible ? 0.35 : 0),
-                radius: visible ? 4 : 0
+                color: PastryPalette.warmAccent.opacity(visible ? UIConstants.Overlay.accentSoftOpacity : 0),
+                radius: visible ? UIConstants.Shadow.Icon.radius : 0
             )
             .padding(side == .leading ? .leading : .trailing, 8)
             .frame(maxHeight: .infinity, alignment: .center)
@@ -1076,14 +1123,14 @@ struct OverlayView: View {
                     LazyVStack(spacing: UIConstants.Overlay.cardSpacing) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                             cardView(item, index: idx)
-                                .frame(maxWidth: UIConstants.Overlay.compactCardMaxWidth)
+                                .frame(maxWidth: Local.Overlay.compactCardMaxWidth)
                                 .clipped()
                         }
                     }
                     .padding(.vertical, 3)
                     .padding(.horizontal, 8)
                 }
-                .frame(maxWidth: UIConstants.Overlay.compactListMaxWidth)
+                .frame(maxWidth: Local.Overlay.compactListMaxWidth)
                 .animation(nil, value: items.count)
                 .onAppear {
                     OverlayPanelManager.shared.isHorizontalCardLayout = false
@@ -1309,13 +1356,13 @@ struct OverlayView: View {
                     .foregroundColor(PastryPalette.warmGoldSoft)
             }
             .padding(.horizontal, UIConstants.Overlay.cardSpacing)
-            .frame(height: UIConstants.Overlay.toolbarButtonSize)
+            .frame(height: Local.Overlay.toolbarButtonSize)
             .background(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
-                    .fill(PastryPalette.warmAccent.opacity(0.12))
+                    .fill(PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentFillOpacity))
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
-                            .stroke(PastryPalette.warmAccent.opacity(0.35), lineWidth: UIConstants.Stroke.hairline)
+                            .stroke(PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentSoftOpacity), lineWidth: UIConstants.Stroke.hairline)
                     )
             )
             .fixedSize(horizontal: true, vertical: false)
@@ -1355,28 +1402,28 @@ struct OverlayView: View {
 
                 Text(model.title)
                     .font(.system(size: UIConstants.TypeSize.title, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.90))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textPrimary))
 
                 Text(model.subtitle)
                     .font(.system(size: UIConstants.TypeSize.callout))
-                    .foregroundColor(.white.opacity(0.56))
+                    .foregroundColor(.white.opacity(UIConstants.OnDark.textTertiary))
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
                     .lineLimit(2)
-                    .frame(maxWidth: 330)
+                    .frame(maxWidth: Local.Overlay.emptyStateMaxWidth)
 
                 if model.showsCopyTryHint {
                     emptyHistoryCopyHint
                         .padding(.top, 6)
                 }
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 24)
+            .padding(.horizontal, Local.Overlay.horizontalPadding)
+            .padding(.vertical, Local.Overlay.emptyStateVerticalPadding)
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 28)
-        .frame(maxWidth: .infinity, minHeight: UIConstants.Overlay.emptyStateMinHeight)
+        .padding(.horizontal, Local.Overlay.horizontalPadding)
+        .frame(maxWidth: .infinity, minHeight: Local.Overlay.emptyStateMinHeight)
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.emptyState)
     }
 
@@ -1386,22 +1433,27 @@ struct OverlayView: View {
             // 键帽示意
             Text("⌘C")
                 .font(.system(size: UIConstants.TypeSize.label, weight: .bold, design: .rounded))
-                .foregroundColor(.white.opacity(0.88))
+                .foregroundColor(.white.opacity(UIConstants.Settings.pressedOpacity))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(
                     RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                        .fill(Color.white.opacity(0.10))
+                        .fill(Color.white.opacity(UIConstants.OnDark.fillSubtle))
                         .overlay(
                             RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.16), lineWidth: UIConstants.Stroke.hairline)
+                                .strokeBorder(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
                         )
-                        .shadow(color: .black.opacity(0.18), radius: 0, x: 0, y: 1)
+                        .shadow(
+                            color: .black.opacity(UIConstants.Shadow.Keycap.opacity),
+                            radius: 0,
+                            x: 0,
+                            y: UIConstants.Shadow.Keycap.y
+                        )
                 )
 
             Image(systemName: "arrow.right")
                 .font(.system(size: UIConstants.TypeSize.caption, weight: .semibold))
-                .foregroundColor(.white.opacity(0.36))
+                .foregroundColor(.white.opacity(UIConstants.OnDark.textFaint))
 
             HStack(spacing: 6) {
                 Image(systemName: "doc.on.clipboard")
@@ -1409,13 +1461,13 @@ struct OverlayView: View {
                 Text(L10n["empty.copy_try_hint"])
                     .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
             }
-            .foregroundColor(.white.opacity(0.78))
+            .foregroundColor(.white.opacity(UIConstants.OnDark.textSecondary))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
-                .fill(Color.white.opacity(0.06))
+                .fill(Color.white.opacity(UIConstants.OnDark.fillSubtle))
                 .overlay(
                     RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                         .strokeBorder(
@@ -1467,7 +1519,7 @@ private struct CardInsertAppearance: ViewModifier {
 
     private var offset: CGFloat {
         guard !settled else { return 0 }
-        let step = UIConstants.Overlay.cardInsertPushDistance
+        let step = Local.Overlay.cardInsertPushDistance
         switch role {
         case .none, .fadingIn:
             return 0

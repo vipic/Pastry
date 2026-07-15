@@ -1,5 +1,19 @@
 import SwiftUI
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Confirmation {
+        static let buttonHeight: CGFloat = 30
+        static let buttonHorizontalPadding: CGFloat = 13
+        static let cardWidth: CGFloat = 360
+        static let contentPadding: CGFloat = 18
+        static let cornerRadius: CGFloat = UIConstants.Radius.panel
+        static let dangerGlowOpacity: Double = 0.34
+        static let destructivePressedOpacity: Double = 0.82
+        static let scrimOpacity: Double = 0.22
+    }
+}
+
 struct ConfirmationOverlay: View {
     enum ButtonKind {
         case secondary
@@ -15,7 +29,7 @@ struct ConfirmationOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(UIConstants.Confirmation.scrimOpacity)
+            Color.black.opacity(Local.Confirmation.scrimOpacity)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onCancel)
@@ -40,24 +54,34 @@ struct ConfirmationOverlay: View {
                         .buttonStyle(ConfirmationButtonStyle(kind: .destructive))
                 }
             }
-            .padding(UIConstants.Confirmation.contentPadding)
-            .frame(width: UIConstants.Confirmation.cardWidth)
+            .padding(Local.Confirmation.contentPadding)
+            .frame(width: Local.Confirmation.cardWidth)
             .background(confirmationCardChrome)
-            .clipShape(RoundedRectangle(cornerRadius: UIConstants.Confirmation.cornerRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Local.Confirmation.cornerRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: UIConstants.Confirmation.cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: Local.Confirmation.cornerRadius, style: .continuous)
                     .strokeBorder(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
             )
-            .shadow(color: .black.opacity(0.28), radius: 20, x: 0, y: 10)
-            .shadow(color: .black.opacity(0.10), radius: 4, x: 0, y: 2)
+            .shadow(
+                color: .black.opacity(UIConstants.Shadow.Confirmation.primaryOpacity),
+                radius: UIConstants.Shadow.Confirmation.primaryRadius,
+                x: 0,
+                y: UIConstants.Shadow.Confirmation.primaryY
+            )
+            .shadow(
+                color: .black.opacity(UIConstants.Shadow.Confirmation.secondaryOpacity),
+                radius: UIConstants.Shadow.Confirmation.secondaryRadius,
+                x: 0,
+                y: UIConstants.Shadow.Confirmation.secondaryY
+            )
         }
     }
 
-    /// 与托盘同系：hud 磨砂 + overlaySurface 着色。
+    /// 与托盘同系：hud 磨砂 + sidebar 着色。
     private var confirmationCardChrome: some View {
         ZStack {
-            GlassBackground(cornerRadius: UIConstants.Confirmation.cornerRadius)
-            PastryPalette.overlaySurface.opacity(UIConstants.Overlay.overlaySurfaceTintOpacity)
+            GlassBackground(cornerRadius: Local.Confirmation.cornerRadius)
+            PastryPalette.sidebar.opacity(UIConstants.Overlay.overlaySurfaceTintOpacity)
         }
     }
 }
@@ -70,8 +94,8 @@ private struct ConfirmationButtonStyle: ButtonStyle {
             .font(.system(size: UIConstants.TypeSize.body, weight: .semibold))
             .foregroundColor(foregroundColor)
             .lineLimit(1)
-            .padding(.horizontal, 13)
-            .frame(height: UIConstants.Confirmation.buttonHeight)
+            .padding(.horizontal, Local.Confirmation.buttonHorizontalPadding)
+            .frame(height: Local.Confirmation.buttonHeight)
             .background(backgroundColor(isPressed: configuration.isPressed))
             .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous))
             .overlay(
@@ -94,7 +118,7 @@ private struct ConfirmationButtonStyle: ButtonStyle {
         case .secondary:
             return .white.opacity(UIConstants.OnDark.stroke)
         case .destructive:
-            return PastryPalette.dangerGlow.opacity(0.34)
+            return PastryPalette.dangerGlow.opacity(Local.Confirmation.dangerGlowOpacity)
         }
     }
 
@@ -103,7 +127,7 @@ private struct ConfirmationButtonStyle: ButtonStyle {
         case .secondary:
             return Color.white.opacity(isPressed ? UIConstants.OnDark.fillHover : UIConstants.OnDark.fillSubtle)
         case .destructive:
-            return PastryPalette.dangerStrong.opacity(isPressed ? 0.82 : 1.0)
+            return PastryPalette.dangerStrong.opacity(isPressed ? Local.Confirmation.destructivePressedOpacity : 1.0)
         }
     }
 }

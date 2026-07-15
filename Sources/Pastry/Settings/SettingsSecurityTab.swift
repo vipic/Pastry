@@ -71,7 +71,7 @@ extension SettingsSceneView {
                             .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
                             .accessibilityIdentifier(AccessibilityIdentifiers.Settings.excludedAddButton)
                         }
-                        .padding(14)
+                        .padding(UIConstants.Settings.rowHorizontalPadding)
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
@@ -120,7 +120,7 @@ extension SettingsSceneView {
             .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
             .accessibilityIdentifier(AccessibilityIdentifiers.Settings.accessibilityGrantButton)
         }
-        .padding(16)
+        .padding(UIConstants.Settings.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .settingsCardChrome()
     }
@@ -135,16 +135,16 @@ extension SettingsSceneView {
         Text(L10n["settings.excluded_empty"])
             .font(.system(size: UIConstants.TypeSize.label))
             .foregroundStyle(SettingsPalette.muted)
-            .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: UIConstants.Badge.statusSize, alignment: .leading)
             .padding(.horizontal, 10)
-            .background(SettingsPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
+            .background(SettingsPalette.ink.opacity(UIConstants.Settings.washOpacity), in: RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
     }
 
     func excludedAppRow(_ bundleID: String) -> some View {
         HStack(spacing: 9) {
             appIcon(for: bundleID)
                 .resizable()
-                .frame(width: 28, height: 28)
+                .frame(width: UIConstants.Control.iconButtonSize, height: UIConstants.Control.iconButtonSize)
                 .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous))
 
             Text(displayName(for: bundleID))
@@ -161,8 +161,8 @@ extension SettingsSceneView {
         }
         .padding(.leading, 7)
         .padding(.trailing, 10)
-        .frame(height: 42)
-        .background(SettingsPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
+        .frame(height: UIConstants.Badge.statusSize)
+        .background(SettingsPalette.ink.opacity(UIConstants.Settings.washOpacity), in: RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
     }
 
     // MARK: - 辅助

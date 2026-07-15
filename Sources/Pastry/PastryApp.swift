@@ -2,6 +2,13 @@ import SwiftUI
 import OSLog
 import ServiceManagement
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Onboarding {
+        static let windowHeight: CGFloat = 480
+    }
+}
+
 @MainActor
 enum OnboardingWindowChrome {
     static func hideTrafficLightButtons(in window: NSWindow) {
@@ -163,7 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 x: 0,
                 y: 0,
                 width: UIConstants.Onboarding.windowWidth,
-                height: UIConstants.Onboarding.windowHeight
+                height: Local.Onboarding.windowHeight
             ),
             styleMask: [.titled, .closable],
             backing: .buffered,

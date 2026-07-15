@@ -3,6 +3,26 @@ import AppKit
 import Carbon
 import OSLog
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Settings {
+        static let metricMinHeight: CGFloat = 70
+        static let metricPadding: CGFloat = 12
+        static let navGlyphSize: CGFloat = 22
+        static let navRowHeight: CGFloat = 34
+        static let paneHeaderMaxWidth: CGFloat = 460
+        static let rowVerticalPadding: CGFloat = 10
+        static let sectionSpacing: CGFloat = 18
+        static let sidebarBottomPadding: CGFloat = 14
+        static let sidebarBrandIconSize: CGFloat = 40
+        static let sidebarBrandSpacing: CGFloat = 10
+        static let sidebarHorizontalPadding: CGFloat = 12
+        static let sidebarTopPadding: CGFloat = 52
+        static let sidebarWidth: CGFloat = 206
+        static let sidebarOpacity: Double = 0.92
+    }
+}
+
 extension Notification.Name {
     static let settingsSelectTab = Notification.Name("settingsSelectTab")
 }
@@ -110,7 +130,11 @@ struct SettingsSceneView: View {
         ZStack {
             NavigationSplitView {
                 settingsSidebar
-                    .navigationSplitViewColumnWidth(min: 206, ideal: 206, max: 206)
+                    .navigationSplitViewColumnWidth(
+                        min: Local.Settings.sidebarWidth,
+                        ideal: Local.Settings.sidebarWidth,
+                        max: Local.Settings.sidebarWidth
+                    )
             } detail: {
                 detail(for: selectedTab ?? .general)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -153,10 +177,10 @@ struct SettingsSceneView: View {
     }
 
     var settingsSidebar: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 10) {
-                AppIconImageView(size: 40)
-                    .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
+        VStack(alignment: .leading, spacing: Local.Settings.sectionSpacing) {
+            HStack(spacing: Local.Settings.sidebarBrandSpacing) {
+                AppIconImageView(size: Local.Settings.sidebarBrandIconSize)
+                    .shadow(color: .black.opacity(UIConstants.Shadow.Icon.opacity), radius: UIConstants.Shadow.Icon.radius, x: 0, y: UIConstants.Shadow.Icon.y)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Pastry")
@@ -180,11 +204,11 @@ struct SettingsSceneView: View {
 
             sidebarFooterNote
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 52)
-        .padding(.bottom, 14)
-        .frame(width: 206)
-        .background(SettingsPalette.sidebar)
+        .padding(.horizontal, Local.Settings.sidebarHorizontalPadding)
+        .padding(.top, Local.Settings.sidebarTopPadding)
+        .padding(.bottom, Local.Settings.sidebarBottomPadding)
+        .frame(width: Local.Settings.sidebarWidth)
+        .background(SettingsPalette.sidebar.opacity(Local.Settings.sidebarOpacity))
         .ignoresSafeArea(.container, edges: .top)
     }
 
@@ -198,10 +222,10 @@ struct SettingsSceneView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
-                    .fill(Color.black.opacity(0.22))
+                    .fill(Color.black.opacity(UIConstants.OnDark.fillHover))
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.06), lineWidth: UIConstants.Stroke.hairline)
+                            .strokeBorder(Color.white.opacity(UIConstants.OnDark.fillSubtle), lineWidth: UIConstants.Stroke.hairline)
                     )
             )
     }
@@ -217,17 +241,17 @@ struct SettingsSceneView: View {
                 sidebarTabGlyph(tab, isSelected: isSelected)
                 Text(tab.label)
                     .font(.system(size: UIConstants.TypeSize.body, weight: .medium))
-                    .foregroundStyle(isSelected ? .white : .white.opacity(0.62))
+                    .foregroundStyle(isSelected ? .white : .white.opacity(UIConstants.OnDark.textIdle))
                 Spacer()
             }
             .padding(.horizontal, 9)
-            .frame(height: 34)
+            .frame(height: Local.Settings.navRowHeight)
             .background(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
-                    .fill(isSelected ? .white.opacity(0.16) : .clear)
+                    .fill(isSelected ? .white.opacity(UIConstants.OnDark.fillHover) : .clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
-                            .stroke(isSelected ? .white.opacity(0.10) : .clear, lineWidth: UIConstants.Stroke.hairline)
+                            .stroke(isSelected ? .white.opacity(UIConstants.OnDark.fillSubtle) : .clear, lineWidth: UIConstants.Stroke.hairline)
                     )
             )
             .contentShape(Rectangle())
@@ -251,7 +275,7 @@ struct SettingsSceneView: View {
             }
         }
         .foregroundStyle(foreground)
-        .frame(width: 22, height: 22)
+        .frame(width: Local.Settings.navGlyphSize, height: Local.Settings.navGlyphSize)
         .background(
             RoundedRectangle(cornerRadius: UIConstants.Radius.control, style: .continuous)
                 .fill(background)
@@ -273,7 +297,7 @@ struct SettingsSceneView: View {
     }
 
     func settingsPaneHeader(title: String, subtitle: String) -> some View {
-        HStack(alignment: .top, spacing: 18) {
+        HStack(alignment: .top, spacing: Local.Settings.sectionSpacing) {
             VStack(alignment: .leading, spacing: 7) {
                 Text(title)
                     .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold))
@@ -282,7 +306,7 @@ struct SettingsSceneView: View {
                     .font(.system(size: UIConstants.TypeSize.body))
                     .foregroundStyle(SettingsPalette.muted)
                     .lineSpacing(1)
-                    .frame(maxWidth: 460, alignment: .leading)
+                    .frame(maxWidth: Local.Settings.paneHeaderMaxWidth, alignment: .leading)
             }
 
             Spacer()
@@ -302,8 +326,8 @@ struct SettingsSceneView: View {
                 .foregroundStyle(SettingsPalette.muted)
                 .lineLimit(1)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+        .padding(Local.Settings.metricPadding)
+        .frame(maxWidth: .infinity, minHeight: Local.Settings.metricMinHeight, alignment: .leading)
         .settingsCardChrome(fill: SettingsPalette.cardFillSoft)
     }
 
@@ -315,12 +339,12 @@ struct SettingsSceneView: View {
             Text(title.uppercased())
                 .font(.system(size: UIConstants.TypeSize.label, weight: .bold))
                 .foregroundStyle(SettingsPalette.muted)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, UIConstants.Settings.rowHorizontalPadding)
                 .padding(.top, 12)
                 .padding(.bottom, 9)
 
             Rectangle()
-                .fill(SettingsPalette.ink.opacity(0.10))
+                .fill(SettingsPalette.ink.opacity(UIConstants.Settings.hairlineOpacity))
                 .frame(height: 1)
 
             content()
@@ -351,16 +375,16 @@ struct SettingsSceneView: View {
 
             control()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(minHeight: 48)
-        .background(danger ? PastryPalette.danger.opacity(0.055) : Color.clear)
+        .padding(.horizontal, UIConstants.Settings.rowHorizontalPadding)
+        .padding(.vertical, Local.Settings.rowVerticalPadding)
+        .frame(minHeight: UIConstants.Settings.rowMinHeight)
+        .background(danger ? PastryPalette.danger.opacity(UIConstants.Settings.washOpacity) : Color.clear)
     }
 
     var settingsDivider: some View {
         Rectangle()
-            .fill(SettingsPalette.ink.opacity(0.10))
+            .fill(SettingsPalette.ink.opacity(UIConstants.Settings.hairlineOpacity))
             .frame(height: 1)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, UIConstants.Settings.rowHorizontalPadding)
     }
 }

@@ -1,6 +1,15 @@
 import SwiftUI
 import AppKit
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Settings {
+        static let releaseNotesFillOpacity: Double = 0.34
+        static let statusActionWidth: CGFloat = 118
+        static let versionHeroMinHeight: CGFloat = 72
+    }
+}
+
 // MARK: - Version Tab
 
 extension SettingsSceneView {
@@ -43,8 +52,8 @@ extension SettingsSceneView {
 
             versionPrimaryAction
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .padding(UIConstants.Settings.rowHorizontalPadding)
+        .frame(maxWidth: .infinity, minHeight: Local.Settings.versionHeroMinHeight, alignment: .leading)
         .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: versionStatusTint)
     }
 
@@ -72,12 +81,12 @@ extension SettingsSceneView {
             }
             .buttonStyle(SettingsPillButtonStyle(kind: .primary))
             .disabled(true)
-            .opacity(0.78)
+            .opacity(UIConstants.Settings.secondaryFillOpacity)
             .transition(.opacity.combined(with: .scale(scale: 0.97)))
         case .downloading(let progress):
             VStack(alignment: .trailing, spacing: 6) {
                 progressBar(progress)
-                    .frame(width: 118)
+                    .frame(width: Local.Settings.statusActionWidth)
                 Text("\(Int(min(max(progress, 0), 1) * 100))%")
                     .font(.system(size: UIConstants.TypeSize.label, weight: .medium))
                     .foregroundStyle(SettingsPalette.muted)
@@ -126,14 +135,14 @@ extension SettingsSceneView {
                 }
             }
         }
-        .padding(16)
+        .padding(UIConstants.Settings.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: UIConstants.Radius.cardLarge, style: .continuous)
-                .fill(.white.opacity(0.34))
+                .fill(.white.opacity(Local.Settings.releaseNotesFillOpacity))
                 .overlay(
                     RoundedRectangle(cornerRadius: UIConstants.Radius.cardLarge, style: .continuous)
-                        .stroke(SettingsPalette.ink.opacity(0.08), lineWidth: UIConstants.Stroke.hairline)
+                        .stroke(SettingsPalette.ink.opacity(UIConstants.Settings.hairlineOpacity), lineWidth: UIConstants.Stroke.hairline)
                 )
         )
     }
@@ -246,11 +255,11 @@ extension SettingsSceneView {
     var versionStatusTint: Color {
         switch versionUpdateState {
         case .updateAvailable, .downloading, .installing:
-            return PastryPalette.warmAccent.opacity(0.10)
+            return PastryPalette.warmAccent.opacity(UIConstants.Settings.hairlineOpacity)
         case .error:
-            return PastryPalette.danger.opacity(0.06)
+            return PastryPalette.danger.opacity(UIConstants.Settings.washOpacity)
         default:
-            return .white.opacity(0.72)
+            return .white.opacity(UIConstants.Settings.secondaryFillOpacity)
         }
     }
 
@@ -259,7 +268,7 @@ extension SettingsSceneView {
         case .updateAvailable, .downloading, .installing:
             return PastryPalette.warmAccent
         case .error:
-            return PastryPalette.dangerBadge
+            return PastryPalette.danger
         default:
             return PastryPalette.successDeep
         }
@@ -271,14 +280,14 @@ extension SettingsSceneView {
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
-                    .fill(SettingsPalette.ink.opacity(0.10))
-                    .frame(height: 6)
+                    .fill(SettingsPalette.ink.opacity(UIConstants.Settings.hairlineOpacity))
+                    .frame(height: UIConstants.Control.progressTrackHeight)
                 RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
                     .fill(PastryPalette.warmAccent)
-                    .frame(width: geo.size.width * CGFloat(visible), height: 6)
+                    .frame(width: geo.size.width * CGFloat(visible), height: UIConstants.Control.progressTrackHeight)
             }
         }
-        .frame(height: 6)
+        .frame(height: UIConstants.Control.progressTrackHeight)
     }
 
     func loadVersionCache() {

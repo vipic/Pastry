@@ -1,5 +1,21 @@
 import SwiftUI
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Control {
+        static let bulletSize: CGFloat = 6
+        static let statusDotSize: CGFloat = 8
+    }
+    enum Update {
+        static let bottomPadding: CGFloat = 28
+        static let horizontalPadding: CGFloat = 40
+        static let iconTopPadding: CGFloat = 30
+        static let sectionPadding: CGFloat = 14
+        static let statusIconSize: CGFloat = 18
+        static let windowWidth: CGFloat = 420
+    }
+}
+
 // MARK: - 更新状态
 
 enum UpdateState {
@@ -28,8 +44,8 @@ struct UpdateView: View {
         VStack(spacing: 0) {
             // App 图标
             AppIconImageView(size: 72)
-                .padding(.top, 30)
-                .padding(.bottom, 14)
+                .padding(.top, Local.Update.iconTopPadding)
+                .padding(.bottom, Local.Update.sectionPadding)
 
             // 标题行（状态文字 + 指示器）
             headingRow
@@ -57,9 +73,9 @@ struct UpdateView: View {
             // 按钮区
             buttonRow
         }
-        .padding(.horizontal, 40)
-        .padding(.bottom, 28)
-        .frame(width: 420)
+        .padding(.horizontal, Local.Update.horizontalPadding)
+        .padding(.bottom, Local.Update.bottomPadding)
+        .frame(width: Local.Update.windowWidth)
         .fixedSize(horizontal: false, vertical: true)
         .id(language)
     }
@@ -76,7 +92,7 @@ struct UpdateView: View {
                 ZStack {
                     Circle()
                         .fill(PastryPalette.success)
-                        .frame(width: 18, height: 18)
+                        .frame(width: Local.Update.statusIconSize, height: Local.Update.statusIconSize)
                     Image(systemName: "checkmark")
                         .font(.system(size: UIConstants.TypeSize.caption, weight: .bold))
                         .foregroundColor(.white)
@@ -87,7 +103,7 @@ struct UpdateView: View {
                     .font(.system(size: UIConstants.TypeSize.title2, weight: .semibold))
                 Circle()
                     .fill(updateAccent)
-                    .frame(width: 8, height: 8)
+                    .frame(width: Local.Control.statusDotSize, height: Local.Control.statusDotSize)
 
             case .checking:
                 Text(L10n["update.checking"])
@@ -95,7 +111,7 @@ struct UpdateView: View {
                 ProgressView()
                     .tint(updateAccent)
                     .scaleEffect(0.7)
-                    .frame(width: 18, height: 18)
+                    .frame(width: Local.Update.statusIconSize, height: Local.Update.statusIconSize)
 
             case .error:
                 Text(L10n["update.check_failed"])
@@ -138,7 +154,7 @@ struct UpdateView: View {
                 Text("\(L10n["update.current"]) v\(UpdateChecker.displayVersion(result.currentVersion))")
                     .foregroundColor(.secondary)
                 Text("→")
-                    .foregroundColor(.secondary.opacity(0.5))
+                    .foregroundColor(.secondary.opacity(UIConstants.OnLight.textTertiary))
                 Text("\(L10n["update.latest"]) v\(UpdateChecker.displayVersion(result.latestVersion))")
                     .fontWeight(.medium)
             }
@@ -152,7 +168,7 @@ struct UpdateView: View {
             if let cur = currentVersion, let lat = latestVersion {
                 HStack(spacing: 6) {
                     Text("\(L10n["update.current"]) v\(UpdateChecker.displayVersion(cur))").foregroundColor(.secondary)
-                    Text("→").foregroundColor(.secondary.opacity(0.5))
+                    Text("→").foregroundColor(.secondary.opacity(UIConstants.OnLight.textTertiary))
                     Text("\(L10n["update.latest"]) v\(UpdateChecker.displayVersion(lat))").fontWeight(.medium)
                 }
                 .font(.system(size: UIConstants.TypeSize.body))
@@ -190,7 +206,7 @@ struct UpdateView: View {
                             HStack(alignment: .top, spacing: 10) {
                                 Circle()
                                     .fill(updateAccent)
-                                    .frame(width: 6, height: 6)
+                                    .frame(width: Local.Control.bulletSize, height: Local.Control.bulletSize)
                                     .padding(.top, 5)
                                 Text(item)
                                     .font(.system(size: UIConstants.TypeSize.body))
@@ -200,10 +216,10 @@ struct UpdateView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
+                .padding(Local.Update.sectionPadding)
                 .background(
                     RoundedRectangle(cornerRadius: UIConstants.Radius.card)
-                        .fill(Color.primary.opacity(0.04))
+                        .fill(Color.primary.opacity(UIConstants.OnLight.fillSoft))
                 )
             }
         }
@@ -290,14 +306,14 @@ struct UpdateView: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
-                            .fill(Color.primary.opacity(0.1))
-                            .frame(height: 6)
+                            .fill(Color.primary.opacity(UIConstants.OnLight.fillSoft))
+                            .frame(height: UIConstants.Control.progressTrackHeight)
                         RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
                             .fill(updateAccent)
-                            .frame(width: geo.size.width * CGFloat(visibleProgress), height: 6)
+                            .frame(width: geo.size.width * CGFloat(visibleProgress), height: UIConstants.Control.progressTrackHeight)
                     }
                 }
-                .frame(height: 6)
+                .frame(height: UIConstants.Control.progressTrackHeight)
 
                 Text("\(Int(clampedProgress * 100))%")
                     .font(.system(size: UIConstants.TypeSize.callout, weight: .medium))
@@ -336,12 +352,12 @@ private struct SecondaryButtonStyle: ButtonStyle {
             .font(.system(size: UIConstants.TypeSize.body, weight: .medium))
             .padding(.horizontal, 18)
             .padding(.vertical, 8)
-            .background(Color.primary.opacity(0.06))
+            .background(Color.primary.opacity(UIConstants.OnLight.fillSoft))
             .foregroundColor(.primary)
             .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.chip))
             .overlay(
                 RoundedRectangle(cornerRadius: UIConstants.Radius.chip)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: UIConstants.Stroke.hairline)
+                    .stroke(Color.primary.opacity(UIConstants.OnLight.stroke), lineWidth: UIConstants.Stroke.hairline)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: UIConstants.Motion.instant), value: configuration.isPressed)

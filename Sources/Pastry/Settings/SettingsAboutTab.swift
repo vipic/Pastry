@@ -1,6 +1,13 @@
 import SwiftUI
 import AppKit
 
+// MARK: - File-local layout (not shared design tokens)
+private enum Local {
+    enum Settings {
+        static let aboutHeroMinHeight: CGFloat = 96
+    }
+}
+
 // MARK: - About Tab
 
 extension SettingsSceneView {
@@ -69,7 +76,7 @@ extension SettingsSceneView {
     var aboutIdentitySection: some View {
         HStack(alignment: .center, spacing: 16) {
             AppIconImageView(size: 64)
-                .shadow(color: .black.opacity(0.14), radius: 6, x: 0, y: 3)
+                .shadow(color: .black.opacity(UIConstants.Shadow.Icon.softOpacity), radius: UIConstants.Shadow.Icon.softRadius, x: 0, y: UIConstants.Shadow.Icon.softY)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(appDisplayName)
@@ -84,8 +91,8 @@ extension SettingsSceneView {
 
             Spacer()
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .padding(UIConstants.Settings.cardPadding)
+        .frame(maxWidth: .infinity, minHeight: Local.Settings.aboutHeroMinHeight, alignment: .leading)
         .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
     }
 
