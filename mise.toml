@@ -92,12 +92,12 @@ run = "scripts/next_version.sh"
 
 [tasks.release]
 description = "Run release.sh with an explicit version; pass version and flags after --"
-run = ".mise/tasks/release"
+run = "scripts/tasks/release.sh"
 
 [tasks."release-auto"]
 description = "Calculate the next version, then run release.sh"
-run = ".mise/tasks/release-auto"
+run = "scripts/tasks/release-auto.sh"
 
 [tasks.publish]
 description = "Publish a GitHub Release; pass a version after -- or omit it to auto-bump"
-run = ".mise/tasks/publish"
+run = "scripts/tasks/publish.sh"

@@ -16,9 +16,9 @@ scripts=(
     scripts/diagnostics.sh
     scripts/lib/command_log.sh
     scripts/next_version.sh
-    .mise/tasks/release
-    .mise/tasks/release-auto
-    .mise/tasks/publish
+    scripts/tasks/release.sh
+    scripts/tasks/release-auto.sh
+    scripts/tasks/publish.sh
 )
 
 for script in "${scripts[@]}"; do

@@ -86,7 +86,8 @@ scripts/
 ├── check_shell.sh         # 仓库全部 shell 语法检查
 ├── check_coverage.sh      # 覆盖率门槛
 ├── check_design_tokens.sh # UI token 防回潮检查
-└── diagnostics.sh         # 应用和本地命令日志查看
+├── diagnostics.sh         # 应用和本地命令日志查看
+└── tasks/                 # mise 复杂任务的普通 shell 实现
 ```
 
 根目录只保留两个主要工作流入口：`deploy.sh` 和 `release.sh`。
