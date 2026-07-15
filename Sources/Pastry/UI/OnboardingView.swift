@@ -94,13 +94,13 @@ struct OnboardingView: View {
             guard step == .shortcut,
                   let source = notification.object as? OnboardingActivationSource
             else { return }
-            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.paste)) {
                 activationSource = source
             }
         }
         .onReceive(store.$items) { items in
             guard step == .copy else { return }
-            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.paste)) {
                 _ = copyDetection.observe(
                     items: items.map { OnboardingCopyItem(id: $0.id, content: $0.content) },
                     sampleText: L10n["onboarding.copy.sample_text"]
@@ -452,12 +452,21 @@ struct OnboardingView: View {
                 .frame(maxWidth: Local.Onboarding.headingMaxWidth)
         }
     }
-
+    
+    /// 图标切换时沿符号笔画轨迹擦除/绘制（与快捷键反馈一致的 Draw Off / Draw On）
     private func animatedSymbol(_ name: String, size: CGFloat, color: Color) -> some View {
-        Image(systemName: name)
-            .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(color)
-            .contentTransition(.symbolEffect(.replace))
+        ZStack {
+            Image(systemName: name)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(color)
+                .transition(
+                    AsymmetricTransition(
+                        insertion: .symbolEffect(.drawOn),
+                        removal: .symbolEffect(.drawOff)
+                    )
+                )
+                .id(name)
+        }
     }
 
     private func welcomeFeature(icon: String, title: String, subtitle: String) -> some View {
@@ -501,7 +510,7 @@ struct OnboardingView: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(L10n["onboarding.copy.sample_text"], forType: .string)
-        withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.paste)) {
             sampleTextCopied = true
         }
     }
