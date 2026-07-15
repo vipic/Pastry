@@ -5,7 +5,12 @@ import Carbon
 // MARK: - File-local layout (not shared design tokens)
 private enum Local {
     enum Settings {
+        static let captureShadowOpacity: Double = 0.08
+        static let captureShadowRadius: CGFloat = 8
+        static let captureShadowY: CGFloat = 3
         static let keycapHighlightOpacity: Double = 0.70
+        static let keycapShadowOpacity: Double = 0.12
+        static let keycapShadowY: CGFloat = 2
         static let shortcutCaptureMinHeight: CGFloat = 142
     }
 }
@@ -104,12 +109,12 @@ extension SettingsSceneView {
                         RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                             .stroke(SettingsPalette.ink.opacity(UIConstants.Settings.borderOpacity), lineWidth: UIConstants.Stroke.hairline)
                     )
-                    .shadow(color: .black.opacity(UIConstants.Shadow.Shortcut.opacity), radius: UIConstants.Shadow.Shortcut.radius, x: 0, y: UIConstants.Shadow.Shortcut.y)
+                    .shadow(color: .black.opacity(Local.Settings.captureShadowOpacity), radius: Local.Settings.captureShadowRadius, x: 0, y: Local.Settings.captureShadowY)
             )
             Spacer()
         }
         .frame(maxWidth: .infinity, minHeight: Local.Settings.shortcutCaptureMinHeight)
-        .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: SettingsPalette.cardFillSoft)
+        .settingsCardChrome(cornerRadius: UIConstants.Radius.panel, fill: SettingsPalette.cardFillSoft)
     }
 
     func shortcutKeycap(_ segment: String) -> some View {
@@ -142,7 +147,7 @@ extension SettingsSceneView {
                             .stroke(.white.opacity(Local.Settings.keycapHighlightOpacity), lineWidth: UIConstants.Stroke.hairline)
                             .padding(1)
                     )
-                    .shadow(color: SettingsPalette.ink.opacity(UIConstants.Shadow.Shortcut.keycapOpacity), radius: 0, x: 0, y: UIConstants.Shadow.Shortcut.keycapY)
+                    .shadow(color: SettingsPalette.ink.opacity(Local.Settings.keycapShadowOpacity), radius: 0, x: 0, y: Local.Settings.keycapShadowY)
             )
     }
 

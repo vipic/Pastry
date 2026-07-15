@@ -12,13 +12,17 @@ private enum Local {
     enum Control {
         static let inlineActionSize: CGFloat = 16
     }
+    enum Keycap {
+        static let shadowOpacity: Double = 0.18
+        static let shadowY: CGFloat = 1
+    }
     enum Overlay {
-        static let animationDuration = UIConstants.Motion.overlay
+        static let animationDuration = UIConstants.Motion.medium
         static let bottomInset: CGFloat = 12
         static let compactCardMaxWidth: CGFloat = 400
         static let compactListMaxWidth: CGFloat = 520
         static let emptyStateMaxWidth: CGFloat = 330
-        static let emptyStateMinHeight: CGFloat = 252  // card 240 + 12
+        static let emptyStateMinHeight: CGFloat = UIConstants.Card.size + bottomInset
         static let emptyStateVerticalPadding: CGFloat = 24
         static let horizontalPadding: CGFloat = 28
         static let insertIndicatorHeightHidden: CGFloat = 24
@@ -143,7 +147,7 @@ struct OverlayView: View {
                     .offset(y: cardVisible ? 0 : 200)
                     .opacity(cardVisible ? 1 : 0)
             }
-            .animation(.easeInOut(duration: UIConstants.Motion.overlay), value: showSearch)
+            .animation(.easeInOut(duration: UIConstants.Motion.medium), value: showSearch)
 
             if showDeleteConfirm {
                 deleteConfirmOverlay
@@ -167,7 +171,7 @@ struct OverlayView: View {
                 OverlayPanelManager.shared.isHorizontalCardLayout = isHorizontalLayout
                 keyHandler.installMouseMonitor()
                 prefetchAvailableAppIcons()
-                withAnimation(.spring(response: Local.Overlay.animationDuration, dampingFraction: UIConstants.Motion.overlayDamping)) {
+                withAnimation(.spring(response: Local.Overlay.animationDuration, dampingFraction: UIConstants.Motion.damping)) {
                     cardVisible = true
                 }
             }
@@ -281,7 +285,7 @@ struct OverlayView: View {
     }
 
     private func focusSearchFieldAfterExpansion() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + UIConstants.Motion.searchSpring) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + UIConstants.Motion.medium) {
             guard showSearch else { return }
             isSearchFocused = true
         }
@@ -441,7 +445,7 @@ struct OverlayView: View {
         OverlayPanelManager.shared.isSearchActive = false
         OverlayPanelManager.shared.isFilterPopoverActive = false
         OverlayPanelManager.shared.keyboardOwner = .overlayNavigation
-        withAnimation(.spring(response: Local.Overlay.animationDuration, dampingFraction: UIConstants.Motion.overlayDamping)) {
+        withAnimation(.spring(response: Local.Overlay.animationDuration, dampingFraction: UIConstants.Motion.damping)) {
             cardVisible = false
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Local.Overlay.animationDuration) {
@@ -554,7 +558,7 @@ struct OverlayView: View {
     // MARK: - 搜索框（内联在 header 中）
 
     private var searchExpansionAnimation: Animation {
-        .spring(response: UIConstants.Motion.searchSpring, dampingFraction: UIConstants.Motion.searchDamping)
+        .spring(response: UIConstants.Motion.medium, dampingFraction: UIConstants.Motion.damping)
     }
 
     private var searchControlHeight: CGFloat {
@@ -627,8 +631,8 @@ struct OverlayView: View {
         .padding(.vertical, showSearch ? 6 : 0)
         .frame(width: searchControlWidth, height: searchControlHeight, alignment: .leading)
         .background(searchControlBackground)
-        .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous))
         .scaleEffect(toolbarHoverScale(isHovered: !showSearch && hoverSearch))
         .accessibilityIdentifier(AccessibilityIdentifiers.Overlay.searchButton)
         .onTapGesture {
@@ -692,7 +696,7 @@ struct OverlayView: View {
             .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                 FilterPopoverContent(store: store, onFilterChange: { selectFirstVisibleCard() })
                     .presentationBackground(FilterPopoverStyle.surface)
-                    .presentationCornerRadius(UIConstants.Radius.cardLarge)
+                    .presentationCornerRadius(UIConstants.Radius.panel)
             }
             .scaleEffect(toolbarHoverScale(isHovered: hoverFilter))
             .animation(.easeOut(duration: UIConstants.Motion.instant), value: hoverFilter)
@@ -770,16 +774,16 @@ struct OverlayView: View {
         // One outer clip for the tray; GlassBackground uses radius 0 (parent clips).
         .clipShape(RoundedRectangle(cornerRadius: Local.Overlay.trayCornerRadius, style: .continuous))
         .shadow(
-            color: .black.opacity(UIConstants.Shadow.Tray.primaryOpacity),
-            radius: UIConstants.Shadow.Tray.primaryRadius,
+            color: .black.opacity(UIConstants.Shadow.Floating.primaryOpacity),
+            radius: UIConstants.Shadow.Floating.primaryRadius,
             x: 0,
-            y: UIConstants.Shadow.Tray.primaryY
+            y: UIConstants.Shadow.Floating.primaryY
         )
         .shadow(
-            color: .black.opacity(UIConstants.Shadow.Tray.secondaryOpacity),
-            radius: UIConstants.Shadow.Tray.secondaryRadius,
+            color: .black.opacity(UIConstants.Shadow.Floating.secondaryOpacity),
+            radius: UIConstants.Shadow.Floating.secondaryRadius,
             x: 0,
-            y: UIConstants.Shadow.Tray.secondaryY
+            y: UIConstants.Shadow.Floating.secondaryY
         )
         .contentShape(Rectangle())
         // 仅空白区清空选择。必须用 onTapGesture 而非 simultaneousGesture：
@@ -962,10 +966,10 @@ struct OverlayView: View {
     }
 
     private var overlaySearchFieldBackground: some View {
-        RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
             .fill(Color.black.opacity(Local.Overlay.searchFieldWellOpacity))
             .overlay(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .stroke(Color.white.opacity(UIConstants.OnDark.fillSubtle), lineWidth: UIConstants.Stroke.hairline)
             )
     }
@@ -983,10 +987,10 @@ struct OverlayView: View {
 
     /// Flat chip chrome: one fill, optional single hairline. No dual strokes / bevel shadows.
     private func toolbarButtonBackground(isActive: Bool, isHovered: Bool) -> some View {
-        RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
             .fill(toolbarButtonFill(isActive: isActive, isHovered: isHovered))
             .overlay(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .stroke(toolbarButtonBorder(isActive: isActive, isHovered: isHovered), lineWidth: UIConstants.Stroke.hairline)
             )
     }
@@ -1031,7 +1035,7 @@ struct OverlayView: View {
 
     private func showStripEdgeGlow(towardHigherIndex: Bool) {
         let side: StripEdgeSide = towardHigherIndex ? .trailing : .leading
-        withAnimation(.spring(response: UIConstants.Motion.switchSpring, dampingFraction: UIConstants.Motion.overlayDamping)) {
+        withAnimation(.spring(response: UIConstants.Motion.slow, dampingFraction: UIConstants.Motion.damping)) {
             stripEdgeGlow = side
         }
 
@@ -1045,7 +1049,7 @@ struct OverlayView: View {
         stripEdgeGlowClearTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 340_000_000)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: UIConstants.Motion.soft)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.medium)) {
                 if stripEdgeGlow == side {
                     stripEdgeGlow = nil
                 }
@@ -1112,7 +1116,7 @@ struct OverlayView: View {
                     // 滚动目标：边缘时滚动邻卡（露出下一张），否则滚动当前卡
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
                     let anchor: UnitPoint = downward ? .trailing : .leading
-                    withAnimation(.easeInOut(duration: UIConstants.Motion.short)) {
+                    withAnimation(.easeInOut(duration: UIConstants.Motion.fast)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
@@ -1145,7 +1149,7 @@ struct OverlayView: View {
                     guard !rendered || neighborMissing else { return }
                     let scrollId = neighborMissing ? items[neighborIdx].id : items[idx].id
                     let anchor: UnitPoint = downward ? .bottom : .top
-                    withAnimation(.easeInOut(duration: UIConstants.Motion.short)) {
+                    withAnimation(.easeInOut(duration: UIConstants.Motion.fast)) {
                         proxy.scrollTo(scrollId, anchor: anchor)
                     }
                 }
@@ -1358,10 +1362,10 @@ struct OverlayView: View {
             .padding(.horizontal, UIConstants.Overlay.cardSpacing)
             .frame(height: Local.Overlay.toolbarButtonSize)
             .background(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .fill(PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentFillOpacity))
                     .overlay(
-                        RoundedRectangle(cornerRadius: UIConstants.Radius.toolbar, style: .continuous)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                             .stroke(PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentSoftOpacity), lineWidth: UIConstants.Stroke.hairline)
                     )
             )
@@ -1444,10 +1448,10 @@ struct OverlayView: View {
                                 .strokeBorder(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
                         )
                         .shadow(
-                            color: .black.opacity(UIConstants.Shadow.Keycap.opacity),
+                            color: .black.opacity(Local.Keycap.shadowOpacity),
                             radius: 0,
                             x: 0,
-                            y: UIConstants.Shadow.Keycap.y
+                            y: Local.Keycap.shadowY
                         )
                 )
 
@@ -1536,7 +1540,7 @@ private struct CardInsertAppearance: ViewModifier {
             return
         }
         settled = false
-        withAnimation(.easeOut(duration: UIConstants.Motion.cardInsert)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
             settled = true
         }
     }

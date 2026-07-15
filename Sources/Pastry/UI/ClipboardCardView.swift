@@ -21,7 +21,10 @@ private enum Local {
         static let headerHeight: CGFloat = 48
         static let headerThemeLeadingOpacity: Double = 0.74
         static let headerThemeTrailingOpacity: Double = 0.58
-        static let hoverActionCornerRadius: CGFloat = UIConstants.Radius.xs
+        static let hoverActionCornerRadius: CGFloat = UIConstants.Radius.sm
+        static let iconShadowOpacity: Double = 0.30
+        static let iconShadowRadius: CGFloat = 8
+        static let iconShadowY: CGFloat = 3
         static let hoverActionIconSize: CGFloat = UIConstants.TypeSize.caption2
         static let hoverActionReserveWidth: CGFloat = 62
         static let hoverActionSize: CGFloat = 18
@@ -32,7 +35,6 @@ private enum Local {
         static let noteIdleFillOpacity: Double = 0.035
         static let pasteScale: CGFloat = 0.95
         static let selectedBorderWidth: CGFloat = UIConstants.Stroke.emphasis
-        static let size: CGFloat = 240
     }
 }
 
@@ -160,7 +162,7 @@ struct ClipboardCardView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(2)
         }
-        .frame(width: Local.Card.size, height: Local.Card.size)
+        .frame(width: UIConstants.Card.size, height: UIConstants.Card.size)
         .background(Color(nsColor: NSColor.windowBackgroundColor))
         .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: Local.Card.cornerRadius, style: .continuous))
@@ -182,9 +184,9 @@ struct ClipboardCardView: View {
         .animation(.easeInOut(duration: Local.Card.animationDuration), value: isSelected)
         .animation(.easeInOut(duration: Local.Card.animationDuration), value: isHovered)
         .scaleEffect(didPaste ? Local.Card.pasteScale : 1.0)
-        .animation(.spring(response: UIConstants.Motion.short, dampingFraction: UIConstants.Motion.pasteDamping), value: didPaste)
-        .animation(.easeInOut(duration: UIConstants.Motion.note), value: item.isPinned)
-        .animation(.easeInOut(duration: UIConstants.Motion.note), value: isEditingFavoriteNote)
+        .animation(.spring(response: UIConstants.Motion.fast, dampingFraction: UIConstants.Motion.pasteDamping), value: didPaste)
+        .animation(.easeInOut(duration: UIConstants.Motion.fast), value: item.isPinned)
+        .animation(.easeInOut(duration: UIConstants.Motion.fast), value: isEditingFavoriteNote)
         .contentShape(RoundedRectangle(cornerRadius: Local.Card.cornerRadius))
     }
 
@@ -290,7 +292,7 @@ struct ClipboardCardView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: Local.Card.cornerRadius, style: .continuous))
-                    .shadow(color: .black.opacity(UIConstants.Shadow.CardIcon.opacity), radius: UIConstants.Shadow.CardIcon.radius, x: 0, y: UIConstants.Shadow.CardIcon.y)
+                    .shadow(color: .black.opacity(Local.Card.iconShadowOpacity), radius: Local.Card.iconShadowRadius, x: 0, y: Local.Card.iconShadowY)
             } else if item.isHandoff {
                 // Handoff 来源：SF Symbol 图标
                 Image(systemName: "laptopcomputer.and.iphone")
@@ -302,7 +304,7 @@ struct ClipboardCardView: View {
         }
         .frame(width: Local.Card.appIconSize, height: Local.Card.appIconSize)
         .offset(x: 12, y: (Local.Card.headerHeight - Local.Card.appIconSize) / 2 - 2)
-        .animation(.easeInOut(duration: UIConstants.Motion.iconReveal), value: appIcon != nil)
+        .animation(.easeInOut(duration: UIConstants.Motion.medium), value: appIcon != nil)
     }
 
     // MARK: - 内容区
@@ -711,7 +713,7 @@ struct ClipboardCardView: View {
         HStack(spacing: 4) {
             if item.isPinned {
                 Image(systemName: "pin.fill")
-                    .font(.system(size: UIConstants.TypeSize.micro, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.caption2, weight: .semibold))
                     .foregroundColor(themeColor)
                 Text("·").font(.caption2).foregroundColor(.secondary)
             }

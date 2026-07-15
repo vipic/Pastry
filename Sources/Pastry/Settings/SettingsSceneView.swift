@@ -247,10 +247,10 @@ struct SettingsSceneView: View {
             .padding(.horizontal, 9)
             .frame(height: Local.Settings.navRowHeight)
             .background(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
                     .fill(isSelected ? .white.opacity(UIConstants.OnDark.fillHover) : .clear)
                     .overlay(
-                        RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
                             .stroke(isSelected ? .white.opacity(UIConstants.OnDark.fillSubtle) : .clear, lineWidth: UIConstants.Stroke.hairline)
                     )
             )
@@ -300,7 +300,7 @@ struct SettingsSceneView: View {
         HStack(alignment: .top, spacing: Local.Settings.sectionSpacing) {
             VStack(alignment: .leading, spacing: 7) {
                 Text(title)
-                    .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold))
+                    .font(.system(size: UIConstants.TypeSize.display, weight: .bold))
                     .foregroundStyle(SettingsPalette.ink)
                 Text(subtitle)
                     .font(.system(size: UIConstants.TypeSize.body))

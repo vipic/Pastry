@@ -43,7 +43,7 @@ struct ClipboardLinkContentView: View {
             .frame(height: thumbnailHeight)
             .padding(.bottom, compactMedia ? 4 : 6)
             // 与文件卡备注出现时同款缓动（宽高一起插值）
-            .animation(.easeInOut(duration: UIConstants.Motion.note), value: compactMedia)
+            .animation(.easeInOut(duration: UIConstants.Motion.fast), value: compactMedia)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(text.title)
@@ -62,7 +62,7 @@ struct ClipboardLinkContentView: View {
                         .truncationMode(.tail)
                 }
                 Text(text.host)
-                    .font(.system(size: UIConstants.TypeSize.micro))
+                    .font(.system(size: UIConstants.TypeSize.caption2))
                     .foregroundColor(.secondary.opacity(UIConstants.OnLight.textMuted))
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -94,7 +94,7 @@ struct ClipboardLinkContentView: View {
                 )
                 if linkPreviewNetworkEnabled {
                     Image(systemName: "link")
-                        .font(.system(size: UIConstants.TypeSize.subhead, weight: .light))
+                        .font(.system(size: UIConstants.TypeSize.title, weight: .light))
                         .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
                 } else {
                     Button(action: openLinkPreviewNetworkSettings) {
@@ -173,7 +173,7 @@ struct ClipboardMultiLinkContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(format: L10n["card.multi_links"], urls.count))
-                .font(.system(size: UIConstants.TypeSize.micro, weight: .medium))
+                .font(.system(size: UIConstants.TypeSize.caption2, weight: .medium))
                 .foregroundColor(.secondary.opacity(UIConstants.OnLight.textTertiary))
                 .padding(.bottom, 4)
 
@@ -194,7 +194,7 @@ struct ClipboardMultiLinkContentView: View {
                             .foregroundColor(.primary)
                             .lineLimit(1)
                         Text(url.path.isEmpty ? "/" : url.path)
-                            .font(.system(size: UIConstants.TypeSize.micro))
+                            .font(.system(size: UIConstants.TypeSize.caption2))
                             .foregroundColor(.secondary.opacity(UIConstants.OnLight.textTertiary))
                             .lineLimit(1)
                     }
@@ -202,7 +202,7 @@ struct ClipboardMultiLinkContentView: View {
                 .padding(.vertical, 3)
                 .padding(.horizontal, 4)
                 .background(
-                    RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.sm)
                         .fill(Color.primary.opacity(idx % 2 == 0 ? UIConstants.OnLight.fillZebra : 0))
                 )
             }

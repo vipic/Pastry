@@ -508,7 +508,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
             insertAnimation = animation
             let token = listItem.id
             Task { @MainActor in
-                try? await Task.sleep(nanoseconds: UInt64(UIConstants.Motion.cardInsert * 1_200_000_000))
+                try? await Task.sleep(nanoseconds: UInt64(UIConstants.Motion.fast * 1_200_000_000))
                 if insertAnimation?.newID == token {
                     insertAnimation = nil
                 }

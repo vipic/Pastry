@@ -34,9 +34,9 @@ struct ConfirmationOverlay: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onCancel)
 
-            VStack(alignment: .leading, spacing: UIConstants.Radius.cardLarge) {
+            VStack(alignment: .leading, spacing: 14) {
                 Text(title)
-                    .font(.system(size: UIConstants.TypeSize.titleMedium, weight: .semibold))
+                    .font(.system(size: UIConstants.TypeSize.title2, weight: .semibold))
                     .foregroundColor(.white.opacity(UIConstants.OnDark.textPrimary))
 
                 Text(message)
@@ -63,16 +63,16 @@ struct ConfirmationOverlay: View {
                     .strokeBorder(Color.white.opacity(UIConstants.OnDark.stroke), lineWidth: UIConstants.Stroke.hairline)
             )
             .shadow(
-                color: .black.opacity(UIConstants.Shadow.Confirmation.primaryOpacity),
-                radius: UIConstants.Shadow.Confirmation.primaryRadius,
+                color: .black.opacity(UIConstants.Shadow.Floating.primaryOpacity),
+                radius: UIConstants.Shadow.Floating.primaryRadius,
                 x: 0,
-                y: UIConstants.Shadow.Confirmation.primaryY
+                y: UIConstants.Shadow.Floating.primaryY
             )
             .shadow(
-                color: .black.opacity(UIConstants.Shadow.Confirmation.secondaryOpacity),
-                radius: UIConstants.Shadow.Confirmation.secondaryRadius,
+                color: .black.opacity(UIConstants.Shadow.Floating.secondaryOpacity),
+                radius: UIConstants.Shadow.Floating.secondaryRadius,
                 x: 0,
-                y: UIConstants.Shadow.Confirmation.secondaryY
+                y: UIConstants.Shadow.Floating.secondaryY
             )
         }
     }

@@ -98,7 +98,7 @@ extension SettingsSceneView {
                 RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                     .fill(badgeFill)
                 Image(systemName: accessibilityTrusted ? "checkmark" : "exclamationmark")
-                    .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
+                    .font(.system(size: UIConstants.TypeSize.title2, weight: .heavy))
                     .foregroundStyle(.white)
             }
             .frame(width: UIConstants.Badge.statusSize, height: UIConstants.Badge.statusSize)

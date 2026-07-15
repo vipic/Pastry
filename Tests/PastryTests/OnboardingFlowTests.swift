@@ -212,7 +212,7 @@ final class OnboardingFlowTests: XCTestCase {
                 x: 0,
                 y: 0,
                 width: UIConstants.Onboarding.windowWidth,
-                height: UIConstants.Onboarding.windowHeight
+                height: 480
             ),
             styleMask: [.titled, .closable],
             backing: .buffered,

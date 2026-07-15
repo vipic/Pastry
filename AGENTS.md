@@ -125,6 +125,9 @@ UI 色与尺寸使用两层权威源，**禁止在调用点新增 `Color(red:)` 
 
 - **颜色**：`PastryPalette`（[`Settings/SettingsChrome.swift`](Sources/Pastry/Settings/SettingsChrome.swift)）；`SettingsPalette` 为兼容 typealias
 - **尺寸 / 圆角 / 字号 / 透明度 / 动效**：`UIConstants`（[`UI/UIConstants.swift`](Sources/Pastry/UI/UIConstants.swift)）
+- **全局 token 需 ≥2 文件使用**；单文件布局值下沉为该文件的 `private enum Local`，不进 `UIConstants`
+- 阶梯已收敛，新增值优先吸附现有档位：字号 9 档（9–24）、圆角 6 档（4/6/8/10/12/24）、动效时长 5 档（0.10/0.15/0.22/0.28/0.50）
+- 防回潮：`scripts/check_design_tokens.sh`（CI 自动跑）拦截调用点新增 `Color(red:)` / 字号 / 圆角字面量
 - 视觉参考：[`docs/design-tokens.html`](docs/design-tokens.html)
 
 ## Critical Pitfalls
@@ -359,7 +362,7 @@ scripts/check_coverage.sh
 
 ## GitHub Actions
 
-- `.github/workflows/tests.yml`：`main` push 和 pull request 自动触发，执行脚本语法检查、`swift test --enable-code-coverage`、`scripts/check_coverage.sh 20`、`swift build -c release -Xswiftc -Osize`
+- `.github/workflows/tests.yml`：`main` push 和 pull request 自动触发，执行脚本语法检查、`scripts/check_design_tokens.sh`、`swift test --enable-code-coverage`、`scripts/check_coverage.sh 20`、`swift build -c release -Xswiftc -Osize`
 - `.github/workflows/release-artifact.yml`：仅 `workflow_dispatch` 手动触发，输入裸版本号，执行 `./release.sh "${{ inputs.version }}" --force` 并上传 DMG artifact；不会自动创建 tag 或 GitHub Release
 
 ## macOS 26 Specifics

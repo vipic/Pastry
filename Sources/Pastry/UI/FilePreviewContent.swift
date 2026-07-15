@@ -1,6 +1,11 @@
 import Cocoa
 import SwiftUI
 
+private enum Local {
+    /// 缺失文件占位图标字号
+    static let heroIconSize: CGFloat = 28
+}
+
 struct FilePreviewContent: View {
     let urls: [URL]
     let missingURLs: Set<URL>
@@ -64,7 +69,7 @@ struct FilePreviewContent: View {
         VStack(spacing: 4) {
             Spacer()
             Image(systemName: "questionmark.folder")
-                .font(.system(size: UIConstants.TypeSize.heroIcon))
+                .font(.system(size: Local.heroIconSize))
                 .foregroundColor(.secondary.opacity(UIConstants.OnLight.textFaint))
             Text(L10n["card.file_not_found"])
                 .font(.system(size: UIConstants.TypeSize.caption))

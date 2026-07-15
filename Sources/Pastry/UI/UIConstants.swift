@@ -9,6 +9,8 @@ enum UIConstants {
     enum Card {
         static let contentVerticalPadding: CGFloat = 6
         static let footerBottomPadding: CGFloat = 8
+        /// 卡片边长（快照测试与 overlay 空态高度同源）
+        static let size: CGFloat = 240
     }
 
     enum Control {
@@ -17,22 +19,16 @@ enum UIConstants {
         static let progressTrackHeight: CGFloat = 6
     }
 
+    /// 5 档动效时长：0.10 / 0.15 / 0.22 / 0.28 / 0.50，spring damping 统一 0.85（paste 例外）
     enum Motion {
-        /// 新卡片入场（仅新卡自身，非整表位移）
-        static let cardInsert = 0.14
-        static let fast = 0.12
-        static let iconReveal = 0.25
         static let instant = 0.10
-        static let note = 0.16
-        static let overlay = 0.20
-        static let overlayDamping = 0.82
+        static let fast = 0.15
+        static let medium = 0.22
+        static let slow = 0.28
         static let paste = 0.50
+
+        static let damping = 0.85
         static let pasteDamping = 0.6
-        static let searchDamping = 0.86
-        static let searchSpring = 0.24
-        static let short = 0.15
-        static let soft = 0.22
-        static let switchSpring = 0.28
     }
 
     enum OnDark {
@@ -68,17 +64,14 @@ enum UIConstants {
         static let overlaySurfaceTintOpacity: Double = 0.55
     }
 
+    /// 6 档圆角阶梯：4 / 6 / 8 / 10 / 12 / 24
     enum Radius {
-        static let button: CGFloat = 7
-        static let card: CGFloat = 10
-        static let cardLarge: CGFloat = 14
-        static let chip: CGFloat = 8
-        static let control: CGFloat = 6
-        static let panel: CGFloat = 12
         static let sm: CGFloat = 4
-        static let toolbar: CGFloat = 9
+        static let control: CGFloat = 6
+        static let button: CGFloat = 8
+        static let card: CGFloat = 10
+        static let panel: CGFloat = 12
         static let tray: CGFloat = 24
-        static let xs: CGFloat = 3
     }
 
     enum Settings {
@@ -96,16 +89,12 @@ enum UIConstants {
         static let washOpacity: Double = 0.05
     }
 
+    /// 仅保留跨文件阴影预设；组件私有阴影下沉到各文件 `Local`
     enum Shadow {
-        enum CardIcon {
-            static let opacity: Double = 0.30
-            static let radius: CGFloat = 8
-            static let y: CGFloat = 3
-        }
-
-        enum Confirmation {
-            static let primaryOpacity: Double = 0.28
-            static let primaryRadius: CGFloat = 20
+        /// 浮层双层阴影（overlay 托盘 / 确认弹窗共用）
+        enum Floating {
+            static let primaryOpacity: Double = 0.24
+            static let primaryRadius: CGFloat = 16
             static let primaryY: CGFloat = 10
             static let secondaryOpacity: Double = 0.10
             static let secondaryRadius: CGFloat = 4
@@ -120,36 +109,6 @@ enum UIConstants {
             static let softY: CGFloat = 3
             static let y: CGFloat = 2
         }
-
-        enum Keycap {
-            static let opacity: Double = 0.18
-            static let y: CGFloat = 1
-        }
-
-        enum Shortcut {
-            static let keycapOpacity: Double = 0.12
-            static let keycapY: CGFloat = 2
-            static let opacity: Double = 0.08
-            static let radius: CGFloat = 8
-            static let y: CGFloat = 3
-        }
-
-        enum Switch {
-            static let idleOpacity: Double = 0.16
-            static let idleRadius: CGFloat = 2
-            static let pressedOpacity: Double = 0.12
-            static let pressedRadius: CGFloat = 1
-            static let y: CGFloat = 1
-        }
-
-        enum Tray {
-            static let primaryOpacity: Double = 0.24
-            static let primaryRadius: CGFloat = 16
-            static let primaryY: CGFloat = 10
-            static let secondaryOpacity: Double = 0.10
-            static let secondaryRadius: CGFloat = 4
-            static let secondaryY: CGFloat = 2
-        }
     }
 
     enum Stroke {
@@ -157,21 +116,16 @@ enum UIConstants {
         static let hairline: CGFloat = 0.5
     }
 
+    /// 9 档字号阶梯：9 / 10 / 11 / 12 / 13 / 15 / 17 / 20 / 24
     enum TypeSize {
         static let body: CGFloat = 13
         static let callout: CGFloat = 12
         static let caption: CGFloat = 10
         static let caption2: CGFloat = 9
-        static let display: CGFloat = 22
-        static let displayLarge: CGFloat = 24
+        static let display: CGFloat = 24
         static let headline: CGFloat = 20
-        static let heroIcon: CGFloat = 28
         static let label: CGFloat = 11
-        static let micro: CGFloat = 8
-        static let subhead: CGFloat = 14
         static let title: CGFloat = 15
         static let title2: CGFloat = 17
-        static let title3: CGFloat = 18
-        static let titleMedium: CGFloat = 16
     }
 }

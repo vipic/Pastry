@@ -7,6 +7,11 @@ private enum Local {
     enum Settings {
         static let borderStrongOpacity: Double = 0.50
         static let switchHeight: CGFloat = 26
+        static let switchShadowIdleOpacity: Double = 0.16
+        static let switchShadowIdleRadius: CGFloat = 2
+        static let switchShadowPressedOpacity: Double = 0.12
+        static let switchShadowPressedRadius: CGFloat = 1
+        static let switchShadowY: CGFloat = 1
         static let switchThumbInset: CGFloat = 3
         static let switchThumbSize: CGFloat = 20
         static let switchWidth: CGFloat = 46
@@ -76,7 +81,7 @@ struct SettingsPillButtonStyle: ButtonStyle {
 }
 
 struct SettingsSwitchStyle: ToggleStyle {
-    private let switchAnimation = Animation.spring(response: UIConstants.Motion.switchSpring, dampingFraction: 0.74, blendDuration: 0.08)
+    private let switchAnimation = Animation.spring(response: UIConstants.Motion.slow, dampingFraction: 0.74, blendDuration: 0.08)
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
@@ -121,10 +126,10 @@ struct SettingsSwitchBody: View {
             Circle()
                 .fill(Color.white)
                 .shadow(
-                    color: .black.opacity(isPressed ? UIConstants.Shadow.Switch.pressedOpacity : UIConstants.Shadow.Switch.idleOpacity),
-                    radius: isPressed ? UIConstants.Shadow.Switch.pressedRadius : UIConstants.Shadow.Switch.idleRadius,
+                    color: .black.opacity(isPressed ? Local.Settings.switchShadowPressedOpacity : Local.Settings.switchShadowIdleOpacity),
+                    radius: isPressed ? Local.Settings.switchShadowPressedRadius : Local.Settings.switchShadowIdleRadius,
                     x: 0,
-                    y: UIConstants.Shadow.Switch.y
+                    y: Local.Settings.switchShadowY
                 )
                 .frame(width: Local.Settings.switchThumbSize, height: Local.Settings.switchThumbSize)
                 .scaleEffect(isPressed ? 0.92 : 1)

@@ -54,7 +54,7 @@ extension SettingsSceneView {
         }
         .padding(UIConstants.Settings.rowHorizontalPadding)
         .frame(maxWidth: .infinity, minHeight: Local.Settings.versionHeroMinHeight, alignment: .leading)
-        .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: versionStatusTint)
+        .settingsCardChrome(cornerRadius: UIConstants.Radius.panel, fill: versionStatusTint)
     }
 
     var versionBadge: some View {
@@ -62,7 +62,7 @@ extension SettingsSceneView {
             RoundedRectangle(cornerRadius: UIConstants.Radius.card, style: .continuous)
                 .fill(versionBadgeFill)
             Image(systemName: versionBadgeSymbol)
-                .font(.system(size: UIConstants.TypeSize.title3, weight: .heavy))
+                .font(.system(size: UIConstants.TypeSize.title2, weight: .heavy))
                 .foregroundStyle(.white)
         }
         .frame(width: UIConstants.Badge.statusSize, height: UIConstants.Badge.statusSize)
@@ -138,10 +138,10 @@ extension SettingsSceneView {
         .padding(UIConstants.Settings.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: UIConstants.Radius.cardLarge, style: .continuous)
+            RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                 .fill(.white.opacity(Local.Settings.releaseNotesFillOpacity))
                 .overlay(
-                    RoundedRectangle(cornerRadius: UIConstants.Radius.cardLarge, style: .continuous)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.panel, style: .continuous)
                         .stroke(SettingsPalette.ink.opacity(UIConstants.Settings.hairlineOpacity), lineWidth: UIConstants.Stroke.hairline)
                 )
         )
@@ -279,10 +279,10 @@ extension SettingsSceneView {
         let visible = max(clamped, 0.02)
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.sm)
                     .fill(SettingsPalette.ink.opacity(UIConstants.Settings.hairlineOpacity))
                     .frame(height: UIConstants.Control.progressTrackHeight)
-                RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.sm)
                     .fill(PastryPalette.warmAccent)
                     .frame(width: geo.size.width * CGFloat(visible), height: UIConstants.Control.progressTrackHeight)
             }
@@ -319,7 +319,7 @@ extension SettingsSceneView {
         guard !isVersionCheckInFlight else { return }
         isVersionCheckInFlight = true
         let startedAt = Date()
-        withAnimation(.easeOut(duration: UIConstants.Motion.note)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
             versionUpdateState = .checking
         }
         if let result = await UpdateChecker.shared.checkForUpdate(force: force, allowDevBuild: allowDevBuild) {
@@ -328,7 +328,7 @@ extension SettingsSceneView {
             versionReleaseHistory = result.releaseHistory
             versionCurrentVersion = result.currentVersion
             versionLatestVersion = result.latestVersion
-            withAnimation(.easeOut(duration: UIConstants.Motion.note)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
                 versionUpdateState = .updateAvailable(result: result)
             }
         } else {

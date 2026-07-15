@@ -81,7 +81,7 @@ struct OnboardingView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.easeInOut(duration: UIConstants.Motion.soft), value: step)
+            .animation(.easeInOut(duration: UIConstants.Motion.medium), value: step)
 
             footer
         }
@@ -94,13 +94,13 @@ struct OnboardingView: View {
             guard step == .shortcut,
                   let source = notification.object as? OnboardingActivationSource
             else { return }
-            withAnimation(.easeOut(duration: UIConstants.Motion.short)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
                 activationSource = source
             }
         }
         .onReceive(store.$items) { items in
             guard step == .copy else { return }
-            withAnimation(.easeOut(duration: UIConstants.Motion.short)) {
+            withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
                 _ = copyDetection.observe(
                     items: items.map { OnboardingCopyItem(id: $0.id, content: $0.content) },
                     sampleText: L10n["onboarding.copy.sample_text"]
@@ -132,7 +132,7 @@ struct OnboardingView: View {
                 )
 
             Text("Pastry")
-                .font(.system(size: UIConstants.TypeSize.titleMedium, weight: .bold))
+                .font(.system(size: UIConstants.TypeSize.title2, weight: .bold))
 
             Spacer()
 
@@ -152,7 +152,7 @@ struct OnboardingView: View {
                         )
                 }
             }
-            .animation(.easeOut(duration: UIConstants.Motion.short), value: step)
+            .animation(.easeOut(duration: UIConstants.Motion.fast), value: step)
 
             Text("\(step.rawValue + 1) / \(OnboardingStep.allCases.count)")
                 .font(.system(size: UIConstants.TypeSize.label, weight: .medium, design: .monospaced))
@@ -258,11 +258,11 @@ struct OnboardingView: View {
         ) {
             VStack(spacing: Local.Onboarding.shortcutInset) {
                 Text(GlobalHotkeyManager.shared.currentShortcutDisplay)
-                    .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold, design: .rounded))
+                    .font(.system(size: UIConstants.TypeSize.display, weight: .bold, design: .rounded))
                     .foregroundStyle(feedback.highlightsShortcut ? PastryPalette.successDeep : PastryPalette.ink)
                     .padding(.horizontal, Local.Onboarding.shortcutInset)
                     .frame(height: Local.Onboarding.shortcutHeight)
-                    .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
+                    .settingsCardChrome(cornerRadius: UIConstants.Radius.panel)
 
                 Group {
                     if activationSource == nil {
@@ -336,9 +336,9 @@ struct OnboardingView: View {
                     }
                     .padding(Local.Onboarding.contentSpacing)
                     .frame(width: Local.Onboarding.sampleCardWidth)
-                    .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge, fill: PastryPalette.cardFillSoft)
+                    .settingsCardChrome(cornerRadius: UIConstants.Radius.panel, fill: PastryPalette.cardFillSoft)
                     .opacity(usedOtherContent ? Local.Onboarding.sampleCodeBlockDisabledOpacity : 1)
-                    .animation(.easeOut(duration: UIConstants.Motion.short), value: copyDetection.outcome)
+                    .animation(.easeOut(duration: UIConstants.Motion.fast), value: copyDetection.outcome)
                     .modifier(
                         OnboardingShakeEffect(
                             progress: copyPromptAttempts,
@@ -378,7 +378,7 @@ struct OnboardingView: View {
                 let model = AccessibilityPermissionRowModel.resolve(isTrusted: accessibilityTrusted)
                 HStack(spacing: Local.Onboarding.insetSpacing) {
                     Image(systemName: model.iconName)
-                        .font(.system(size: UIConstants.TypeSize.title3, weight: .bold))
+                        .font(.system(size: UIConstants.TypeSize.title2, weight: .bold))
                         .foregroundStyle(model.iconColor)
                         .frame(width: Local.Onboarding.permissionIconWidth)
 
@@ -403,7 +403,7 @@ struct OnboardingView: View {
                 .padding(Local.Onboarding.cardPadding)
                 .frame(width: Local.Onboarding.permissionCardWidth)
                 .frame(minHeight: Local.Onboarding.permissionCardMinHeight)
-                .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
+                .settingsCardChrome(cornerRadius: UIConstants.Radius.panel)
 
                 Text(L10n["onboarding.permission.optional_hint"])
                     .font(.system(size: UIConstants.TypeSize.callout))
@@ -441,7 +441,7 @@ struct OnboardingView: View {
             .frame(height: Local.Onboarding.heroSymbolFrameHeight)
 
             Text(title)
-                .font(.system(size: UIConstants.TypeSize.displayLarge, weight: .bold))
+                .font(.system(size: UIConstants.TypeSize.display, weight: .bold))
                 .multilineTextAlignment(.center)
 
             Text(subtitle)
@@ -483,7 +483,7 @@ struct OnboardingView: View {
             alignment: .topLeading
         )
         .clipped()
-        .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
+        .settingsCardChrome(cornerRadius: UIConstants.Radius.panel)
     }
 
     private func advance() {
@@ -501,7 +501,7 @@ struct OnboardingView: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(L10n["onboarding.copy.sample_text"], forType: .string)
-        withAnimation(.easeOut(duration: UIConstants.Motion.short)) {
+        withAnimation(.easeOut(duration: UIConstants.Motion.fast)) {
             sampleTextCopied = true
         }
     }

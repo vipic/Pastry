@@ -93,7 +93,7 @@ extension SettingsSceneView {
         }
         .padding(UIConstants.Settings.cardPadding)
         .frame(maxWidth: .infinity, minHeight: Local.Settings.aboutHeroMinHeight, alignment: .leading)
-        .settingsCardChrome(cornerRadius: UIConstants.Radius.cardLarge)
+        .settingsCardChrome(cornerRadius: UIConstants.Radius.panel)
     }
 
     var appDisplayName: String {

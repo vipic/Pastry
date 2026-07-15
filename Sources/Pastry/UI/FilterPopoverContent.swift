@@ -116,7 +116,7 @@ struct FilterPopoverContent: View {
                 }
             }
         }
-        .padding(UIConstants.Radius.cardLarge)
+        .padding(14)
         .frame(width: Local.Filter.popoverWidth)
         // 表面与三角由调用方 `.presentationBackground` 提供。
         // 不做内容层 fade/scale，以免叠在系统 popover 动画上。
@@ -215,7 +215,7 @@ struct FilterPopoverContent: View {
                     .frame(width: Local.Filter.chipIconSize, height: Local.Filter.chipIconSize)
             } else {
                 Text(appInitial)
-                    .font(.system(size: UIConstants.TypeSize.micro, weight: .heavy, design: .rounded))
+                    .font(.system(size: UIConstants.TypeSize.caption2, weight: .heavy, design: .rounded))
                     .foregroundColor(.white.opacity(Local.Filter.appInitialOpacity))
                     .background(
                         Circle()
@@ -248,10 +248,10 @@ enum FilterChipChrome {
     }
 
     static func background(isSelected: Bool) -> some View {
-        RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
+        RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
             .fill(isSelected ? PastryPalette.warmAccent : Color.white.opacity(UIConstants.OnDark.fillSubtle))
             .overlay(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.chip, style: .continuous)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.button, style: .continuous)
                     .stroke(
                         isSelected ? PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentSoftOpacity) : Color.clear,
                         lineWidth: UIConstants.Stroke.hairline

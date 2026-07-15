@@ -116,11 +116,10 @@ final class ConstantsTests: XCTestCase {
     }
 
     func testUIConstantsCardMetricsArePositive() {
-        XCTAssertGreaterThan(UIConstants.Card.size, 0)
-        XCTAssertGreaterThan(UIConstants.Card.cornerRadius, 0)
+        XCTAssertGreaterThan(UIConstants.Radius.card, 0)
+        XCTAssertGreaterThan(UIConstants.Card.contentVerticalPadding, 0)
         XCTAssertGreaterThan(UIConstants.Overlay.cardSpacing, 0)
-        XCTAssertGreaterThan(UIConstants.Overlay.horizontalPadding, 0)
-        XCTAssertEqual(UIConstants.Card.selectedBorderWidth, 1.5, accuracy: 0.001)
+        XCTAssertEqual(UIConstants.Stroke.emphasis, 1.5, accuracy: 0.001)
     }
 
     func testHistoryRetentionMetricLabelOmitsActionPrefix() {
@@ -174,14 +173,15 @@ final class ConstantsTests: XCTestCase {
 
     func testUICardConstantsAreStable() {
         XCTAssertEqual(UIConstants.Card.size, 240)
-        XCTAssertEqual(UIConstants.Card.headerHeight, 48)
-        XCTAssertEqual(UIConstants.Card.cornerRadius, 10)
+        XCTAssertEqual(UIConstants.Radius.card, 10)
+        XCTAssertEqual(UIConstants.Card.contentVerticalPadding, 6)
+        XCTAssertEqual(UIConstants.Card.footerBottomPadding, 8)
     }
 
     func testUIOverlayConstantsAreStable() {
         XCTAssertEqual(UIConstants.Overlay.cardSpacing, 10)
-        XCTAssertEqual(UIConstants.Overlay.emptyStateMinHeight, UIConstants.Card.size + 12)
-        XCTAssertEqual(UIConstants.Overlay.compactListMaxWidth, 520)
+        XCTAssertEqual(UIConstants.Overlay.accentFillOpacity, 0.12, accuracy: 0.001)
+        XCTAssertEqual(UIConstants.Overlay.overlaySurfaceTintOpacity, 0.55, accuracy: 0.001)
     }
 
     // MARK: - SF Symbols

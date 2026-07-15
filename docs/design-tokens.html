@@ -421,40 +421,30 @@
 
     <section id="radius">
       <h2>Radius</h2>
-      <p class="section-note"><code>UIConstants.Radius</code> — 从 xs 到 tray。</p>
+      <p class="section-note"><code>UIConstants.Radius</code> — 6 档阶梯：4 / 6 / 8 / 10 / 12 / 24。</p>
       <div class="radius-row">
-        <div class="radius-item"><div class="radius-box" style="border-radius:3px"></div><div class="caption">xs 3</div></div>
         <div class="radius-item"><div class="radius-box" style="border-radius:4px"></div><div class="caption">sm 4</div></div>
         <div class="radius-item"><div class="radius-box" style="border-radius:6px"></div><div class="caption">control 6</div></div>
-        <div class="radius-item"><div class="radius-box" style="border-radius:7px"></div><div class="caption">button 7</div></div>
-        <div class="radius-item"><div class="radius-box" style="border-radius:8px"></div><div class="caption">chip 8</div></div>
-        <div class="radius-item"><div class="radius-box" style="border-radius:9px"></div><div class="caption">toolbar 9</div></div>
+        <div class="radius-item"><div class="radius-box" style="border-radius:8px"></div><div class="caption">button 8</div></div>
         <div class="radius-item"><div class="radius-box" style="border-radius:10px"></div><div class="caption">card 10</div></div>
         <div class="radius-item"><div class="radius-box" style="border-radius:12px"></div><div class="caption">panel 12</div></div>
-        <div class="radius-item"><div class="radius-box" style="border-radius:14px"></div><div class="caption">cardLarge 14</div></div>
         <div class="radius-item"><div class="radius-box" style="border-radius:24px"></div><div class="caption">tray 24</div></div>
       </div>
     </section>
 
     <section id="type">
       <h2>TypeSize</h2>
-      <p class="section-note">系统字阶；调用用 <code>.font(.system(size: UIConstants.TypeSize.*))</code>。</p>
+      <p class="section-note">9 档字阶：9 / 10 / 11 / 12 / 13 / 15 / 17 / 20 / 24；调用用 <code>.font(.system(size: UIConstants.TypeSize.*))</code>。</p>
       <div class="type-row">
-        <div class="type-item"><p class="sample" style="font-size:8px">micro</p><div class="caption">8</div></div>
         <div class="type-item"><p class="sample" style="font-size:9px">caption2</p><div class="caption">9</div></div>
         <div class="type-item"><p class="sample" style="font-size:10px">caption</p><div class="caption">10</div></div>
         <div class="type-item"><p class="sample" style="font-size:11px">label</p><div class="caption">11</div></div>
         <div class="type-item"><p class="sample" style="font-size:12px">callout</p><div class="caption">12</div></div>
         <div class="type-item"><p class="sample" style="font-size:13px">body</p><div class="caption">13</div></div>
-        <div class="type-item"><p class="sample" style="font-size:14px">subhead</p><div class="caption">14</div></div>
         <div class="type-item"><p class="sample" style="font-size:15px">title</p><div class="caption">15</div></div>
-        <div class="type-item"><p class="sample" style="font-size:16px">titleMedium</p><div class="caption">16</div></div>
         <div class="type-item"><p class="sample" style="font-size:17px">title2</p><div class="caption">17</div></div>
-        <div class="type-item"><p class="sample" style="font-size:18px">title3</p><div class="caption">18</div></div>
         <div class="type-item"><p class="sample" style="font-size:20px">headline</p><div class="caption">20</div></div>
-        <div class="type-item"><p class="sample" style="font-size:22px">display</p><div class="caption">22</div></div>
-        <div class="type-item"><p class="sample" style="font-size:24px">displayLarge</p><div class="caption">24</div></div>
-        <div class="type-item"><p class="sample" style="font-size:28px">heroIcon</p><div class="caption">28</div></div>
+        <div class="type-item"><p class="sample" style="font-size:24px">display</p><div class="caption">24</div></div>
       </div>
     </section>
 
@@ -474,29 +464,21 @@
 
     <section id="shadow">
       <h2>Shadow</h2>
-      <p class="section-note">托盘 / 确认框双层阴影，以及图标、键帽、开关的轻阴影。</p>
+      <p class="section-note">全局只留两套：Floating（托盘 / 确认框共用双层）与 Icon。组件私有阴影（键帽、开关等）在各文件 <code>Local</code>。</p>
       <div class="shadow-row">
-        <div class="shadow-card" style="box-shadow: 0 10px 16px rgba(0,0,0,0.24), 0 2px 4px rgba(0,0,0,0.10)">Tray</div>
-        <div class="shadow-card" style="box-shadow: 0 10px 20px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.10)">Confirmation</div>
+        <div class="shadow-card" style="box-shadow: 0 10px 16px rgba(0,0,0,0.24), 0 2px 4px rgba(0,0,0,0.10)">Floating</div>
         <div class="shadow-card" style="background:#fff; color:var(--ink); box-shadow: 0 2px 4px rgba(0,0,0,0.18)">Icon</div>
-        <div class="shadow-card" style="background:#fff; color:var(--ink); box-shadow: 0 3px 8px rgba(0,0,0,0.30)">CardIcon</div>
       </div>
     </section>
 
     <section id="motion">
       <h2>Motion</h2>
-      <p class="section-note">时长（秒）与常用阻尼。搜索展开用 <code>searchSpring</code> + <code>searchDamping</code>。</p>
+      <p class="section-note">5 档时长（秒）：instant / fast / medium / slow / paste；spring 阻尼统一 <code>damping 0.85</code>（粘贴回弹 <code>pasteDamping 0.6</code> 例外）。</p>
       <div class="motion-row">
         <div class="motion-item"><strong>instant</strong><div class="caption">0.10</div></div>
-        <div class="motion-item"><strong>fast</strong><div class="caption">0.12</div></div>
-        <div class="motion-item"><strong>cardInsert</strong><div class="caption">0.14</div></div>
-        <div class="motion-item"><strong>short</strong><div class="caption">0.15</div></div>
-        <div class="motion-item"><strong>note</strong><div class="caption">0.16</div></div>
-        <div class="motion-item"><strong>overlay</strong><div class="caption">0.20</div></div>
-        <div class="motion-item"><strong>soft</strong><div class="caption">0.22</div></div>
-        <div class="motion-item"><strong>searchSpring</strong><div class="caption">0.24</div></div>
-        <div class="motion-item"><strong>iconReveal</strong><div class="caption">0.25</div></div>
-        <div class="motion-item"><strong>switchSpring</strong><div class="caption">0.28</div></div>
+        <div class="motion-item"><strong>fast</strong><div class="caption">0.15</div></div>
+        <div class="motion-item"><strong>medium</strong><div class="caption">0.22</div></div>
+        <div class="motion-item"><strong>slow</strong><div class="caption">0.28</div></div>
         <div class="motion-item"><strong>paste</strong><div class="caption">0.50</div></div>
       </div>
     </section>
@@ -511,11 +493,11 @@
         <tbody>
           <tr><td><code>OnDark</code> / <code>OnLight</code></td><td>深/浅透明度阶梯</td><td>各 8 档</td></tr>
           <tr><td><code>Radius</code> / <code>TypeSize</code> / <code>Stroke</code> / <code>Motion</code></td><td>全局尺度</td><td>圆角 / 字号 / 描边 / 动效</td></tr>
-          <tr><td><code>Shadow.*</code></td><td>成套阴影</td><td>Tray / Confirmation / Icon / …</td></tr>
+          <tr><td><code>Shadow.*</code></td><td>成套阴影</td><td>Floating / Icon（组件私有阴影在 Local）</td></tr>
           <tr><td><code>Settings</code> / <code>Overlay</code> / <code>Card</code>…</td><td>跨文件复用几何</td><td>仅 ≥2 文件引用保留在 UIConstants</td></tr>
-          <tr><td><code>private enum Local</code></td><td>单文件布局</td><td>~132 个，下沉到各 View</td></tr>
+          <tr><td><code>private enum Local</code></td><td>单文件布局</td><td>下沉到各 View，不计入全局</td></tr>
           <tr><td><code>PastryPalette</code></td><td>语义色</td><td>20</td></tr>
-          <tr><td colspan="3"><strong>全局合计 129</strong>（UIConstants 109 + Palette 20），落在 80–150 健康区间</td></tr>
+          <tr><td colspan="3"><strong>全局合计 92</strong>（UIConstants 72 + Palette 20），落在 80–150 健康区间</td></tr>
         </tbody>
       </table>
     </section>

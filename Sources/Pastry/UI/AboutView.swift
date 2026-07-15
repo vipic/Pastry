@@ -149,7 +149,7 @@ struct HelpView: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(
-                    RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
+                    RoundedRectangle(cornerRadius: UIConstants.Radius.sm)
                         .fill(Color.primary.opacity(UIConstants.OnLight.fillSoft))
                 )
             Text(desc)

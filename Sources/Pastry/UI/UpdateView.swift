@@ -305,10 +305,10 @@ struct UpdateView: View {
                 let visibleProgress = max(clampedProgress, 0.02)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.sm)
                             .fill(Color.primary.opacity(UIConstants.OnLight.fillSoft))
                             .frame(height: UIConstants.Control.progressTrackHeight)
-                        RoundedRectangle(cornerRadius: UIConstants.Radius.xs)
+                        RoundedRectangle(cornerRadius: UIConstants.Radius.sm)
                             .fill(updateAccent)
                             .frame(width: geo.size.width * CGFloat(visibleProgress), height: UIConstants.Control.progressTrackHeight)
                     }
@@ -331,7 +331,7 @@ struct PastryPrimaryButtonStyle: ButtonStyle {
     var fontWeight: Font.Weight = .medium
     var horizontalPadding: CGFloat = 18
     var verticalPadding: CGFloat = 8
-    var cornerRadius: CGFloat = UIConstants.Radius.chip
+    var cornerRadius: CGFloat = UIConstants.Radius.button
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -354,9 +354,9 @@ private struct SecondaryButtonStyle: ButtonStyle {
             .padding(.vertical, 8)
             .background(Color.primary.opacity(UIConstants.OnLight.fillSoft))
             .foregroundColor(.primary)
-            .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.chip))
+            .clipShape(RoundedRectangle(cornerRadius: UIConstants.Radius.button))
             .overlay(
-                RoundedRectangle(cornerRadius: UIConstants.Radius.chip)
+                RoundedRectangle(cornerRadius: UIConstants.Radius.button)
                     .stroke(Color.primary.opacity(UIConstants.OnLight.stroke), lineWidth: UIConstants.Stroke.hairline)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
