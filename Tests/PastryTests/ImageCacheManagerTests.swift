@@ -145,6 +145,31 @@ final class ImageCacheManagerTests: XCTestCase {
         XCTAssertTrue(name.hasSuffix(".png"), name)
     }
 
+    /// Foundation 在不同系统版本上可能用有无末尾斜杠表示同一个目录。
+    func testSuggestedFilenameIgnoresDirectoryURLRepresentation() throws {
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pastry-cache-url-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let cacheWithoutDirectoryHint = URL(
+            fileURLWithPath: base.appendingPathComponent("ImageCache").path,
+            isDirectory: false
+        )
+        let manager = ImageCacheManager(cacheDir: cacheWithoutDirectoryHint)
+        let cachedFile = cacheWithoutDirectoryHint
+            .appendingPathComponent("sample.thumb.png", isDirectory: false)
+
+        XCTAssertNotEqual(
+            cachedFile.deletingLastPathComponent().standardizedFileURL,
+            cacheWithoutDirectoryHint.standardizedFileURL,
+            "回归夹具必须保留 URL 目录表示差异"
+        )
+        XCTAssertEqual(
+            manager.suggestedFilename(forImagePath: cachedFile.path),
+            "Pastry Image.png"
+        )
+    }
+
     // MARK: - 预览用高清 PNG 生成（orig → TIFF → PNG）
 
     /// 验证 .orig 数据可转换为 PNG 格式供 Quick Look 预览

@@ -250,7 +250,11 @@ final class ImageCacheManager {
     }
 
     private func isCachedFile(_ url: URL) -> Bool {
-        url.deletingLastPathComponent().standardizedFileURL == cacheDir.standardizedFileURL
+        // URL equality also compares directory representation details such as a
+        // trailing slash. Those details vary across macOS/Foundation versions,
+        // even when both URLs point at the same filesystem directory.
+        url.deletingLastPathComponent().standardizedFileURL.path
+            == cacheDir.standardizedFileURL.path
     }
 
     private func isThumbnailURL(_ url: URL) -> Bool {
