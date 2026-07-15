@@ -107,6 +107,8 @@ mise run release-auto
 
 ## 项目结构
 
+完整的逐文件树形说明见 [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)。
+
 ```text
 Sources/Pastry/
 ├── Core/           # ClipboardItem 模型、剪贴板监听
