@@ -834,23 +834,6 @@
         }
       }
     },
-    "settings.open_diagnostics_folder": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开诊断日志文件夹"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Diagnostics Folder"
-          }
-        }
-      }
-    },
     "settings.history.section": {
       "extractionState": "manual",
       "localizations": {

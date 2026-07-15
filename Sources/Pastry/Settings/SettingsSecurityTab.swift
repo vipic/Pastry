@@ -40,17 +40,6 @@ extension SettingsSceneView {
                                 .accessibilityIdentifier(AccessibilityIdentifiers.Settings.performanceLoggingToggle)
                         }
 
-                        settingsDivider
-
-                        Button(L10n["settings.open_diagnostics_folder"]) {
-                            let directory = AppDirectories.logsDirectory()
-                            if AppDirectories.ensureDirectory(directory, logCategory: "diagnostics") {
-                                NSWorkspace.shared.open(directory)
-                            }
-                        }
-                        .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
-                        .accessibilityIdentifier(AccessibilityIdentifiers.Settings.diagnosticsFolderButton)
-
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
 

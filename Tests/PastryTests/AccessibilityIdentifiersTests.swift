@@ -50,7 +50,6 @@ final class AccessibilityIdentifiersTests: XCTestCase {
             AccessibilityIdentifiers.Settings.soundToggle,
             AccessibilityIdentifiers.Settings.linkPreviewNetworkToggle,
             AccessibilityIdentifiers.Settings.performanceLoggingToggle,
-            AccessibilityIdentifiers.Settings.diagnosticsFolderButton,
             AccessibilityIdentifiers.Settings.clearAllButton,
             AccessibilityIdentifiers.Settings.accessibilityRow,
             AccessibilityIdentifiers.Settings.accessibilityGrantButton,
