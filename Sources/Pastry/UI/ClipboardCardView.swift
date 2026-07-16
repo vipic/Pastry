@@ -163,7 +163,7 @@ struct ClipboardCardView: View {
                 .layoutPriority(2)
         }
         .frame(width: UIConstants.Card.size, height: UIConstants.Card.size)
-        .background(Color(nsColor: NSColor.windowBackgroundColor))
+        .background(cardSurface)
         .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: Local.Card.cornerRadius, style: .continuous))
         // Inset stroke only: centered `.stroke` bleeds outside the card and gets clipped
@@ -219,9 +219,20 @@ struct ClipboardCardView: View {
     /// Single chrome stroke for all card states (no glow / dual-ring stack).
     private var cardChromeBorderColor: Color {
         if didPaste { return Color.green }
-        if isSelected { return PastryPalette.warmGold.opacity(UIConstants.Settings.pressedOpacity) }
+        if isSelected { return PastryPalette.warmAccent }
         if isHovered { return .white.opacity(Local.Card.hoverBorderOpacity) }
         return .white.opacity(Local.Card.idleBorderOpacity)
+    }
+
+    /// Keep selection visible across light and dark desktops without adding an outer glow.
+    @ViewBuilder
+    private var cardSurface: some View {
+        if isSelected && !didPaste {
+            Color(nsColor: NSColor.windowBackgroundColor)
+                .overlay(PastryPalette.warmAccent.opacity(UIConstants.Overlay.accentFillOpacity))
+        } else {
+            Color(nsColor: NSColor.windowBackgroundColor)
+        }
     }
 
     private var cardChromeBorderWidth: CGFloat {
