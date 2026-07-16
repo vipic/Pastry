@@ -27,7 +27,7 @@ extension SettingsSceneView {
                     settingsSection(title: L10n["settings.about.section_product"]) {
                         settingsRow(
                             title: L10n["settings.about.created_by"],
-                            help: "Nekutai"
+                            help: "Vipic"
                         ) {
                             EmptyView()
                         }
