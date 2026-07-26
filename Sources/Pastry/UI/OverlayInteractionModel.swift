@@ -59,7 +59,8 @@ enum OverlayInteractionModel {
         appFilter: String?,
         timeFilter: StoreManager.TimeFilter,
         urlFilter: Bool,
-        handoffFilter: Bool
+        handoffFilter: Bool,
+        noteFilter: StoreManager.NoteFilter = .any
     ) -> Bool {
         !searchQuery.isEmpty
             || typeFilter != nil
@@ -67,6 +68,7 @@ enum OverlayInteractionModel {
             || timeFilter != .any
             || urlFilter
             || handoffFilter
+            || noteFilter != .any
     }
 
     static func selectedItems(

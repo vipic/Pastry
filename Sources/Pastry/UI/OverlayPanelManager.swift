@@ -171,6 +171,11 @@ final class ClipboardOverlayPanel: NSPanel {
             return .system
         }
 
+        if chars == "/",
+           modifierFlags.intersection([.command, .control, .option]).isEmpty {
+            return .openSearch
+        }
+
         if keyCode == 0, modifierFlags.contains(.command) {
             return .selectAll
         }
@@ -194,14 +199,13 @@ final class ClipboardOverlayPanel: NSPanel {
         if keyCode == 123 || keyCode == 124 || keyCode == 125 || keyCode == 126 {
             return .consume
         }
-        if OverlayKeyboardRouter.shouldFocusSearch(
-            chars: chars,
-            isSearchActive: isSearchActive,
-            modifierFlags: modifierFlags
-        ) {
+        // 搜索关闭时忽略普通文本输入，既不自动打开搜索，也不交给 NSPanel 触发系统提示音。
+        if !modifierFlags.contains(.command),
+           !modifierFlags.contains(.control),
+           let first = chars?.first,
+           first.isLetter || first.isNumber || first.isSymbol || first.isPunctuation || first.isWhitespace {
             return .consume
         }
-
         return .system
     }
 
@@ -792,22 +796,6 @@ final class OverlayPanelManager: @unchecked Sendable {
 
     static func shouldAllowEnterForIME() -> Bool {
         OverlayKeyboardRouter.shouldAllowEnterForIME()
-    }
-
-    static func isRedirectableChar(_ chars: String) -> Bool {
-        OverlayKeyboardRouter.isRedirectableChar(chars)
-    }
-
-    static func shouldFocusSearch(
-        chars: String?,
-        isSearchActive: Bool,
-        modifierFlags: NSEvent.ModifierFlags
-    ) -> Bool {
-        OverlayKeyboardRouter.shouldFocusSearch(
-            chars: chars,
-            isSearchActive: isSearchActive,
-            modifierFlags: modifierFlags
-        )
     }
 
     private func removeKeyboardMonitor() {

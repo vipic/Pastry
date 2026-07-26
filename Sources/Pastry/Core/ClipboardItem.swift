@@ -100,8 +100,8 @@ struct ClipboardItem: Identifiable, Codable, Hashable {
     let rawFormatType: String?        // 原始格式的剪贴板类型（public.rtf / public.html）
     var displayCount: Int             // 被粘贴回的次数（可变，不计入 hash）
     var isPinned: Bool                // 收藏（favorite）；自动清理会跳过，用户删除不豁免
-    var favoriteNote: String?         // 收藏备注，用来记录保留原因（可变，不计入 hash）
-    var favoriteNoteUpdatedAt: Date?  // 收藏备注更新时间（可变，不计入 hash）
+    var favoriteNote: String?         // 场景备注；所有条目均可添加（可变，不计入 hash）
+    var favoriteNoteUpdatedAt: Date?  // 场景备注更新时间（可变，不计入 hash）
 
     /// segments 按需解码（仅 .html 类型使用，大文本不复制时不解码）
     var segments: [ContentSegment]? {

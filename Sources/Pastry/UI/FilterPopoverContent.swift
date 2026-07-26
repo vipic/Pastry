@@ -26,7 +26,12 @@ struct FilterPopoverContent: View {
     var onFilterChange: (() -> Void)?
 
     private var hasActiveFilter: Bool {
-        store.typeFilter != nil || store.timeFilter != .any || store.appFilter != nil || store.handoffFilter
+        store.typeFilter != nil
+            || store.timeFilter != .any
+            || store.appFilter != nil
+            || store.handoffFilter
+            || store.urlFilter
+            || store.noteFilter != .any
     }
 
     /// 是否有来自其他设备(Handoff)的卡片
@@ -53,6 +58,8 @@ struct FilterPopoverContent: View {
                         store.typeFilter = nil
                         store.appFilter = nil
                         store.handoffFilter = false
+                        store.urlFilter = false
+                        store.noteFilter = .any
                         store.timeFilter = .any
                         onFilterChange?()
                     }
@@ -110,6 +117,21 @@ struct FilterPopoverContent: View {
                     ForEach(StoreManager.TimeFilter.allCases, id: \.rawValue) { tf in
                         filterChip(tf.label, isSelected: store.timeFilter == tf) {
                             store.timeFilter = tf
+                            onFilterChange?()
+                        }
+                    }
+                }
+            }
+
+            filterSection(title: L10n["filter.note"]) {
+                LazyVGrid(columns: gridColumns, spacing: UIConstants.Card.contentVerticalPadding) {
+                    ForEach(StoreManager.NoteFilter.allCases, id: \.rawValue) { noteFilter in
+                        filterChip(
+                            noteFilter.label,
+                            iconName: noteFilter == .withNote ? "note.text" : nil,
+                            isSelected: store.noteFilter == noteFilter
+                        ) {
+                            store.noteFilter = noteFilter
                             onFilterChange?()
                         }
                     }

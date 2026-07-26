@@ -2,174 +2,9 @@ import XCTest
 @testable import Pastry
 
 // MARK: - OverlayPanelManager 测试套件
-// 测试键盘输入重定向判断、面板关闭逻辑
+// 测试面板键盘路由与关闭逻辑
 
 final class OverlayPanelManagerTests: XCTestCase {
-
-    // MARK: - isRedirectableChar 打印字符判断
-
-    /// 英文字母（大小写）
-    func testRedirectableEnglishLetters() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("a"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("Z"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("hello"))
-    }
-
-    /// 中文字符
-    func testRedirectableChineseCharacters() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("搜"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("你好世界"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("日"))
-    }
-
-    /// 数字
-    func testRedirectableDigits() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("0"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("9"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("42"))
-    }
-
-    /// 标点符号
-    func testRedirectablePunctuation() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("."))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar(","))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("!"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("?"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar(";"))
-    }
-
-    /// 空格
-    func testRedirectableSpace() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar(" "))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("  "))
-    }
-
-    /// 符号（+, -, =, @, # 等）
-    func testRedirectableSymbols() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("+"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("-"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("@"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("#"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("$"))
-    }
-
-    /// 控制字符应拒绝
-    func testRedirectableRejectsControlChars() {
-        XCTAssertFalse(OverlayPanelManager.isRedirectableChar("\u{0003}"))  // ETX
-        XCTAssertFalse(OverlayPanelManager.isRedirectableChar("\u{001B}"))  // ESC
-        XCTAssertFalse(OverlayPanelManager.isRedirectableChar("\u{007F}"))  // DEL
-    }
-
-    /// 空字符串
-    func testRedirectableEmptyString() {
-        XCTAssertFalse(OverlayPanelManager.isRedirectableChar(""))
-    }
-
-    /// 组合：搜索 URL 片段
-    func testRedirectableURLComponents() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("https://"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("example.com"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("/path?q=1"))
-    }
-
-    /// Emoji
-    func testRedirectableEmoji() {
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("😀"))
-        XCTAssertTrue(OverlayPanelManager.isRedirectableChar("🚀"))
-    }
-
-    // MARK: - shouldFocusSearch 搜索栏聚焦判断
-
-    // 辅助：空修饰键
-    private let noModifiers = NSEvent.ModifierFlags()
-
-    /// 英文字母：搜索未激活 + 无修饰键 → 应聚焦
-    func testFocusSearchEnglishLetter() {
-        XCTAssertTrue(OverlayPanelManager.shouldFocusSearch(
-            chars: "a", isSearchActive: false, modifierFlags: noModifiers
-        ))
-        XCTAssertTrue(OverlayPanelManager.shouldFocusSearch(
-            chars: "Z", isSearchActive: false, modifierFlags: noModifiers
-        ))
-    }
-
-    /// 中文：应聚焦（IME 组合完成的字符一样触发搜索栏）
-    func testFocusSearchChineseCharacter() {
-        XCTAssertTrue(OverlayPanelManager.shouldFocusSearch(
-            chars: "搜", isSearchActive: false, modifierFlags: noModifiers
-        ))
-        XCTAssertTrue(OverlayPanelManager.shouldFocusSearch(
-            chars: "你好", isSearchActive: false, modifierFlags: noModifiers
-        ))
-    }
-
-    /// 数字和标点
-    func testFocusSearchDigitsAndPunctuation() {
-        XCTAssertTrue(OverlayPanelManager.shouldFocusSearch(
-            chars: "3", isSearchActive: false, modifierFlags: noModifiers
-        ))
-        XCTAssertTrue(OverlayPanelManager.shouldFocusSearch(
-            chars: ".", isSearchActive: false, modifierFlags: noModifiers
-        ))
-    }
-
-    /// 搜索栏已激活 → 不触发（让搜索栏自己处理输入）
-    func testFocusSearchRejectedWhenAlreadyActive() {
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: "a", isSearchActive: true, modifierFlags: noModifiers
-        ))
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: "搜", isSearchActive: true, modifierFlags: noModifiers
-        ))
-    }
-
-    /// 含 ⌘ 修饰键 → 不触发（留给 ⌘F 快捷键等处理）
-    func testFocusSearchRejectedWhenCommandHeld() {
-        let cmd = NSEvent.ModifierFlags.command
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: "a", isSearchActive: false, modifierFlags: cmd
-        ))
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: "f", isSearchActive: false, modifierFlags: cmd
-        ))
-    }
-
-    /// 含 ⌃ 修饰键 → 不触发
-    func testFocusSearchRejectedWhenControlHeld() {
-        let ctrl = NSEvent.ModifierFlags.control
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: "a", isSearchActive: false, modifierFlags: ctrl
-        ))
-    }
-
-    /// 空 characters → 不触发
-    func testFocusSearchRejectedNilChars() {
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: nil, isSearchActive: false, modifierFlags: noModifiers
-        ))
-    }
-
-    /// 空字符串 → 不触发
-    func testFocusSearchRejectedEmptyChars() {
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: "", isSearchActive: false, modifierFlags: noModifiers
-        ))
-    }
-
-    /// 方向键产生的空字符 → 不触发（方向键无 characters）
-    func testFocusSearchRejectedArrowKeyNoCharacters() {
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: nil, isSearchActive: false, modifierFlags: noModifiers
-        ))
-    }
-
-    /// 组合修饰键：Cmd+Shift → 不触发
-    func testFocusSearchRejectedWhenMultipleModifiers() {
-        let cmdShift: NSEvent.ModifierFlags = [.command, .shift]
-        XCTAssertFalse(OverlayPanelManager.shouldFocusSearch(
-            chars: "a", isSearchActive: false, modifierFlags: cmdShift
-        ))
-    }
 
     // MARK: - Tab 键搜索栏↔卡片焦点切换
 
@@ -502,6 +337,27 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
+    func testOverlayPanelRoutesSlashToOpenSearchOnlyWhileNavigating() {
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 44,
+                chars: "/",
+                isSearchActive: false
+            ),
+            .openSearch
+        )
+        XCTAssertEqual(
+            ClipboardOverlayPanel.keyRoute(
+                keyCode: 44,
+                chars: "/",
+                isSearchActive: true,
+                keyboardOwner: .searchField
+            ),
+            .system,
+            "搜索框已有焦点时，斜杠应作为查询内容输入"
+        )
+    }
+
     func testOverlayPanelDoesNotRouteCardCommandsWhenFavoriteNoteOwnsKeyboard() {
         let noteEditingKeys: [(UInt16, NSEvent.ModifierFlags)] = [
             (0, .command),    // ⌘A selects note text
@@ -564,7 +420,7 @@ final class OverlayPanelManagerTests: XCTestCase {
         )
     }
 
-    func testOverlayPanelSilentlyConsumesPrintableKeyThatOpensSearch() {
+    func testOverlayPanelSilentlyIgnoresPrintableKeysWhenSearchIsClosed() {
         XCTAssertEqual(
             ClipboardOverlayPanel.keyRoute(
                 keyCode: 0,

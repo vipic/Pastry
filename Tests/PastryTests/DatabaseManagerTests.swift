@@ -288,7 +288,7 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(items.count, 1)
         XCTAssertEqual(items[0].content, "收藏后再复制")
         XCTAssertTrue(items[0].isPinned, "置顶后收藏标记不能丢")
-        XCTAssertEqual(items[0].favoriteNote, "重要参考", "置顶后收藏备注不能丢")
+        XCTAssertEqual(items[0].favoriteNote, "重要参考", "置顶后场景备注不能丢")
         XCTAssertEqual(db.favorites().count, 1)
     }
 

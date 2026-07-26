@@ -100,6 +100,17 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// 备注筛选
+    @Published var noteFilter: NoteFilter = .any {
+        didSet {
+            guard noteFilter != oldValue else { return }
+            if !suppressFilterDiagnostics, noteFilter != .any {
+                DeveloperDiagnostics.record(DiagnosticsEvent.filterNote(noteFilter))
+            }
+            performSearchImmediate()
+        }
+    }
+
     /// 时间筛选
     @Published var timeFilter: TimeFilter = .any {
         didSet {
@@ -175,6 +186,20 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         }
     }
 
+    enum NoteFilter: String, CaseIterable {
+        case any
+        case withNote
+        case withoutNote
+
+        var label: String {
+            switch self {
+            case .any:         return L10n["filter.note.any"]
+            case .withNote:    return L10n["filter.note.with"]
+            case .withoutNote: return L10n["filter.note.without"]
+            }
+        }
+    }
+
     private struct SearchFilterSnapshot {
         let query: String
         let pinTab: PinTab
@@ -182,6 +207,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         let urlFilter: Bool
         let appFilter: String?
         let handoffFilter: Bool
+        let noteFilter: NoteFilter
         let dateRange: Range<Date>?
     }
 
@@ -303,7 +329,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         if hasActiveFilters { performSearchImmediate() }
     }
 
-    /// 更新收藏备注（空白文本会清空备注）
+    /// 更新场景备注（所有条目均可添加；空白文本会清空备注）
     func updateFavoriteNote(_ itemId: UUID, note: String?) {
         let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let normalized = trimmed.isEmpty ? nil : trimmed
@@ -396,7 +422,8 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
             && timeFilter == .any
             && pinTab == .all
             && !urlFilter
-            && !handoffFilter)
+            && !handoffFilter
+            && noteFilter == .any)
     }
 
     /// 清除所有筛选条件
@@ -413,6 +440,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         pinTab = .all
         urlFilter = false
         handoffFilter = false
+        noteFilter = .any
         if recordDiagnostics {
             DeveloperDiagnostics.record(DiagnosticsEvent.filterClear)
         }
@@ -495,6 +523,9 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
             && typeFilter == nil
             && appFilter == nil
             && timeFilter == .any
+            && !urlFilter
+            && !handoffFilter
+            && noteFilter == .any
             && pinTab == .all
 
         if noActiveFilters {
@@ -550,6 +581,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
             urlFilter: urlFilter,
             appFilter: appFilter,
             handoffFilter: handoffFilter,
+            noteFilter: noteFilter,
             dateRange: timeFilter.dateRange
         )
         let recentItems = items
@@ -629,6 +661,19 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
         // 其他设备（Handoff）筛选
         if filters.handoffFilter {
             base = base.filter { $0.isHandoff }
+        }
+
+        switch filters.noteFilter {
+        case .any:
+            break
+        case .withNote:
+            base = base.filter { item in
+                !(item.favoriteNote?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+            }
+        case .withoutNote:
+            base = base.filter { item in
+                item.favoriteNote?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+            }
         }
 
         // 时间筛选

@@ -1537,13 +1537,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "为什么收藏这条？"
+            "value": "记录这次复制的场景…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Why save this?"
+            "value": "Note the context for this copy…"
           }
         }
       }
@@ -1969,6 +1969,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "Other Devices"
+          }
+        }
+      }
+    },
+    "filter.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备注"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note"
+          }
+        }
+      }
+    },
+    "filter.note.any": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "filter.note.with": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有备注"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With Note"
+          }
+        }
+      }
+    },
+    "filter.note.without": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无备注"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Without Note"
           }
         }
       }

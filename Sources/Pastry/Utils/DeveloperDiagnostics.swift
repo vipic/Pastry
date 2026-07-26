@@ -422,6 +422,10 @@ enum DiagnosticsEvent {
     static let filterURL = "filter.url"
     static let filterHandoff = "filter.handoff"
 
+    static func filterNote(_ filter: StoreManager.NoteFilter) -> String {
+        "filter.note.\(filter.rawValue)"
+    }
+
     static let accessibilityDenied = "accessibility.denied"
 
     static func filterType(_ format: SourceFormat) -> String {

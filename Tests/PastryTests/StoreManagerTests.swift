@@ -192,6 +192,23 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertEqual(store.filteredItems.count, 2)
     }
 
+    // MARK: - 备注筛选
+
+    func testNoteFilterWithAndWithoutNote() {
+        let items = [
+            ClipboardItem(content: "meeting link", sourceFormat: .text, favoriteNote: "周会时复制"),
+            ClipboardItem(content: "plain text", sourceFormat: .text),
+            ClipboardItem(content: "blank note", sourceFormat: .text, favoriteNote: "   "),
+        ]
+        store = StoreManager(items: items)
+
+        store.noteFilter = .withNote
+        XCTAssertEqual(store.filteredItems.map(\.content), ["meeting link"])
+
+        store.noteFilter = .withoutNote
+        XCTAssertEqual(Set(store.filteredItems.map(\.content)), Set(["plain text", "blank note"]))
+    }
+
     // MARK: - 时间筛选
 
     func testTimeFilterToday() {
@@ -321,6 +338,12 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertTrue(store.hasActiveFilters)
     }
 
+    func testHasActiveFiltersWhenNoteFilterSet() {
+        store = makeStoreWithItems([("A", .text, nil, false, 0)])
+        store.noteFilter = .withNote
+        XCTAssertTrue(store.hasActiveFilters)
+    }
+
     // MARK: - clearFilters
 
     func testClearFiltersResetsAll() {
@@ -332,6 +355,7 @@ final class StoreManagerTests: XCTestCase {
         store.pinTab = .pinned
         store.urlFilter = true
         store.handoffFilter = true
+        store.noteFilter = .withoutNote
 
         store.clearFilters()
 
@@ -342,6 +366,7 @@ final class StoreManagerTests: XCTestCase {
         XCTAssertEqual(store.pinTab, .all)
         XCTAssertFalse(store.urlFilter)
         XCTAssertFalse(store.handoffFilter)
+        XCTAssertEqual(store.noteFilter, .any)
         XCTAssertFalse(store.hasActiveFilters)
     }
 

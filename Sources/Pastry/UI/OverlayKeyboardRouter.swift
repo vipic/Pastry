@@ -139,6 +139,13 @@ final class OverlayKeyboardRouter {
             return nil
         }
 
+        // / 搜索：仅导航态触发；搜索框和备注编辑器拥有键盘时已在上方放行文本输入。
+        if event.characters == "/",
+           event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+            NotificationCenter.default.post(name: .overlayOpenSearchImmediate, object: nil)
+            return nil
+        }
+
         // ⌘A 全选卡片；文本输入拥有键盘时已在上方放行。
         if event.keyCode == 0, event.modifierFlags.contains(.command) {
             NotificationCenter.default.post(name: .overlaySelectAll, object: nil)
@@ -229,14 +236,6 @@ final class OverlayKeyboardRouter {
             if isSearchActive() {
                 return event
             }
-            if Self.shouldFocusSearch(
-                chars: event.characters,
-                isSearchActive: isSearchActive(),
-                modifierFlags: event.modifierFlags
-            ) {
-                NotificationCenter.default.post(name: .overlayOpenSearchImmediate, object: nil)
-                return nil
-            }
             return event
         }
     }
@@ -285,7 +284,7 @@ final class OverlayKeyboardRouter {
         return false
     }
 
-    /// Esc 应取消收藏备注编辑（含 owner 尚未同步、但输入框已聚焦的情况）。
+    /// Esc 应取消场景备注编辑（含 owner 尚未同步、但输入框已聚焦的情况）。
     static func shouldCancelFavoriteNoteEditingOnEscape(
         owner: OverlayKeyboardOwner,
         isSearchActive: Bool,
@@ -303,29 +302,6 @@ final class OverlayKeyboardRouter {
               let window = NSApp.keyWindow,
               let fr = window.firstResponder as? NSTextView else { return false }
         return fr.hasMarkedText()
-    }
-
-    /// 判断字符串首字符是否应重定向到搜索栏（字母/数字/符号/标点/空格）
-    static func isRedirectableChar(_ chars: String) -> Bool {
-        guard let first = chars.first else { return false }
-        return first.isLetter || first.isNumber || first.isSymbol || first.isPunctuation || first.isWhitespace
-    }
-
-    /// 判断按键是否应触发搜索栏聚焦（综合字符、状态、修饰键）
-    static func shouldFocusSearch(
-        chars: String?,
-        isSearchActive: Bool,
-        modifierFlags: NSEvent.ModifierFlags
-    ) -> Bool {
-        guard !isSearchActive,
-              !modifierFlags.contains(.command),
-              !modifierFlags.contains(.control),
-              let chars,
-              !chars.isEmpty,
-              isRedirectableChar(chars) else {
-            return false
-        }
-        return true
     }
 
     deinit {

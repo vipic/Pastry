@@ -536,7 +536,7 @@ struct ClipboardCardView: View {
         }
     }
 
-    // MARK: - 收藏备注
+    // MARK: - 场景备注
 
     @ViewBuilder
     private var favoriteNoteStrip: some View {

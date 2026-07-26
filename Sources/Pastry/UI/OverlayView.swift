@@ -739,6 +739,7 @@ struct OverlayView: View {
             || store.appFilter != nil
             || store.handoffFilter
             || store.urlFilter
+            || store.noteFilter != .any
     }
 
     // MARK: - 卡片容器
@@ -1388,7 +1389,8 @@ struct OverlayView: View {
             appFilter: store.appFilter,
             timeFilter: store.timeFilter,
             urlFilter: store.urlFilter,
-            handoffFilter: store.handoffFilter
+            handoffFilter: store.handoffFilter,
+            noteFilter: store.noteFilter
         )
         let model = OverlayEmptyStateModel.resolve(
             isPinnedTab: store.pinTab == .pinned,

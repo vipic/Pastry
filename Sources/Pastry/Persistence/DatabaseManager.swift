@@ -767,7 +767,7 @@ final class DatabaseManager {
         // FTS 由 AFTER UPDATE 触发器自动同步，无需手动 rebuildFTSRow
     }
 
-    /// 更新收藏备注（nil 表示清空，取消收藏时不会自动清除）
+    /// 更新场景备注（nil 表示清空；数据库列名沿用 favorite_note 以保持兼容）
     @discardableResult
     func updateFavoriteNote(id: String, note: String?, updatedAt: Date? = Date()) -> Bool {
         lock.lock()

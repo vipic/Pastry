@@ -311,7 +311,19 @@ final class OverlayInteractionModelTests: XCTestCase {
                 appFilter: nil,
                 timeFilter: .any,
                 urlFilter: false,
-                handoffFilter: true
+                handoffFilter: true,
+                noteFilter: .any
+            )
+        )
+        XCTAssertTrue(
+            OverlayInteractionModel.hasActiveFilters(
+                searchQuery: "",
+                typeFilter: nil,
+                appFilter: nil,
+                timeFilter: .any,
+                urlFilter: false,
+                handoffFilter: false,
+                noteFilter: .withNote
             )
         )
     }
