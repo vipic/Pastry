@@ -80,6 +80,18 @@ struct SettingsPillButtonStyle: ButtonStyle {
     }
 }
 
+extension View {
+    /// 设置详情区固定为浅色表面；原生 menu Picker 也必须固定浅色外观，
+    /// 否则系统深色模式下标题与箭头可能和自定义浅色背景失去对比度。
+    func settingsMenuPickerChrome() -> some View {
+        labelsHidden()
+            .pickerStyle(.menu)
+            .foregroundStyle(PastryPalette.ink)
+            .tint(PastryPalette.ink)
+            .environment(\.colorScheme, .light)
+    }
+}
+
 struct SettingsSwitchStyle: ToggleStyle {
     private let switchAnimation = Animation.spring(response: UIConstants.Motion.slow, dampingFraction: 0.74, blendDuration: 0.08)
 

@@ -46,8 +46,7 @@ extension SettingsSceneView {
                             Picker("", selection: languageBinding) {
                                 ForEach(Language.allCases) { Text($0.label).tag($0) }
                             }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
+                            .settingsMenuPickerChrome()
                             .frame(width: Local.Settings.controlColumnWidth)
                             .accessibilityIdentifier(AccessibilityIdentifiers.Settings.languagePicker)
                         }
@@ -120,8 +119,7 @@ extension SettingsSceneView {
                                     Text(HistoryRetentionPolicy.maxItemsLabel(value)).tag(value)
                                 }
                             }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
+                            .settingsMenuPickerChrome()
                             .frame(width: Local.Settings.controlColumnWidth)
                         }
 
@@ -136,8 +134,7 @@ extension SettingsSceneView {
                                     Text(HistoryRetentionPolicy.maxAgeLabel(value)).tag(value)
                                 }
                             }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
+                            .settingsMenuPickerChrome()
                             .frame(width: Local.Settings.controlColumnWidth)
                         }
 
