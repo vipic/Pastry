@@ -219,9 +219,9 @@ Button(action: { selectedItem = item }) { ... }
 
 ### 8. 授权懒加载（仅粘贴操作）
 
-`CGEvent.tapCreate` **在 `ClipboardMonitor.start()` 时创建**（用于来源检测和 ⌘C/X 快速轮询），不会弹授权对话框——无权限时静默返回 nil。
+剪贴板记录通过 `NSPasteboard.changeCount` 定时轮询，来源使用当前前台应用；面板滚轮只处理应用内的 `NSEvent`。项目不创建全局 `CGEvent` 监听，因此不需要 Input Monitoring 权限。
 
-`simulatePaste()` 中的 `CGEventSource(stateID: .privateState)` + `postToPid` 在首次粘贴时触发辅助功能授权检查。但来源检测的 event tap 独立于此——它使用 `.cgSessionEventTap`，不涉及 `postToPid`，权限要求更宽松。
+`simulatePaste()` 中的 `CGEventSource(stateID: .privateState)` + `postToPid` 需要辅助功能权限。只在用户首次执行跨应用粘贴时主动请求；剪贴板记录、来源识别和全局快捷键不依赖该权限。
 
 ### 9. git restore . 会丢弃未提交改动
 

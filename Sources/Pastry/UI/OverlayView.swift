@@ -1556,10 +1556,6 @@ final class KeyboardEventHandler: ObservableObject {
 
     private var mouseMonitor: Any?
     private var scrollMonitor: Any?
-    private var scrollEventTap: CFMachPort?
-    private var scrollRunLoopSource: CFRunLoopSource?
-    /// 防止 local monitor + CGEvent tap 双重触发
-    private static var lastPostedScrollAt: CFAbsoluteTime = 0
 
     /// 从 NSEvent / CGEvent 提取**纯横向**卡带 delta。
     /// 不映射竖滚轮；策略见 `OverlayInteractionModel.preferredCardStripDelta`。
@@ -1595,83 +1591,12 @@ final class KeyboardEventHandler: ObservableObject {
         guard !OverlayPanelManager.shared.isAlertActive else { return event }
         guard let delta = cardStripDelta(from: event) else { return event }
 
-        postCardStripScroll(delta: delta)
-        return nil
-    }
-
-    private static func postCardStripScroll(delta: CGFloat) {
-        let now = CFAbsoluteTimeGetCurrent()
-        // ~8ms 内去重，避免 monitor + tap 双发
-        guard now - lastPostedScrollAt > 0.008 else { return }
-        lastPostedScrollAt = now
         NotificationCenter.default.post(
             name: .overlayCardStripScroll,
             object: nil,
             userInfo: ["delta": delta]
         )
-    }
-
-    /// CGEvent 级滚动（MX Master 拇指轮有时不经 NSEvent local monitor）
-    private static func handleCGScrollEvent(_ event: CGEvent) {
-        guard OverlayPanelManager.shared.isVisible else { return }
-        guard OverlayPanelManager.shared.isHorizontalCardLayout else { return }
-        guard !OverlayPanelManager.shared.isAlertActive else { return }
-
-        let lineScale: CGFloat = 14
-        let xs: [CGFloat] = [
-            CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)),
-            CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)),
-            CGFloat(event.getDoubleValueField(.scrollWheelEventDeltaAxis2)) * lineScale
-        ]
-        let ys: [CGFloat] = [
-            CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1)),
-            CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)),
-            CGFloat(event.getDoubleValueField(.scrollWheelEventDeltaAxis1)) * lineScale
-        ]
-        guard let delta = OverlayInteractionModel.preferredCardStripDelta(
-            horizontalCandidates: xs,
-            verticalCandidates: ys
-        ) else { return }
-
-        DispatchQueue.main.async {
-            postCardStripScroll(delta: delta)
-        }
-    }
-
-    private func installScrollEventTapIfNeeded() {
-        guard scrollEventTap == nil else { return }
-        let mask = CGEventMask(1 << CGEventType.scrollWheel.rawValue)
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,
-            eventsOfInterest: mask,
-            callback: { _, type, event, _ in
-                if type == .scrollWheel {
-                    KeyboardEventHandler.handleCGScrollEvent(event)
-                }
-                return Unmanaged.passUnretained(event)
-            },
-            userInfo: nil
-        ) else {
-            return
-        }
-        scrollEventTap = tap
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        scrollRunLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-    }
-
-    private func removeScrollEventTap() {
-        if let tap = scrollEventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-        }
-        if let source = scrollRunLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
-        scrollRunLoopSource = nil
-        scrollEventTap = nil
+        return nil
     }
 
     func installMouseMonitor() {
@@ -1693,12 +1618,10 @@ final class KeyboardEventHandler: ObservableObject {
                 Self.handleScrollWheel(event)
             }
         }
-        installScrollEventTapIfNeeded()
     }
 
     func uninstall() {
         if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
         if let m = scrollMonitor { NSEvent.removeMonitor(m); scrollMonitor = nil }
-        removeScrollEventTap()
     }
 }
