@@ -22,6 +22,45 @@ command_log_timestamp() {
     date -u '+%Y-%m-%dT%H:%M:%SZ'
 }
 
+command_log_display_width() {
+    local value="$1"
+    if command -v perl >/dev/null 2>&1; then
+        printf '%s' "$value" | perl -MUnicode::UCD=charprop -CSD -e '
+            local $/;
+            my $value = <STDIN> // "";
+            my $width = 0;
+            for my $character (split //, $value) {
+                my $codepoint = ord($character);
+                my $category = charprop($codepoint, "General_Category") // "";
+                next if $category =~ /^M/;
+                my $east_asian_width = charprop($codepoint, "East_Asian_Width") // "";
+                $width += $east_asian_width =~ /^(?:Wide|Fullwidth)$/ ? 2 : 1;
+            }
+            print $width;
+        '
+    else
+        # macOS 默认提供 Perl；极简环境下退化为字符数，仍保持纯 ASCII 标签对齐。
+        LC_ALL="${LC_ALL:-en_US.UTF-8}" awk '{ print length }' <<< "$value"
+    fi
+}
+
+command_log_print_summary_row() {
+    local label="$1"
+    local duration_ms="$2"
+    local exit_status="${3:-}"
+    local label_width padding
+    label_width="$(command_log_display_width "$label")"
+    padding=$((32 - label_width))
+    (( padding < 1 )) && padding=1
+
+    printf '  %s%*s %8.2fs' \
+        "$label" "$padding" "" "$(awk "BEGIN { print $duration_ms / 1000 }")"
+    if [[ -n "$exit_status" ]]; then
+        printf '  exit=%s' "$exit_status"
+    fi
+    printf '\n'
+}
+
 command_log_quote_command() {
     local quoted=""
     local arg
@@ -171,9 +210,9 @@ command_log_finish() {
     echo "═══ 命令耗时汇总 ═══"
     while IFS='|' read -r label duration stage_status; do
         [[ -n "$label" ]] || continue
-        printf '  %-32s %8.2fs  exit=%s\n' "$label" "$(awk "BEGIN { print $duration / 1000 }")" "$stage_status"
+        command_log_print_summary_row "$label" "$duration" "$stage_status"
     done < "$COMMAND_LOG_SUMMARY_FILE"
-    printf '  %-32s %8.2fs\n' "总计" "$(awk "BEGIN { print $total_ms / 1000 }")"
+    command_log_print_summary_row "总计" "$total_ms"
     echo "  日志: $COMMAND_LOG_FILE"
     rm -f "$COMMAND_LOG_SUMMARY_FILE"
 }
