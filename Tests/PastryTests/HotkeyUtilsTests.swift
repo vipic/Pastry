@@ -90,6 +90,30 @@ final class HotkeyUtilsTests: XCTestCase {
         ))
     }
 
+    func testHotkeyConfigurationOnlyUpdatesWhenValuesChange() {
+        let current = GlobalHotkeyManager.Configuration(
+            keyCode: 9,
+            modifiers: UInt32(cmdKey) | UInt32(shiftKey)
+        )
+
+        XCTAssertTrue(GlobalHotkeyManager.needsConfigurationUpdate(
+            applied: nil,
+            current: current
+        ))
+        XCTAssertFalse(GlobalHotkeyManager.needsConfigurationUpdate(
+            applied: current,
+            current: current
+        ))
+        XCTAssertTrue(GlobalHotkeyManager.needsConfigurationUpdate(
+            applied: current,
+            current: .init(keyCode: 8, modifiers: current.modifiers)
+        ))
+        XCTAssertTrue(GlobalHotkeyManager.needsConfigurationUpdate(
+            applied: current,
+            current: .init(keyCode: current.keyCode, modifiers: UInt32(cmdKey))
+        ))
+    }
+
     // MARK: - NSEvent vs Carbon 编码差异验证（关键测试）
 
     func testNSEventCommandNotEqualToCarbonCmdKey() {

@@ -12,6 +12,12 @@ final class GlobalHotkeyManager {
 
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
+    private var lastAppliedConfiguration: Configuration?
+
+    struct Configuration: Equatable {
+        let keyCode: Int32
+        let modifiers: UInt32
+    }
 
     // 默认快捷键: ⌘⇧V
     static let defaultKeyCode: Int32 = 9       // kVK_ANSI_V
@@ -36,6 +42,10 @@ final class GlobalHotkeyManager {
         }
         let raw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.hotkeyModifiers)
         return UInt32(raw)
+    }
+
+    private var currentConfiguration: Configuration {
+        Configuration(keyCode: currentKeyCode, modifiers: currentModifiers)
     }
 
     var currentShortcutDisplay: String {
@@ -87,7 +97,12 @@ final class GlobalHotkeyManager {
     func register() {
         guard hotKeyRef == nil else { return }
 
-        let code = currentKeyCode
+        register(configuration: currentConfiguration)
+    }
+
+    private func register(configuration: Configuration) {
+        lastAppliedConfiguration = configuration
+        let code = configuration.keyCode
 
         // 禁用状态 — 不注册任何热键
         guard code >= 0 else {
@@ -95,7 +110,7 @@ final class GlobalHotkeyManager {
             return
         }
 
-        let mods = currentModifiers
+        let mods = configuration.modifiers
 
         // 1. 注册热键
         let hotKeyID = EventHotKeyID(signature: 0x434C50, id: 1) // "CLP"
@@ -145,6 +160,7 @@ final class GlobalHotkeyManager {
     }
 
     func unregister() {
+        let wasRegistered = hotKeyRef != nil || eventHandler != nil
         if let ref = hotKeyRef {
             UnregisterEventHotKey(ref)
             hotKeyRef = nil
@@ -153,13 +169,29 @@ final class GlobalHotkeyManager {
             RemoveEventHandler(handler)
             eventHandler = nil
         }
-        log.info("全局快捷键已注销", event: "hotkey.unregistered")
+        if wasRegistered {
+            log.info("全局快捷键已注销", event: "hotkey.unregistered")
+        }
     }
 
     /// 先注销再注册 — 快捷键配置变更时调用
-    func reregister() {
+    func reregister(force: Bool = false) {
+        let configuration = currentConfiguration
+        guard force || Self.needsConfigurationUpdate(
+            applied: lastAppliedConfiguration,
+            current: configuration
+        ) else {
+            return
+        }
         unregister()
-        register()
+        register(configuration: configuration)
+    }
+
+    static func needsConfigurationUpdate(
+        applied: Configuration?,
+        current: Configuration
+    ) -> Bool {
+        applied != current
     }
 
     // MARK: - 回调

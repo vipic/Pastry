@@ -78,11 +78,13 @@ for line in lines:
             if key in fields:
                 groups[t][key].append(fields[key])
     elif t == "paste":
-        for key in ("clipboardWrite", "activateApp", "orderOut", "simulatePaste", "total"):
+        for key in ("accessibilityCheck", "clipboardWrite", "activateApp", "orderOut",
+                    "simulatePaste", "eventSource", "eventCreate", "eventPost", "total"):
             if key in fields:
                 groups[t][key].append(fields[key])
     elif t == "pasteMulti":
-        for key in ("writeText", "activateApp", "orderOut", "simulatePaste", "total"):
+        for key in ("accessibilityCheck", "writeText", "activateApp", "orderOut",
+                    "simulatePaste", "eventSource", "eventCreate", "eventPost", "total"):
             if key in fields:
                 groups[t][key].append(fields[key])
 
@@ -108,11 +110,15 @@ for t in ("panel", "paste", "pasteMulti"):
         "hostingInit":     "  NSHostingView 初始化",
         "hostingLayout":   "  NSHostingView 布局",
         "orderFront":      "  orderFront+makeKey",
+        "accessibilityCheck": "  辅助功能权限检查",
         "clipboardWrite":  "  写剪贴板",
         "writeText":       "  拼接+写文本",
         "activateApp":     "  激活目标 App",
         "orderOut":        "  面板隐藏",
         "simulatePaste":   "  ⌘V 模拟",
+        "eventSource":     "    CGEventSource 创建",
+        "eventCreate":     "    ⌘V 事件构造",
+        "eventPost":       "    ⌘V 事件投递",
         "total":           "  总耗时",
     }
     print(f"── {label_map.get(t, t)} ──")

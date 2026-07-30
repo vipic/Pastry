@@ -64,7 +64,8 @@ extension SettingsSceneView {
                     onCancelRecording: {
                         shortcutPreviewKeyCode = nil
                         shortcutPreviewModifiers = 0
-                        GlobalHotkeyManager.shared.reregister()
+                        // 录制开始时会临时注销；取消后即使配置没变也要恢复。
+                        GlobalHotkeyManager.shared.reregister(force: true)
                     }
                 )
                 .frame(width: 0, height: 0)

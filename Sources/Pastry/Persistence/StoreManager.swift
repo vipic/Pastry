@@ -286,12 +286,7 @@ final class StoreManager: ObservableObject, @unchecked Sendable {
     }
 
     private static func simulatePaste() {
-        guard AccessibilityPermissionChecker.shared.isTrusted(prompt: false) else {
-            Logger(subsystem: "com.nekutai.pastry", category: "store")
-                .warning("simulatePaste 跳过：仍无辅助功能权限")
-            return
-        }
-
+        // pasteItem 已在写入剪贴板前完成权限闸门；这里不重复执行可能阻塞的 AX 查询。
         let vKey = CGKeyCode(9)
         guard let source = CGEventSource(stateID: .privateState) else {
             Logger(subsystem: "com.nekutai.pastry", category: "store").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")

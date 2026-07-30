@@ -266,6 +266,13 @@ final class ClipboardOverlayPanel: NSPanel {
 // MARK: - 全屏覆盖层面板管理器
 final class OverlayPanelManager: @unchecked Sendable {
 
+    private struct PasteShortcutResult {
+        let didPost: Bool
+        let sourceCreationMilliseconds: Int
+        let eventCreationMilliseconds: Int
+        let eventPostMilliseconds: Int
+    }
+
     static let shared = OverlayPanelManager()
     private let log = Logger(subsystem: "com.nekutai.pastry", category: "overlay")
     private let diagnosticsLog = PastryLogger(category: "overlay")
@@ -454,9 +461,11 @@ final class OverlayPanelManager: @unchecked Sendable {
         guard panel != nil else { return }
 
         // 关面板前先要权限：未授权时系统弹窗 + 托盘保持打开（⌘1–9 / Enter / 点击同路径）
+        let actionStart = CFAbsoluteTimeGetCurrent()
         guard Self.ensureAccessibilityForPaste() else { return }
+        let permissionCheckedAt = CFAbsoluteTimeGetCurrent()
 
-        let t0 = CFAbsoluteTimeGetCurrent()
+        let t0 = permissionCheckedAt
         let fmt = item.sourceFormat
 
         isPasting = true
@@ -487,8 +496,8 @@ final class OverlayPanelManager: @unchecked Sendable {
         }
 
         // 4. ⌘V（面板已隐藏，目标 App 在前台）
-        let didPostPaste = Self.simulatePaste()
-        if didPostPaste {
+        let pasteShortcut = Self.simulatePaste()
+        if pasteShortcut.didPost {
             SoundFeedback.play(Self.pasteSound)
         }
         let t3 = CFAbsoluteTimeGetCurrent()
@@ -505,14 +514,14 @@ final class OverlayPanelManager: @unchecked Sendable {
             event: "paste.single.completed",
             metadata: [
                 "source_format": fmt.rawValue,
-                "event_posted": String(didPostPaste)
+                "event_posted": String(pasteShortcut.didPost)
             ],
-            durationMilliseconds: Int(((t3 - t0) * 1_000).rounded())
+            durationMilliseconds: Int(((t3 - actionStart) * 1_000).rounded())
         )
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
-            let perfLine = "\(Date()) | type: paste | sourceFormat: \(fmt) | closePanel: \(ms(t1-t0))ms | clipboardWrite: \(ms(t2-t1))ms | simulatePaste: \(ms(t3-t2))ms | total: \(ms(t3-t0))ms"
+            let perfLine = "\(Date()) | type: paste | sourceFormat: \(fmt) | accessibilityCheck: \(ms(permissionCheckedAt-actionStart))ms | closePanel: \(ms(t1-t0))ms | clipboardWrite: \(ms(t2-t1))ms | simulatePaste: \(ms(t3-t2))ms | eventSource: \(pasteShortcut.sourceCreationMilliseconds)ms | eventCreate: \(pasteShortcut.eventCreationMilliseconds)ms | eventPost: \(pasteShortcut.eventPostMilliseconds)ms | total: \(ms(t3-actionStart))ms"
             log.info("⏱ \(perfLine, privacy: .public)")
             Self.writePerfLog(perfLine)
         }
@@ -523,9 +532,11 @@ final class OverlayPanelManager: @unchecked Sendable {
     func hideAndPasteMultiple(_ items: [ClipboardItem]) {
         guard panel != nil, !items.isEmpty else { return }
 
+        let actionStart = CFAbsoluteTimeGetCurrent()
         guard Self.ensureAccessibilityForPaste() else { return }
+        let permissionCheckedAt = CFAbsoluteTimeGetCurrent()
 
-        let t0 = CFAbsoluteTimeGetCurrent()
+        let t0 = permissionCheckedAt
 
         isPasting = true
         let targetApp = previousFrontApp
@@ -554,8 +565,8 @@ final class OverlayPanelManager: @unchecked Sendable {
         let t2 = CFAbsoluteTimeGetCurrent()
 
         // ⌘V
-        let didPostPaste = Self.simulatePaste()
-        if didPostPaste {
+        let pasteShortcut = Self.simulatePaste()
+        if pasteShortcut.didPost {
             SoundFeedback.play(Self.pasteSound)
         }
         let t3 = CFAbsoluteTimeGetCurrent()
@@ -575,14 +586,14 @@ final class OverlayPanelManager: @unchecked Sendable {
             metadata: [
                 "item_count": String(items.count),
                 "text_item_count": String(lines.count),
-                "event_posted": String(didPostPaste)
+                "event_posted": String(pasteShortcut.didPost)
             ],
-            durationMilliseconds: Int(((t3 - t0) * 1_000).rounded())
+            durationMilliseconds: Int(((t3 - actionStart) * 1_000).rounded())
         )
 
         if Self.isPerformanceLoggingEnabled {
             let ms = { (d: CFAbsoluteTime) in Int((d * 1000).rounded()) }
-            let perfLine = "\(Date()) | type: pasteMulti | itemCount: \(items.count) | closePanel: \(ms(t1-t0))ms | writeText: \(ms(t2-t1))ms | simulatePaste: \(ms(t3-t2))ms | total: \(ms(t3-t0))ms"
+            let perfLine = "\(Date()) | type: pasteMulti | itemCount: \(items.count) | accessibilityCheck: \(ms(permissionCheckedAt-actionStart))ms | closePanel: \(ms(t1-t0))ms | writeText: \(ms(t2-t1))ms | simulatePaste: \(ms(t3-t2))ms | eventSource: \(pasteShortcut.sourceCreationMilliseconds)ms | eventCreate: \(pasteShortcut.eventCreationMilliseconds)ms | eventPost: \(pasteShortcut.eventPostMilliseconds)ms | total: \(ms(t3-actionStart))ms"
             log.info("⏱ \(perfLine, privacy: .public)")
             Self.writePerfLog(perfLine)
         }
@@ -818,26 +829,39 @@ final class OverlayPanelManager: @unchecked Sendable {
         return false
     }
 
-    private static func simulatePaste() -> Bool {
-        // 二次确认（关面板后路径的兜底）；正常路径已在 hideAndPaste 前置检查。
-        guard AccessibilityPermissionChecker.shared.isTrusted(prompt: false) else {
-            Logger(subsystem: "com.nekutai.pastry", category: "paste")
-                .warning("simulatePaste 跳过：仍无辅助功能权限")
-            return false
+    /// 调用方必须先通过 `ensureAccessibilityForPaste()`；避免在同一次粘贴中
+    /// 连续执行两次可能阻塞的 AX 权限查询。
+    private static func simulatePaste() -> PasteShortcutResult {
+        let startedAt = CFAbsoluteTimeGetCurrent()
+        let milliseconds = { (start: CFAbsoluteTime, end: CFAbsoluteTime) in
+            Int(((end - start) * 1_000).rounded())
         }
-
         let vKey = CGKeyCode(9)
         guard let source = CGEventSource(stateID: .privateState) else {
+            let failedAt = CFAbsoluteTimeGetCurrent()
             Logger(subsystem: "com.nekutai.pastry", category: "paste").warning("CGEventSource 创建失败 — 可能缺少辅助功能权限")
             NotificationCenter.default.post(name: .overlayAccessibilityDenied, object: nil)
             DeveloperDiagnostics.record(DiagnosticsEvent.accessibilityDenied)
-            return false
+            return PasteShortcutResult(
+                didPost: false,
+                sourceCreationMilliseconds: milliseconds(startedAt, failedAt),
+                eventCreationMilliseconds: 0,
+                eventPostMilliseconds: 0
+            )
         }
+        let sourceCreatedAt = CFAbsoluteTimeGetCurrent()
 
         guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
               let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false) else {
-            return false
+            let failedAt = CFAbsoluteTimeGetCurrent()
+            return PasteShortcutResult(
+                didPost: false,
+                sourceCreationMilliseconds: milliseconds(startedAt, sourceCreatedAt),
+                eventCreationMilliseconds: milliseconds(sourceCreatedAt, failedAt),
+                eventPostMilliseconds: 0
+            )
         }
+        let eventsCreatedAt = CFAbsoluteTimeGetCurrent()
 
         cmdDown.flags = .maskCommand
         cmdUp.flags = .maskCommand
@@ -845,7 +869,13 @@ final class OverlayPanelManager: @unchecked Sendable {
         let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
         cmdDown.postToPid(pid)
         cmdUp.postToPid(pid)
-        return true
+        let postedAt = CFAbsoluteTimeGetCurrent()
+        return PasteShortcutResult(
+            didPost: true,
+            sourceCreationMilliseconds: milliseconds(startedAt, sourceCreatedAt),
+            eventCreationMilliseconds: milliseconds(sourceCreatedAt, eventsCreatedAt),
+            eventPostMilliseconds: milliseconds(eventsCreatedAt, postedAt)
+        )
     }
 
     deinit {
