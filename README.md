@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-26.0-blue" alt="macOS">
-  <img src="https://img.shields.io/badge/Swift-5.9-orange" alt="Swift">
+  <img src="https://img.shields.io/badge/Swift-6.0-orange" alt="Swift">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
 </p>
 
@@ -55,6 +55,7 @@ Vibe 的产物，但细节经过实际使用打磨。布局参考了 [Paste](htt
 
 ## 文档
 
+- [更新日志](CHANGELOG.md)：面向用户的版本说明。
 - [开发说明](docs/DEVELOPMENT.md)：本地构建、签名证书、调试部署、项目结构。
 - [测试说明](docs/TESTING.md)：单测、覆盖率、快照、冒烟和性能检查。
 - [发布流程](docs/RELEASE.md)：版本号、DMG、GitHub Releases、自动更新排查。

@@ -75,6 +75,8 @@ dist/Pastry-1.2.3.dmg
 
 脚本会推送 tag `v1.2.3` 并创建 GitHub Release。
 
+GitHub Release notes 由脚本从 Conventional Commits 自动生成。面向用户的白话说明写在仓库根目录 [CHANGELOG.md](../CHANGELOG.md)：发布前把 `Unreleased` 条目挪到对应版本节。
+
 ## 发布耗时与本地日志
 
 `release.sh` 会为每次执行创建独立日志，记录 workflow、stage、command 的开始时间、耗时和退出码，并保留构建工具的完整输出：
