@@ -5,7 +5,7 @@
 ## 环境要求
 
 - macOS 26+
-- Swift 5.9+
+- Swift 6.0+（`Package.swift` tools-version 6.0；语言模式暂钉 Swift 5，见包清单注释）
 - Xcode Command Line Tools
 
 项目不依赖第三方包管理下载；SQLCipher 静态库已 vendored 到仓库内。

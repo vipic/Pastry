@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -45,5 +45,8 @@ let package = Package(
             path: "Tests/PastryTests",
             exclude: ["__Snapshots__"]
         ),
-    ]
+    ],
+    // tools 6.0 后默认语言模式为 Swift 6；当前 toolchain 在 SendNonSendable
+    // 诊断中会崩溃，先显式钉 v5，待编译器修复后再开严格并发。
+    swiftLanguageModes: [.v5]
 )
