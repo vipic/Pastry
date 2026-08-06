@@ -94,7 +94,7 @@ scripts/diagnostics.sh command publish
 scripts/diagnostics.sh command publish --full
 ```
 
-一次本机基线中，本地 release 总计约 36 秒：测试约 5 秒、release 编译约 20 秒、DMG 约 11 秒，签名与组装不足 1 秒。历史 GitHub asset 时间戳曾显示约 132 秒的创建到更新间隔，这只能说明远端上传或处理可能是 publish 变慢的主要部分；新的命令日志会直接记录 `git push`、`gh release create/upload` 的真实耗时，后续无需再靠时间戳推断。
+一次本机基线中，本地 release 总计约 36 秒：测试约 5 秒、release 编译约 20 秒、DMG 约 11 秒，签名与组装不足 1 秒。publish 阶段 `git push`、`gh release create/upload` 的真实耗时直接看命令日志。
 
 日志只保存在本机 `.local/logs/`，该目录已被 Git 忽略，不会自动上传。应用运行日志的隐私边界和联合排查方式见 [DIAGNOSTICS.md](DIAGNOSTICS.md)。
 
@@ -126,16 +126,9 @@ Pastry-1.2.3.dmg
 
 作为 workflow artifact。它只生成 artifact，不会创建 GitHub Release，也不会推送 tag。
 
-## 没有开发者账号时的限制
+## 已知限制：未公证
 
-当前发布产物没有 notarization。用户首次打开时可能遇到 Gatekeeper 提示，需要在系统设置中允许打开。
-
-这不是脚本错误，而是 Apple 对非公证应用的限制。拿到开发者账号后，后续应补充：
-
-- 开发者账号签名
-- 公证上传
-- stapler 固定票据
-- CI 发布链路中的公证校验
+当前发布产物是自签名应用，没有开发者账号签名和 notarization。用户首次打开时可能遇到 Gatekeeper 提示，需要在系统设置中手动允许打开。这不是脚本错误，而是 Apple 对非公证应用的限制。
 
 ## 自动更新失败日志
 
