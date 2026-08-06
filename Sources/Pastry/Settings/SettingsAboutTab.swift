@@ -49,7 +49,7 @@ extension SettingsSceneView {
                             help: L10n["settings.about.source_code_help"]
                         ) {
                             Button(L10n["settings.about.open"]) {
-                                openExternalURL("https://github.com/vipic/Pastry")
+                                openExternalURL("https://github.com/vipic/pastry")
                             }
                             .buttonStyle(SettingsPillButtonStyle(kind: .secondary))
                         }

@@ -13,8 +13,8 @@
 ## 快速部署开发版
 
 ```bash
-git clone https://github.com/vipic/Pastry.git
-cd Pastry
+git clone https://github.com/vipic/pastry.git
+cd pastry
 ./deploy.sh
 ```
 

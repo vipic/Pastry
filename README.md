@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
 </p>
 
-Pastry 用来记录历史剪贴板内容，在需要时快速唤起、搜索、预览、选择并粘贴。它是个人工作流里「临时内容回看」的一层，不建议把长期高频文本都塞进剪贴板收藏；这类内容更适合文本扩展工具，比如作者的另一个项目 [TextFlash](https://github.com/vipic/TextFlash)。
+Pastry 用来记录历史剪贴板内容，在需要时快速唤起、搜索、预览、选择并粘贴。它是个人工作流里「临时内容回看」的一层，不建议把长期高频文本都塞进剪贴板收藏；这类内容更适合文本扩展工具，比如作者的另一个项目 [TextFlash](https://github.com/vipic/textflash)。
 
 Vibe 的产物，但细节经过实际使用打磨。布局参考了 [Paste](https://pasteapp.io/)，功能按个人需要持续迭代。
 
@@ -49,7 +49,7 @@ Vibe 的产物，但细节经过实际使用打磨。布局参考了 [Paste](htt
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/vipic/Pastry/releases) 下载最新 DMG，打开后将 `Pastry.app` 拖入 `/Applications`。
+从 [GitHub Releases](https://github.com/vipic/pastry/releases) 下载最新 DMG，打开后将 `Pastry.app` 拖入 `/Applications`。
 
 当前项目没有开发者账号签名和公证，首次打开时可能需要在系统设置里允许运行。Pastry 会在首次执行跨应用粘贴时请求辅助功能权限；剪贴板记录和全局快捷键本身不依赖这项授权。
 

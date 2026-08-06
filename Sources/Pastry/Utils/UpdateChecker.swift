@@ -343,7 +343,7 @@ final class UpdateChecker {
     // MARK: - 网络请求
 
     private func fetchRecentReleases(limit: Int) async -> [ReleaseInfo]? {
-        guard var components = URLComponents(string: "https://api.github.com/repos/vipic/Pastry/releases") else {
+        guard var components = URLComponents(string: "https://api.github.com/repos/vipic/pastry/releases") else {
             return nil
         }
         components.queryItems = [
@@ -381,7 +381,7 @@ final class UpdateChecker {
     }
 
     private func fetchLatestRelease() async -> ReleaseInfo? {
-        guard let url = URL(string: "https://api.github.com/repos/vipic/Pastry/releases/latest") else {
+        guard let url = URL(string: "https://api.github.com/repos/vipic/pastry/releases/latest") else {
             return nil
         }
 

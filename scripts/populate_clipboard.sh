@@ -57,7 +57,7 @@ Pastry 是一款 macOS 剪贴板管理器，用来找回刚刚复制过的临时
 • 支持收藏备注、多选、预览、拖拽和快捷粘贴
 • 历史数据仅存本机，数据库使用 SQLCipher 加密
 
-项目地址：https://github.com/vipic/Pastry
+项目地址：https://github.com/vipic/pastry
 
 这段多行内容用于检查长文本卡片的换行、截断、搜索和复制行为。
 EOF
@@ -66,7 +66,7 @@ sleep "$SLEEP"
 
 # ── 2b. 纯 URL（整段为链接，Pastry 标记 isURL）──
 log "text — 纯 URL（链接条目）"
-"$PBWRITE" url "https://github.com/vipic/Pastry" && ok || err "URL 写入失败"
+"$PBWRITE" url "https://github.com/vipic/pastry" && ok || err "URL 写入失败"
 sleep "$SLEEP"
 
 # ── 3. HTML ──
@@ -83,7 +83,7 @@ cat > "$RTF_FILE" << 'RTFEOF'
 \f0\fs32\b Pastry\b0
 \fs24 是 macOS 26+ 的原生剪贴板管理器。\par
 \f1\i 支持：\i0 文本、RTF、HTML、图片、文件路径。\par
-\f0 github.com/vipic/Pastry
+\f0 github.com/vipic/pastry
 }
 RTFEOF
 "$PBWRITE" rtf "$RTF_FILE" && ok || err "RTF 写入失败"
